@@ -1,11 +1,68 @@
-# Recipe Builder App — Combined Design Wireframe, Navbar, and Entity Request Spec
+# Recipe Builder App — Combined Design Wireframe, Navbar, Entity Request Spec, and Implementation Plan
 
 ---
 
 ## Overview
 
-This document details the UI wireframes and navigation specification for the Recipe Builder application, including support for a generalized "Entity Request" system for user-submitted feature and data requests.  
-It covers layout, workflow, navbar, responsive behavior, and the process for requesting new entities (ingredients, steps, fields, etc.).
+This document details the UI wireframes, navigation specification, and implementation plan for the Recipe Builder application, including support for a generalized "Entity Request" system for user-submitted feature and data requests.  
+It covers layout, workflow, navbar, responsive behavior, the process for requesting new entities (ingredients, steps, fields, etc.), and the technical stack and architectural choices made for both web and mobile support.
+
+---
+
+## 0. Implementation Plan & Technology Choices
+
+### **Key Decisions**
+
+- **Dynamic, Metadata-Driven Backend:**  
+  All recipe fields, step fields, and ingredient data are defined in the database, not hardcoded. This enables flexible forms, easy updates, and backend-driven UI.
+- **Modern, Maintainable Frontend Stack:**  
+  We have chosen a stack that supports both web and mobile (via Capacitor), with a focus on developer productivity and long-term maintainability.
+
+### **Frontend Stack**
+
+| Layer            | Choice                | Reasoning                                                                                  |
+|------------------|----------------------|--------------------------------------------------------------------------------------------|
+| UI Components    | **Ionic React**      | Native-feeling components for web & mobile, built for Capacitor, responsive out of the box. |
+| Forms            | **react-hook-form**  | Lightweight, dynamic, works with any UI library, great for validation and dynamic fields.   |
+| Drag & Drop      | **dnd-kit**          | Modern, touch-friendly, works on web and mobile, easy to use for step reordering.           |
+| State Management | **Zustand**          | Minimal boilerplate, easy to use, works everywhere, no Redux complexity.                    |
+| Utilities        | clsx, date-fns, react-icons | For classNames, date/time, and icons.                                              |
+
+**Why Ionic React?**  
+- Seamless web and mobile (Capacitor) support.
+- Native navigation, modals, lists, and gestures.
+- Large community and long-term support.
+
+**Why react-hook-form?**  
+- Handles dynamic forms and validation with minimal code.
+
+**Why dnd-kit?**  
+- Touch-friendly, modern drag-and-drop for both desktop and mobile.
+
+**Why Zustand?**  
+- Simple, scalable state management without boilerplate.
+
+---
+
+### **Development & Maintenance Goals**
+
+- **Single codebase** for web and mobile.
+- **Responsive, accessible UI** with minimal custom CSS.
+- **Easy to extend** with new fields, steps, or entities.
+- **Low long-term maintenance** due to well-supported libraries and clear separation of concerns.
+
+---
+
+### **Implementation Steps**
+
+1. **Scaffold main layout** using Ionic’s grid system for two-column design.
+2. **Implement Navbar** as per spec, with navigation, actions, and profile/settings.
+3. **Build recipe management panel** (left column): recipe selection, actions, calculator/summary.
+4. **Build steps list** (right column): compact step cards, drag-and-drop, add/edit/duplicate/remove.
+5. **Implement step editor** as a modal/slideover, using react-hook-form for dynamic fields.
+6. **Integrate entity request system** in all dropdowns, with a modal for submissions.
+7. **Ensure full responsiveness and accessibility**.
+8. **Test and polish for both web and mobile (via Capacitor).**
 
 ---
 

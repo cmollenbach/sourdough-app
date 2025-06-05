@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth"; // <-- Import your auth routes
-import recipeRoutes from "./routes/recipes";
+import recipesRouter from "./routes/recipes";
 import stepRoutes from "./routes/steps";
 
 dotenv.config();
@@ -18,7 +18,7 @@ app.get("/api/health", (_req, res) => {
 
 // Mount authentication routes
 app.use("/api/auth", authRoutes); // <-- Correct usage
-app.use("/api/recipes", recipeRoutes);
+app.use("/api", recipesRouter);
 app.use("/api/steps", stepRoutes);
 
 const PORT = process.env.PORT || 3001;

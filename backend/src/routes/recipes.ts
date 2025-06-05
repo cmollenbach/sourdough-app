@@ -5,68 +5,136 @@ import { authenticateJWT, AuthRequest } from "../middleware/authMiddleware";
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// Public endpoint for recipe field metadata
-router.get("/fields", (_req, res) => {
-  res.json([
-    { name: "name", type: "string", label: "Name", required: true },
-    { name: "totalWeight", type: "number", label: "Total Weight", required: true },
-    { name: "hydrationPct", type: "number", label: "Hydration %", required: true },
-    { name: "saltPct", type: "number", label: "Salt %", required: true },
-    { name: "notes", type: "string", label: "Notes", required: false }
-  ]);
+// --- Dynamic Recipe Field Metadata ---
+router.get("/recipes/recipe-fields", async (_req, res) => {
+  try {
+    const fields = await prisma.recipeField.findMany({
+      where: { visible: true },
+      orderBy: { order: "asc" },
+    });
+    res.json(fields);
+  } catch (err) {
+    console.error("Error in GET /recipes/recipe-fields:", err);
+    res.status(500).json({ error: "Failed to fetch recipe fields" });
+  }
 });
 
-// Create a recipe
-router.post("/", authenticateJWT, async (req: AuthRequest, res) => {
+// Get all step fields (for steps, not just recipe metadata)
+router.get("/recipes/fields", async (_req, res) => {
   try {
-    const { name, totalWeight, hydrationPct, saltPct, notes } = req.body;
+    const fields = await prisma.field.findMany({
+      select: { id: true, name: true }
+    });
+    res.json(fields);
+  } catch (err) {
+    console.error("Error in GET /api/recipes/fields:", err);
+    res.status(500).json({ error: "Failed to fetch fields" });
+  }
+});
+
+// Get all ingredients
+router.get("/recipes/ingredients", async (_req, res) => {
+  try {
+    const ingredients = await prisma.ingredient.findMany({
+      select: { id: true, name: true }
+    });
+    res.json(ingredients);
+  } catch (err) {
+    console.error("Error in GET /api/recipes/ingredients:", err);
+    res.status(500).json({ error: "Failed to fetch ingredients" });
+  }
+});
+
+// --- Create a recipe (dynamic fields) ---
+router.post("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
+  try {
+    const { fieldValues, steps } = req.body;
+    // fieldValues: [{ fieldId, value }, ...]
+    // steps: [{ stepTemplateId, order, notes, fields, ingredients }, ...]
     const recipe = await prisma.recipe.create({
       data: {
-        name,
-        totalWeight,
-        hydrationPct,
-        saltPct,
-        notes,
-        owner: { connect: { id: req.user!.userId } },
+        ownerId: req.user!.userId,
+        isPredefined: false,
+        fieldValues: {
+          create: fieldValues,
+        },
+        steps: steps
+          ? {
+              create: steps.map((step: any) => ({
+                stepTemplateId: step.stepTemplateId,
+                order: step.order,
+                notes: step.notes,
+                fields: step.fields
+                  ? { create: step.fields }
+                  : undefined,
+                ingredients: step.ingredients
+                  ? { create: step.ingredients }
+                  : undefined,
+              })),
+            }
+          : undefined,
+      },
+      include: {
+        fieldValues: true,
+        steps: {
+          include: {
+            fields: true,
+            ingredients: true,
+          },
+        },
       },
     });
     res.status(201).json(recipe);
   } catch (err) {
+    console.error("Error in POST /api/recipes:", err);
     res.status(500).json({ error: "Failed to create recipe" });
   }
 });
 
-// Get all recipes for the logged-in user
-router.get("/", authenticateJWT, async (req: AuthRequest, res) => {
+// --- Get all recipes for the logged-in user (with field values) ---
+router.get("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
   try {
     const recipes = await prisma.recipe.findMany({
       where: { ownerId: req.user!.userId, active: true },
+      include: { fieldValues: true },
     });
     res.json(recipes);
   } catch (err) {
+    console.error("Error in GET /api/recipes:", err);
     res.status(500).json({ error: "Failed to fetch recipes" });
   }
 });
 
-// Get a single recipe by ID
-router.get("/:id", authenticateJWT, async (req: AuthRequest, res) => {
+// --- Get a single recipe by ID (with field values) ---
+router.get("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) {
+    return res.status(400).json({ error: "Invalid recipe id" });
+  }
   try {
     const recipe = await prisma.recipe.findFirst({
-      where: { id: Number(req.params.id), ownerId: req.user!.userId, active: true },
+      where: { id, ownerId: req.user!.userId, active: true },
+      include: { fieldValues: true },
     });
     if (!recipe) return res.status(404).json({ error: "Recipe not found" });
     res.json(recipe);
   } catch (err) {
+    console.error("Error in GET /api/recipes/:id:", err);
     res.status(500).json({ error: "Failed to fetch recipe" });
   }
 });
 
-// Get a single recipe by ID with full details
-router.get("/:id/full", authenticateJWT, async (req: AuthRequest, res) => {
+// --- Get a single recipe by ID with full details ---
+router.get("/recipes/:id/full", authenticateJWT, async (req: AuthRequest, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) {
+    return res.status(400).json({ error: "Invalid recipe id" });
+  }
   try {
     const recipe = await prisma.recipe.findFirst({
-      where: { id: Number(req.params.id), ownerId: req.user!.userId, active: true },
+      where: { id, ownerId: req.user!.userId, active: true },
       include: {
+        fieldValues: true,
         steps: {
           orderBy: { order: "asc" },
           include: {
@@ -79,35 +147,58 @@ router.get("/:id/full", authenticateJWT, async (req: AuthRequest, res) => {
     if (!recipe) return res.status(404).json({ error: "Recipe not found" });
     res.json(recipe);
   } catch (err) {
+    console.error("Error in GET /api/recipes/:id/full:", err);
     res.status(500).json({ error: "Failed to fetch full recipe" });
   }
 });
 
-// Update a recipe
-router.put("/:id", authenticateJWT, async (req: AuthRequest, res) => {
+// --- Update a recipe (dynamic fields) ---
+router.put("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) {
+    return res.status(400).json({ error: "Invalid recipe id" });
+  }
   try {
-    const { name, totalWeight, hydrationPct, saltPct, notes } = req.body;
-    const recipe = await prisma.recipe.updateMany({
-      where: { id: Number(req.params.id), ownerId: req.user!.userId, active: true },
-      data: { name, totalWeight, hydrationPct, saltPct, notes },
-    });
-    if (recipe.count === 0) return res.status(404).json({ error: "Recipe not found or not yours" });
+    const { fieldValues } = req.body; // [{ fieldId, value }, ...]
+    // Update each field value individually
+    for (const fv of fieldValues) {
+      await prisma.recipeFieldValue.upsert({
+        where: {
+          recipeId_fieldId: {
+            recipeId: id,
+            fieldId: fv.fieldId,
+          },
+        },
+        update: { value: fv.value },
+        create: {
+          recipeId: id,
+          fieldId: fv.fieldId,
+          value: fv.value,
+        },
+      });
+    }
     res.json({ message: "Recipe updated" });
   } catch (err) {
+    console.error("Error in PUT /api/recipes/:id:", err);
     res.status(500).json({ error: "Failed to update recipe" });
   }
 });
 
-// Soft-delete a recipe
-router.delete("/:id", authenticateJWT, async (req: AuthRequest, res) => {
+// --- Soft-delete a recipe ---
+router.delete("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) {
+    return res.status(400).json({ error: "Invalid recipe id" });
+  }
   try {
     const recipe = await prisma.recipe.updateMany({
-      where: { id: Number(req.params.id), ownerId: req.user!.userId, active: true },
+      where: { id, ownerId: req.user!.userId, active: true },
       data: { active: false },
     });
     if (recipe.count === 0) return res.status(404).json({ error: "Recipe not found or not yours" });
     res.json({ message: "Recipe deleted (soft)" });
   } catch (err) {
+    console.error("Error in DELETE /api/recipes/:id:", err);
     res.status(500).json({ error: "Failed to delete recipe" });
   }
 });

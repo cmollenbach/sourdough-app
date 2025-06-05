@@ -245,17 +245,121 @@ async function main() {
     },
   });
 
-  // --- Predefined Recipes ---
-  const classicRecipe = await prisma.recipe.findFirst({ where: { name: 'Classic Everyday Sourdough' } });
+  // --- Recipe Fields Metadata ---
+  const recipeFields = [
+    {
+      name: 'name',
+      label: 'Recipe Name',
+      type: 'string',
+      order: 1,
+      visible: true,
+      advanced: false,
+      required: true,
+      helpText: 'The name of your recipe.',
+      defaultValue: 'Untitled Recipe',
+    },
+    {
+      name: 'totalWeight',
+      label: 'Total Dough Weight (g)',
+      type: 'number',
+      order: 2,
+      visible: true,
+      advanced: false,
+      required: true,
+      helpText: 'Total weight of finished dough in grams.',
+      defaultValue: '1000',
+    },
+    {
+      name: 'hydrationPct',
+      label: 'Hydration (%)',
+      type: 'number',
+      order: 3,
+      visible: true,
+      advanced: false,
+      required: true,
+      helpText: 'Total hydration percent.',
+      defaultValue: '75',
+    },
+    {
+      name: 'saltPct',
+      label: 'Salt (%)',
+      type: 'number',
+      order: 4,
+      visible: true,
+      advanced: false,
+      required: true,
+      helpText: 'Salt percent.',
+      defaultValue: '2',
+    },
+    {
+      name: 'notes',
+      label: 'Notes',
+      type: 'text',
+      order: 5,
+      visible: true,
+      advanced: false,
+      required: false,
+      helpText: 'General notes about this recipe.',
+      defaultValue: '',
+    },
+  ];
+
+  // Upsert RecipeField metadata
+  const recipeFieldRecords = [];
+  for (const field of recipeFields) {
+    const record = await prisma.recipeField.upsert({
+      where: { name: field.name },
+      update: {},
+      create: field,
+    });
+    recipeFieldRecords.push(record);
+  }
+  console.log("Seeded recipe fields.");
+
+  // --- Predefined Recipe (Dynamic) ---
+  const nameField = recipeFieldRecords.find(f => f.name === 'name');
+  if (!nameField) {
+    throw new Error("RecipeField 'name' not found. Check your recipeFields array.");
+  }
+  const classicRecipe = await prisma.recipe.findFirst({
+    where: {
+      fieldValues: {
+        some: {
+          fieldId: nameField.id,
+          value: 'Classic Everyday Sourdough',
+        },
+      },
+    },
+  });
   if (!classicRecipe) {
-    await prisma.recipe.create({
+    const newRecipe = await prisma.recipe.create({
       data: {
-        name: 'Classic Everyday Sourdough',
         ownerId: systemUser.id,
         isPredefined: true,
-        totalWeight: 1000,
-        hydrationPct: 75,
-        saltPct: 2,
+        fieldValues: {
+          create: [
+            {
+              fieldId: recipeFieldRecords.find(f => f.name === 'name')!.id,
+              value: 'Classic Everyday Sourdough',
+            },
+            {
+              fieldId: recipeFieldRecords.find(f => f.name === 'totalWeight')!.id,
+              value: '1000',
+            },
+            {
+              fieldId: recipeFieldRecords.find(f => f.name === 'hydrationPct')!.id,
+              value: '75',
+            },
+            {
+              fieldId: recipeFieldRecords.find(f => f.name === 'saltPct')!.id,
+              value: '2',
+            },
+            {
+              fieldId: recipeFieldRecords.find(f => f.name === 'notes')!.id,
+              value: 'A classic, versatile sourdough bread.',
+            },
+          ],
+        },
         steps: {
           create: [
             {
@@ -290,7 +394,6 @@ async function main() {
                 create: [
                   { ingredientId: flour.id, percentage: 90 },
                   { ingredientId: wholeWheatFlour.id, percentage: 10 },
-                  // Water and salt handled globally for standard recipes
                 ],
               },
             },
@@ -298,6 +401,9 @@ async function main() {
         },
       },
     });
+    console.log(`Created recipe: Classic Everyday Sourdough (id: ${newRecipe.id})`);
+  } else {
+    console.log("Classic Everyday Sourdough recipe already exists.");
   }
 
   // --- Demo User for Requests ---
@@ -315,7 +421,7 @@ async function main() {
 
   // --- Sample Entity Requests ---
   await prisma.entityRequest.upsert({
-    where: { id: 1 }, // Use upsert for demo; in production use unique constraint fields if any
+    where: { id: 1 },
     update: {},
     create: {
       userId: demoUser.id,

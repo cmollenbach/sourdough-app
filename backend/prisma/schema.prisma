@@ -84,9 +84,11 @@ model Field {
   name             String              @unique
   type             String // e.g., "integer", "float", "text", "boolean"
   advanced         Boolean             @default(false)
+  visible          Boolean             @default(true)
   description      String?
-  active           Boolean             @default(true)
+  helpText         String?
   defaultValue     String?
+  active           Boolean             @default(true)
   order            Int?
   templateFields   StepTemplateField[]
   recipeStepFields RecipeStepField[]
@@ -109,7 +111,10 @@ model Ingredient {
   ingredientCategory    IngredientCategory     @relation(fields: [ingredientCategoryId], references: [id])
   ingredientCategoryId  Int
   advanced              Boolean                @default(false)
+  visible               Boolean                @default(true)
   description           String?
+  helpText              String?
+  defaultValue          String?
   active                Boolean                @default(true)
   order                 Int?
   recipeStepIngredients RecipeStepIngredient[]
@@ -137,9 +142,11 @@ model StepTemplateField {
   field          Field        @relation(fields: [fieldId], references: [id])
   fieldId        Int
   advanced       Boolean      @default(false)
+  visible        Boolean      @default(true)
   description    String?
-  active         Boolean      @default(true)
+  helpText       String?
   defaultValue   String?
+  active         Boolean      @default(true)
   order          Int?
 }
 
@@ -150,8 +157,41 @@ model StepTemplateIngredientRule {
   ingredientCategory   IngredientCategory @relation(fields: [ingredientCategoryId], references: [id])
   ingredientCategoryId Int
   required             Boolean            @default(false)
+  visible              Boolean            @default(true)
+  advanced             Boolean            @default(false)
   description          String?
+  helpText             String?
+  defaultValue         String?
   active               Boolean            @default(true)
+}
+
+//
+// --- RECIPE FIELD METADATA (DYNAMIC RECIPE FIELDS) ---
+//
+
+model RecipeField {
+  id           Int                  @id @default(autoincrement())
+  name         String               @unique
+  label        String?
+  type         String               // "string", "number", "textarea", etc.
+  order        Int?
+  visible      Boolean              @default(true)
+  advanced     Boolean              @default(false)
+  required     Boolean              @default(false)
+  helpText     String?
+  defaultValue String?
+  values       RecipeFieldValue[]
+}
+
+model RecipeFieldValue {
+  id           Int         @id @default(autoincrement())
+  recipe       Recipe      @relation(fields: [recipeId], references: [id])
+  recipeId     Int
+  recipeField  RecipeField @relation(fields: [fieldId], references: [id])
+  fieldId      Int
+  value        String
+
+  @@unique([recipeId, fieldId])
 }
 
 //
@@ -162,20 +202,16 @@ model Recipe {
   id              Int          @id @default(autoincrement())
   owner           User         @relation(fields: [ownerId], references: [id])
   ownerId         Int
-  name            String
-  totalWeight     Float?
-  hydrationPct    Float?
-  saltPct         Float?
   active          Boolean      @default(true)
   parentRecipe    Recipe?      @relation("RecipeParent", fields: [parentRecipeId], references: [id])
   parentRecipeId  Int?
   childrenRecipes Recipe[]     @relation("RecipeParent")
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
-  notes           String?
   isPredefined    Boolean      @default(false)
   steps           RecipeStep[]
   bakes           Bake[]
+  fieldValues     RecipeFieldValue[]
 }
 
 model RecipeStep {
@@ -186,7 +222,7 @@ model RecipeStep {
   stepTemplateId Int
   order          Int
   notes          String?
-  description    String? // <-- Add this line if you want
+  description    String?
   fields         RecipeStepField[]
   ingredients    RecipeStepIngredient[]
   bakeSteps      BakeStep[]
