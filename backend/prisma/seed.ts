@@ -300,6 +300,52 @@ async function main() {
     });
   }
 
+  // --- Demo User for Requests ---
+  const demoUser = await prisma.user.upsert({
+    where: { email: 'demo@sourdough.app' },
+    update: {},
+    create: {
+      email: 'demo@sourdough.app',
+      role: 'user',
+      emailVerified: true,
+      isActive: true,
+      notes: 'Demo user for sample entity requests.',
+    },
+  });
+
+  // --- Sample Entity Requests ---
+  await prisma.entityRequest.upsert({
+    where: { id: 1 }, // Use upsert for demo; in production use unique constraint fields if any
+    update: {},
+    create: {
+      userId: demoUser.id,
+      type: 'ingredient',
+      name: 'Spelt Flour',
+      description: 'Request to add Spelt Flour as a new ingredient.',
+      extra: {
+        ingredientCategory: 'Flour',
+        suggestedDescription: 'Ancient grain, mild nutty flavor',
+      },
+      status: 'pending',
+    },
+  });
+
+  await prisma.entityRequest.upsert({
+    where: { id: 2 },
+    update: {},
+    create: {
+      userId: demoUser.id,
+      type: 'stepType',
+      name: 'Autolyse',
+      description: 'Suggest adding Autolyse as a step type.',
+      extra: {
+        stepUsage: 'Rest flour and water before mixing other ingredients.',
+        icon: '⏳'
+      },
+      status: 'pending',
+    },
+  });
+
   console.log(`Seeding finished.`);
 }
 
