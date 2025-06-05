@@ -1,15 +1,267 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+//
+// --- USER AUTH & PROFILE ---
+//
+
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String?   @unique
+  passwordHash String?   
+  emailVerified Boolean  @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  role         String    @default("user")
+  notes        String?
+  accounts     Account[]
+  sessions     Session[]
+  profile      UserProfile?
+  recipes      Recipe[]
+  bakes        Bake[]
+}
+
+model Account {
+  id                Int      @id @default(autoincrement())
+  user              User     @relation(fields: [userId], references: [id])
+  userId            Int
+  provider          String
+  providerAccountId String
+  passwordHash      String?
+  accessToken       String?
+  refreshToken      String?
+  tokenExpiresAt    DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Session {
+  id           Int      @id @default(autoincrement())
+  user         User     @relation(fields: [userId], references: [id])
+  userId       Int
+  sessionToken String   @unique
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+  ipAddress    String?
+  userAgent    String?
+}
+
+model UserProfile {
+  id          Int    @id @default(autoincrement())
+  user        User   @relation(fields: [userId], references: [id])
+  userId      Int    @unique
+  displayName String
+  avatarUrl   String?
+  bio         String?
+  preferences Json?
+}
+
+//
+// --- SYSTEM TABLES ---
+//
+
+model StepType {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  active      Boolean   @default(true)
+  order       Int?
+  templates   StepTemplate[]
+}
+
+model Field {
+  id           Int      @id @default(autoincrement())
+  name         String   @unique
+  type         String   // e.g., "integer", "float", "text", "boolean"
+  advanced     Boolean  @default(false)
+  description  String?
+  active       Boolean  @default(true)
+  defaultValue String?
+  order        Int?
+  templateFields StepTemplateField[]
+  recipeStepFields RecipeStepField[]
+  bakeStepFields   BakeStepField[]
+}
+
+model IngredientCategory {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  active      Boolean   @default(true)
+  order       Int?
+  ingredients Ingredient[]
+  stepTemplateIngredientRules StepTemplateIngredientRule[]
+}
+
+model Ingredient {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  ingredientCategory   IngredientCategory @relation(fields: [ingredientCategoryId], references: [id])
+  ingredientCategoryId Int
+  advanced    Boolean   @default(false)
+  description String?
+  active      Boolean   @default(true)
+  order       Int?
+  recipeStepIngredients RecipeStepIngredient[]
+  bakeStepIngredients   BakeStepIngredient[]
+}
+
+model StepTemplate {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  stepType    StepType  @relation(fields: [stepTypeId], references: [id])
+  stepTypeId  Int
+  advanced    Boolean   @default(false)
+  description String?
+  active      Boolean   @default(true)
+  order       Int?
+  fields      StepTemplateField[]
+  ingredientRules StepTemplateIngredientRule[]
+  recipeSteps RecipeStep[]
+}
+
+model StepTemplateField {
+  id             Int         @id @default(autoincrement())
+  stepTemplate   StepTemplate @relation(fields: [stepTemplateId], references: [id])
+  stepTemplateId Int
+  field          Field       @relation(fields: [fieldId], references: [id])
+  fieldId        Int
+  advanced       Boolean     @default(false)
+  description    String?
+  active         Boolean     @default(true)
+  defaultValue   String?
+  order          Int?
+}
+
+model StepTemplateIngredientRule {
+  id             Int                @id @default(autoincrement())
+  stepTemplate   StepTemplate       @relation(fields: [stepTemplateId], references: [id])
+  stepTemplateId Int
+  ingredientCategory IngredientCategory @relation(fields: [ingredientCategoryId], references: [id])
+  ingredientCategoryId Int
+  required       Boolean             @default(false)
+  description    String?
+  active         Boolean             @default(true)
+}
+
+//
+// --- USER RECIPE & BAKE TABLES ---
+//
+
+model Recipe {
+  id               Int       @id @default(autoincrement())
+  owner            User      @relation(fields: [ownerId], references: [id])
+  ownerId          Int
+  name             String
+  totalWeight      Float?
+  hydrationPct     Float?
+  saltPct          Float?
+  active           Boolean   @default(true)
+  parentRecipe     Recipe?   @relation("RecipeParent", fields: [parentRecipeId], references: [id])
+  parentRecipeId   Int?
+  childrenRecipes  Recipe[]  @relation("RecipeParent")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  notes            String?
+  isPredefined     Boolean   @default(false)
+  steps            RecipeStep[]
+  bakes            Bake[]
+}
+
+model RecipeStep {
+  id             Int           @id @default(autoincrement())
+  recipe         Recipe        @relation(fields: [recipeId], references: [id])
+  recipeId       Int
+  stepTemplate   StepTemplate  @relation(fields: [stepTemplateId], references: [id])
+  stepTemplateId Int
+  order          Int
+  notes          String?
+  description    String?       // <-- Add this line if you want
+  fields         RecipeStepField[]
+  ingredients    RecipeStepIngredient[]
+  bakeSteps      BakeStep[]
+}
+
+model RecipeStepField {
+  id             Int           @id @default(autoincrement())
+  recipeStep     RecipeStep    @relation(fields: [recipeStepId], references: [id])
+  recipeStepId   Int
+  field          Field         @relation(fields: [fieldId], references: [id])
+  fieldId        Int
+  value          Json
+  notes          String?
+}
+
+model RecipeStepIngredient {
+  id             Int           @id @default(autoincrement())
+  recipeStep     RecipeStep    @relation(fields: [recipeStepId], references: [id])
+  recipeStepId   Int
+  ingredient     Ingredient    @relation(fields: [ingredientId], references: [id])
+  ingredientId   Int
+  percentage     Float
+  preparation    String?
+  notes          String?
+}
+
+model Bake {
+  id             Int           @id @default(autoincrement())
+  recipe         Recipe        @relation(fields: [recipeId], references: [id])
+  recipeId       Int
+  owner          User          @relation(fields: [ownerId], references: [id])
+  ownerId        Int
+  startTimestamp DateTime      @default(now())
+  finishTimestamp DateTime?
+  active         Boolean       @default(true)
+  parentBake     Bake?         @relation("BakeParent", fields: [parentBakeId], references: [id])
+  parentBakeId   Int?
+  childrenBakes  Bake[]        @relation("BakeParent")
+  notes          String?
+  steps          BakeStep[]
+}
+
+model BakeStep {
+  id             Int           @id @default(autoincrement())
+  bake           Bake          @relation(fields: [bakeId], references: [id])
+  bakeId         Int
+  recipeStep     RecipeStep    @relation(fields: [recipeStepId], references: [id])
+  recipeStepId   Int
+  order          Int
+  status         String
+  startTimestamp DateTime?
+  finishTimestamp DateTime?
+  deviations     Json?
+  notes          String?
+  fields         BakeStepField[]
+  ingredients    BakeStepIngredient[]
+}
+
+model BakeStepField {
+  id             Int           @id @default(autoincrement())
+  bakeStep       BakeStep      @relation(fields: [bakeStepId], references: [id])
+  bakeStepId     Int
+  field          Field         @relation(fields: [fieldId], references: [id])
+  fieldId        Int
+  plannedValue   Json
+  actualValue    Json?
+  notes          String?
+}
+
+model BakeStepIngredient {
+  id                  Int           @id @default(autoincrement())
+  bakeStep            BakeStep      @relation(fields: [bakeStepId], references: [id])
+  bakeStepId          Int
+  ingredient          Ingredient    @relation(fields: [ingredientId], references: [id])
+  ingredientId        Int
+  plannedPercentage   Float
+  plannedPreparation  String?
+  notes               String?
+}
+

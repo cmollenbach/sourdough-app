@@ -20,6 +20,7 @@ It is intended for backend and frontend developers designing a dynamic, user-cen
     * [Bake_Step_Ingredient](#bake_step_ingredient)
 4.  [Design Notes & Considerations](#design-notes--considerations)
 5.  [Example User Stories](#example-user-stories)
+6.  [Recommendation: Predefined System Recipes](#recommendation-predefined-system-recipes)
 
 ---
 
@@ -217,6 +218,14 @@ User (owner) --1----- Recipe --1----- Recipe_Step --1----- Recipe_Step_Field
 
 - **Cloning and Iteration:**  
   User can clone a recipe (creating a new one with `parent_recipe_id` set), tweak its `Recipe_Step`s, `Recipe_Step_Field`s, and `Recipe_Step_Ingredient`s, and save as a new version.
+
+---
+
+## Recommendation: Predefined System Recipes
+
+It is highly recommended to add a feature for “predefined system recipes” (admin- or system-curated recipes available to all users as templates or starting points). This supports onboarding, education, and best practice sharing.  
+**Implementation suggestion:** Add a boolean field such as `is_predefined` to the `Recipe` table, or use a `type` field (e.g., enum: `user`, `system`, `shared`). Predefined recipes can only be edited by admins, are visible to all users, and can be cloned to a user’s own account for further customization.  
+This approach is simple, powerful, and widely used in professional recipe and instructional apps.
 
 ---
 
