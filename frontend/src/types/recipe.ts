@@ -8,13 +8,12 @@ export interface RecipeFieldValue {
 // --- Recipe Meta Table (minimal static fields) ---
 export interface Recipe {
   id: number;
-  ownerId: number;
-  active: boolean;
-  parentRecipeId: number | null;
-  createdAt: string;
-  updatedAt: string;
-  isPredefined: boolean;
-  // Removed: name, totalWeight, hydrationPct, saltPct, notes
+  name: string;
+  notes?: string;
+  createdAt?: string;
+  isPredefined?: boolean;
+  // ...other fields
+  [key: string]: unknown; // <-- Add this for meta-driven dynamic access
 }
 
 // --- Step Field Value (for dynamic step fields) ---

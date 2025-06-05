@@ -1,9 +1,10 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import authRoutes from "./routes/auth"; // <-- Import your auth routes
+import authRoutes from "./routes/auth";
 import recipesRouter from "./routes/recipes";
 import stepRoutes from "./routes/steps";
+import metaRouter from "./routes/meta"; // <-- Add this line
 
 dotenv.config();
 
@@ -16,10 +17,10 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "Backend is running!" });
 });
 
-// Mount authentication routes
-app.use("/api/auth", authRoutes); // <-- Correct usage
+app.use("/api/auth", authRoutes);
 app.use("/api", recipesRouter);
 app.use("/api/steps", stepRoutes);
+app.use("/api/meta", metaRouter); // <-- Add this line
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

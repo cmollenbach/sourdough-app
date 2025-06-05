@@ -5,11 +5,15 @@ export interface FieldMeta {
   name: string;
   label?: string;
   type?: string;
+  visible?: boolean;
+  visibleInList?: boolean; // <-- Add this
+  // ...other meta fields
 }
 
 export interface IngredientMeta {
   id: number;
   name: string;
+  // Add any other meta properties you use
 }
 
 export interface RecipeLayoutProps {

@@ -5,46 +5,6 @@ import { authenticateJWT, AuthRequest } from "../middleware/authMiddleware";
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// --- Dynamic Recipe Field Metadata ---
-router.get("/recipes/recipe-fields", async (_req, res) => {
-  try {
-    const fields = await prisma.recipeField.findMany({
-      where: { visible: true },
-      orderBy: { order: "asc" },
-    });
-    res.json(fields);
-  } catch (err) {
-    console.error("Error in GET /recipes/recipe-fields:", err);
-    res.status(500).json({ error: "Failed to fetch recipe fields" });
-  }
-});
-
-// Get all step fields (for steps, not just recipe metadata)
-router.get("/recipes/fields", async (_req, res) => {
-  try {
-    const fields = await prisma.field.findMany({
-      select: { id: true, name: true }
-    });
-    res.json(fields);
-  } catch (err) {
-    console.error("Error in GET /api/recipes/fields:", err);
-    res.status(500).json({ error: "Failed to fetch fields" });
-  }
-});
-
-// Get all ingredients
-router.get("/recipes/ingredients", async (_req, res) => {
-  try {
-    const ingredients = await prisma.ingredient.findMany({
-      select: { id: true, name: true }
-    });
-    res.json(ingredients);
-  } catch (err) {
-    console.error("Error in GET /api/recipes/ingredients:", err);
-    res.status(500).json({ error: "Failed to fetch ingredients" });
-  }
-});
-
 // --- Create a recipe (dynamic fields) ---
 router.post("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
   try {

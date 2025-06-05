@@ -1,18 +1,23 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useToast } from "../../context/ToastContext";
-import RecipeForm from "../../components/Recipe/RecipeForm";
 import RecipeStepList from "../../components/Recipe/RecipeStepList";
 import RecipeStepEditor from "../../components/Recipe/RecipeStepEditor";
+import RecipeCalculator from "../../components/Recipe/RecipeCalculator";
+import RecipeTargets from "../../components/Recipe/RecipeTargets";
+import RecipeGlobalControls from "../../components/Recipe/RecipeGlobalControls";
+import { IonGrid, IonRow, IonCol, IonCard } from "@ionic/react";
 import type { RecipeStep, FullRecipe } from "../../types/recipe";
+import type { FieldMeta, IngredientMeta } from "../../types/recipeLayout";
 
 export default function RecipeBuilderPage() {
   const { id } = useParams<{ id: string }>();
   const [recipe, setRecipe] = useState<FullRecipe | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingStep, setEditingStep] = useState<RecipeStep | null>(null);
-  const [fieldsMeta, setFieldsMeta] = useState<{ id: number; name: string; label?: string; type?: string }[]>([]);
-  const [ingredientsMeta, setIngredientsMeta] = useState<{ id: number; name: string }[]>([]);
+  const [fieldsMeta, setFieldsMeta] = useState<FieldMeta[]>([]);
+  const [ingredientsMeta, setIngredientsMeta] = useState<IngredientMeta[]>([]);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -32,13 +37,13 @@ export default function RecipeBuilderPage() {
   }, [id, addToast]);
 
   useEffect(() => {
-    fetch("/api/recipes/fields", {
+    fetch("/api/recipes/meta", {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
       },
     })
       .then(res => res.json())
-      .then(setFieldsMeta)
+      .then(data => setFieldsMeta(data.fields || []))
       .catch(() => setFieldsMeta([]));
 
     fetch("/api/recipes/ingredients", {
@@ -106,49 +111,64 @@ export default function RecipeBuilderPage() {
     // TODO: Send duplication to backend here
   }
 
+  function toggleAdvanced() {
+    setShowAdvanced(prev => !prev);
+  }
+
   if (loading) return <div className="p-8 text-center">Loading recipe...</div>;
   if (!recipe) return <div className="p-8 text-center text-red-500">Recipe not found.</div>;
 
   return (
-    <div className="flex flex-col md:flex-row gap-6 p-4 max-w-5xl mx-auto">
-      {/* Column 1: Recipe Management */}
-      <div className="flex-1 min-w-0">
-        <RecipeForm
-          recipe={recipe}
-          fieldsMeta={fieldsMeta}
-          onChange={changes => setRecipe({ ...recipe, ...changes })}
-          onSave={() => {
-            // TODO: Save recipe to backend
-          }}
-        />
-      </div>
-      {/* Column 2: Steps List */}
-      <div className="w-full md:w-80">
-        <h2 className="text-xl font-semibold mb-2">Steps</h2>
-        <RecipeStepList
-          steps={recipe.steps}
-          fieldsMeta={fieldsMeta}
-          ingredientsMeta={ingredientsMeta}
-          onEdit={setEditingStep}
-          onDuplicate={handleDuplicateStep}
-          onRemove={handleRemoveStep}
-        />
-        <button
-          className="mt-4 bg-green-600 text-white px-4 py-2 rounded"
-          onClick={handleAddStep}
-        >
-          + Add Step
-        </button>
-      </div>
-      {editingStep && (
-        <RecipeStepEditor
-          step={editingStep}
-          onSave={handleSaveStep}
-          onCancel={() => setEditingStep(null)}
-          fieldsMeta={fieldsMeta}
-          ingredientsMeta={ingredientsMeta}
-        />
-      )}
-    </div>
+    <IonGrid>
+      <IonRow>
+        {/* Left Column: Targets, Calculator, Global Controls */}
+        <IonCol size="12" sizeMd="7">
+          {/* Targets at the top */}
+          <IonCard className="mb-4 p-4">
+            <RecipeTargets recipe={recipe} fieldsMeta={fieldsMeta} />
+          </IonCard>
+          {/* Calculator */}
+          <IonCard className="mb-4 p-4">
+            <RecipeCalculator
+              recipe={recipe}
+              steps={recipe.steps}
+              fieldsMeta={fieldsMeta}
+              ingredientsMeta={ingredientsMeta}
+            />
+          </IonCard>
+          {/* Global controls */}
+          <RecipeGlobalControls showAdvanced={showAdvanced} onToggleAdvanced={toggleAdvanced} />
+        </IonCol>
+        {/* Right Column: Steps list and actions */}
+        <IonCol size="12" sizeMd="5">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xl font-semibold">Steps</h2>
+            <button
+              className="bg-green-600 text-white px-4 py-2 rounded"
+              onClick={handleAddStep}
+            >
+              + Add Step
+            </button>
+          </div>
+          <RecipeStepList
+            steps={recipe.steps}
+            fieldsMeta={fieldsMeta}
+            ingredientsMeta={ingredientsMeta}
+            onEdit={setEditingStep}
+            onDuplicate={handleDuplicateStep}
+            onRemove={handleRemoveStep}
+          />
+          {editingStep && (
+            <RecipeStepEditor
+              step={editingStep}
+              onSave={handleSaveStep}
+              onCancel={() => setEditingStep(null)}
+              fieldsMeta={fieldsMeta}
+              ingredientsMeta={ingredientsMeta}
+            />
+          )}
+        </IonCol>
+      </IonRow>
+    </IonGrid>
   );
 }
