@@ -37,7 +37,7 @@ export default function RecipeBuilderPage() {
   }, [id, addToast]);
 
   useEffect(() => {
-    fetch("/api/recipes/meta", {
+    fetch("/api/meta/recipe-fields", {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
       },
@@ -46,7 +46,7 @@ export default function RecipeBuilderPage() {
       .then(data => setFieldsMeta(data.fields || []))
       .catch(() => setFieldsMeta([]));
 
-    fetch("/api/recipes/ingredients", {
+    fetch("/api/meta/ingredients", {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
       },
