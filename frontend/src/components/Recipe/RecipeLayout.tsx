@@ -1,18 +1,14 @@
 // Example: src/components/Recipe/RecipeLayout.tsx
 
 import { IonGrid, IonRow, IonCol } from "@ionic/react";
-import { useState } from "react";
-// import RecipeForm from "./RecipeForm"; // <-- Remove this line
-import RecipeStepList from "./RecipeStepList";
-import RecipeCalculator from "./RecipeCalculator";
-import RecipeStepEditor from "./RecipeStepEditor";
+import StepColumn from "./StepColumn"; // <-- Import your new StepColumn
 import type { RecipeStep } from "../../types/recipe";
 import type { RecipeLayoutProps } from "../../types/recipeLayout";
 
 const getEmptyStep = (recipeId: number, order: number): RecipeStep => ({
-  id: 0, // Use 0 or -1 for new/unsaved step
+  id: 0,
   recipeId,
-  stepTemplateId: 0, // Or -1 if you want to indicate "unset"
+  stepTemplateId: 0,
   order,
   notes: "",
   description: "",
@@ -22,69 +18,49 @@ const getEmptyStep = (recipeId: number, order: number): RecipeStep => ({
 
 const RecipeLayout = ({
   recipe,
-  fieldsMeta,
   steps,
-  stepFieldsMeta,
-  ingredientsMeta,
-  // onRecipeChange, // Remove this line
-  // onRecipeSave,   // Remove this line
+  stepTemplates,
+  showAdvanced,
   onStepDuplicate,
   onStepRemove,
   onStepSave,
 }: RecipeLayoutProps) => {
-  const [editingStep, setEditingStep] = useState<RecipeStep | null>(null);
+  // No need for editingStep or modal editor
 
-  const handleStepSave = (step: RecipeStep) => {
-    const isNew = !step.id;
-    onStepSave(step, isNew);
-    setEditingStep(null);
+  const handleStepChange = (_idx: number, updated: RecipeStep) => {
+    onStepSave(updated, false);
   };
+
+  const handleStepAdd = () => {
+    const newStep = getEmptyStep(recipe.id, steps.length + 1);
+    onStepSave(newStep, true);
+  };
+
+  // Optional: stub for onReorder if StepColumn requires it
+  const handleReorder = () => {};
 
   return (
     <IonGrid>
       <IonRow>
-        {/* Left Column: Recipe management, calculator, etc. */}
         <IonCol size="12" sizeMd="6">
-          {/* <RecipeForm
-            recipe={recipe}
-            fieldsMeta={fieldsMeta}
-            onChange={onRecipeChange}
-            onSave={onRecipeSave}
-          /> */}
-          <RecipeCalculator
-            recipe={recipe}
-            steps={steps}
-            fieldsMeta={fieldsMeta}
-            ingredientsMeta={ingredientsMeta}
-          />
+          {/* Left column content */}
         </IonCol>
-        {/* Right Column: Steps */}
         <IonCol size="12" sizeMd="6">
           <button
-            onClick={() =>
-              setEditingStep(getEmptyStep(recipe.id, steps.length + 1))
-            }
+            onClick={handleStepAdd}
             className="mb-2 px-4 py-2 bg-blue-600 text-white rounded"
           >
             + Add Step
           </button>
-          <RecipeStepList
+          <StepColumn
             steps={steps}
-            fieldsMeta={stepFieldsMeta}
-            ingredientsMeta={ingredientsMeta}
-            onEdit={setEditingStep}
-            onDuplicate={onStepDuplicate}
-            onRemove={onStepRemove}
+            stepTemplates={stepTemplates}
+            showAdvanced={showAdvanced}
+            onStepChange={handleStepChange}
+            onStepDuplicate={onStepDuplicate}
+            onStepRemove={onStepRemove}
+            onReorder={handleReorder}
           />
-          {editingStep && (
-            <RecipeStepEditor
-              step={editingStep}
-              fieldsMeta={stepFieldsMeta}
-              ingredientsMeta={ingredientsMeta}
-              onSave={handleStepSave}
-              onCancel={() => setEditingStep(null)}
-            />
-          )}
         </IonCol>
       </IonRow>
     </IonGrid>
