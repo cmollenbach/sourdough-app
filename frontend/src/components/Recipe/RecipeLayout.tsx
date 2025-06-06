@@ -2,7 +2,7 @@
 
 import { IonGrid, IonRow, IonCol } from "@ionic/react";
 import { useState } from "react";
-import RecipeForm from "./RecipeForm";
+// import RecipeForm from "./RecipeForm"; // <-- Remove this line
 import RecipeStepList from "./RecipeStepList";
 import RecipeCalculator from "./RecipeCalculator";
 import RecipeStepEditor from "./RecipeStepEditor";
@@ -26,8 +26,8 @@ const RecipeLayout = ({
   steps,
   stepFieldsMeta,
   ingredientsMeta,
-  onRecipeChange,
-  onRecipeSave,
+  // onRecipeChange, // Remove this line
+  // onRecipeSave,   // Remove this line
   onStepDuplicate,
   onStepRemove,
   onStepSave,
@@ -45,12 +45,12 @@ const RecipeLayout = ({
       <IonRow>
         {/* Left Column: Recipe management, calculator, etc. */}
         <IonCol size="12" sizeMd="6">
-          <RecipeForm
+          {/* <RecipeForm
             recipe={recipe}
             fieldsMeta={fieldsMeta}
             onChange={onRecipeChange}
             onSave={onRecipeSave}
-          />
+          /> */}
           <RecipeCalculator
             recipe={recipe}
             steps={steps}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useToast } from "../../context/ToastContext";
+import { apiGet } from "../../utils/api";
 import type { Recipe } from "../../types/recipe";
 import type { FieldMeta } from "../../types/recipeLayout";
 
@@ -12,22 +13,8 @@ export default function RecipesListPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/recipes", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
-        },
-      }).then(res => {
-        if (!res.ok) throw new Error("Failed to fetch recipes");
-        return res.json();
-      }),
-      fetch("/api/recipes/meta", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
-        },
-      }).then(res => {
-        if (!res.ok) throw new Error("Failed to fetch meta");
-        return res.json();
-      }),
+      apiGet<Recipe[]>("/recipes"),
+      apiGet<{ fields: FieldMeta[] }>("/meta/recipe-fields"),
     ])
       .then(([recipesData, metaData]) => {
         setRecipes(recipesData);

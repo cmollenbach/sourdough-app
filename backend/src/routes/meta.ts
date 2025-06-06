@@ -9,12 +9,7 @@ router.get("/recipe-fields", async (_req, res) => {
   res.json({ fields });
 });
 
-// Step field meta
-router.get("/step-fields", async (_req, res) => {
-  // This model does not exist!
-  // const fields = await prisma.stepField.findMany({ orderBy: { order: "asc" } });
-  // res.json({ fields });
-});
+
 
 // Step templates (with fields/groups)
 router.get("/step-templates", async (_req, res) => {

@@ -19,6 +19,8 @@ const RecipeStepList: React.FC<RecipeStepListProps> = ({
   onDuplicate,
   onRemove,
 }) => {
+  const safeIngredientsMeta = Array.isArray(ingredientsMeta) ? ingredientsMeta : [];
+
   return (
     <div>
       {steps.map((step, idx) => (
@@ -54,7 +56,7 @@ const RecipeStepList: React.FC<RecipeStepListProps> = ({
               <strong>Ingredients:</strong>
               <ul className="list-disc ml-5">
                 {step.ingredients.map(ing => {
-                  const ingredientMeta = ingredientsMeta.find(im => im.id === ing.ingredientId);
+                  const ingredientMeta = safeIngredientsMeta.find(im => im.id === ing.ingredientId);
                   return (
                     <li key={ing.id}>
                       {ingredientMeta ? ingredientMeta.name : `Ingredient ID: ${ing.ingredientId}`}, {ing.percentage}%

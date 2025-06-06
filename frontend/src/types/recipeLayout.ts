@@ -22,8 +22,6 @@ export interface RecipeLayoutProps {
   steps: RecipeStep[];
   stepFieldsMeta: FieldMeta[];
   ingredientsMeta: IngredientMeta[];
-  onRecipeChange: (changes: Partial<FullRecipe>) => void;
-  onRecipeSave: () => void;
   onStepDuplicate: (step: RecipeStep) => void;
   onStepRemove: (stepId: number) => void;
   onStepSave: (step: RecipeStep, isNew: boolean) => void;

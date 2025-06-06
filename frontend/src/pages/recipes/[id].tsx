@@ -9,66 +9,61 @@ import RecipeGlobalControls from "../../components/Recipe/RecipeGlobalControls";
 import { IonGrid, IonRow, IonCol, IonCard } from "@ionic/react";
 import type { RecipeStep, FullRecipe } from "../../types/recipe";
 import type { FieldMeta, IngredientMeta } from "../../types/recipeLayout";
+import { apiGet } from "../../utils/api";
+import { useRecipeBuilderStore } from "../../store/recipeBuilderStore";
 
 export default function RecipeBuilderPage() {
   const { id } = useParams<{ id: string }>();
-  const [recipe, setRecipe] = useState<FullRecipe | null>(null);
+
+  // Tracks whether the page is still loading data from the backend
   const [loading, setLoading] = useState(true);
+
+  // Holds the step currently being edited (or null if none)
   const [editingStep, setEditingStep] = useState<RecipeStep | null>(null);
+
+  // Holds metadata about recipe fields (e.g., field definitions for dynamic forms)
   const [fieldsMeta, setFieldsMeta] = useState<FieldMeta[]>([]);
+
+  // Holds metadata about available ingredients
   const [ingredientsMeta, setIngredientsMeta] = useState<IngredientMeta[]>([]);
+
+  // Controls whether advanced options are shown in the UI
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const recipe = useRecipeBuilderStore(state => state.recipe);
+  const setRecipe = useRecipeBuilderStore(state => state.setRecipe);
+  const updateStep = useRecipeBuilderStore(state => state.updateStep);
+  const removeStep = useRecipeBuilderStore(state => state.removeStep);
   const { addToast } = useToast();
 
+  // Load the full recipe from the backend when the page loads or the ID changes
   useEffect(() => {
     if (!id) return;
-    fetch(`/api/recipes/${id}/full`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
-      },
-    })
-      .then(res => {
-        if (!res.ok) throw new Error("Failed to fetch recipe");
-        return res.json();
-      })
+    apiGet<FullRecipe>(`/recipes/${id}/full`)
       .then(setRecipe)
       .catch(() => addToast("Failed to load recipe", "error"))
       .finally(() => setLoading(false));
-  }, [id, addToast]);
+  }, [id, addToast, setRecipe]);
 
+  // Load field and ingredient metadata when the page loads
   useEffect(() => {
-    fetch("/api/meta/recipe-fields", {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
-      },
-    })
-      .then(res => res.json())
+    apiGet<{ fields: FieldMeta[] }>("/meta/recipe-fields")
       .then(data => setFieldsMeta(data.fields || []))
       .catch(() => setFieldsMeta([]));
 
-    fetch("/api/meta/ingredients", {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
-      },
-    })
-      .then(res => res.json())
+    apiGet<IngredientMeta[]>("/meta/ingredients")
       .then(setIngredientsMeta)
       .catch(() => setIngredientsMeta([]));
   }, []);
 
+  // Save a step (either updating an existing one or adding a new one)
   function handleSaveStep(updatedStep: RecipeStep) {
-    if (!recipe) return;
-    const exists = recipe.steps.some((s: RecipeStep) => s.id === updatedStep.id);
-    setRecipe({
-      ...recipe,
-      steps: exists
-        ? recipe.steps.map((s: RecipeStep) => (s.id === updatedStep.id ? updatedStep : s))
-        : [...recipe.steps, updatedStep],
-    });
+    updateStep(updatedStep);
     setEditingStep(null);
     // TODO: Send update to backend here
   }
 
+  // Prepare to add a new step (opens the step editor with a blank step)
   function handleAddStep() {
     if (!recipe) return;
     const nextOrder = recipe.steps.length ? Math.max(...recipe.steps.map((s: RecipeStep) => s.order)) + 1 : 1;
@@ -84,15 +79,13 @@ export default function RecipeBuilderPage() {
     });
   }
 
+  // Remove a step from the recipe
   function handleRemoveStep(stepId: number) {
-    if (!recipe) return;
-    setRecipe({
-      ...recipe,
-      steps: recipe.steps.filter((s: RecipeStep) => s.id !== stepId),
-    });
+    removeStep(stepId);
     // TODO: Send removal to backend here
   }
 
+  // Duplicate a step (creates a copy with a new ID and order)
   function handleDuplicateStep(step: RecipeStep) {
     if (!recipe) return;
     const nextOrder = recipe.steps.length ? Math.max(...recipe.steps.map((s: RecipeStep) => s.order)) + 1 : 1;
@@ -111,6 +104,7 @@ export default function RecipeBuilderPage() {
     // TODO: Send duplication to backend here
   }
 
+  // Toggle advanced options in the UI
   function toggleAdvanced() {
     setShowAdvanced(prev => !prev);
   }

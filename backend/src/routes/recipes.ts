@@ -5,12 +5,36 @@ import { authenticateJWT, AuthRequest } from "../middleware/authMiddleware";
 const router = express.Router();
 const prisma = new PrismaClient();
 
+/**
+ * Recipe creation expects:
+ * {
+ *   fieldValues: [{ fieldId: number, value: string | number }, ...],
+ *   steps: [
+ *     {
+ *       stepTemplateId: number,
+ *       order: number,
+ *       notes?: string,
+ *       fields?: [{ fieldId: number, value: string | number }, ...],
+ *       ingredients?: [{ ingredientId: number, amount: number, ... }, ...]
+ *     },
+ *     ...
+ *   ]
+ * }
+ */
+
 // --- Create a recipe (dynamic fields) ---
 router.post("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
   try {
     const { fieldValues, steps } = req.body;
-    // fieldValues: [{ fieldId, value }, ...]
-    // steps: [{ stepTemplateId, order, notes, fields, ingredients }, ...]
+
+    // Basic validation
+    if (!Array.isArray(fieldValues) || fieldValues.some(fv => typeof fv.fieldId !== "number" || typeof fv.value === "undefined")) {
+      return res.status(400).json({ error: "Invalid or missing fieldValues" });
+    }
+    if (steps && !Array.isArray(steps)) {
+      return res.status(400).json({ error: "Steps must be an array" });
+    }
+
     const recipe = await prisma.recipe.create({
       data: {
         ownerId: req.user!.userId,
@@ -47,7 +71,7 @@ router.post("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
     res.status(201).json(recipe);
   } catch (err) {
     console.error("Error in POST /api/recipes:", err);
-    res.status(500).json({ error: "Failed to create recipe" });
+    res.status(500).json({ error: "Failed to create recipe", details: err instanceof Error ? err.message : err });
   }
 });
 
