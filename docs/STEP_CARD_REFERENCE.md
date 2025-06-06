@@ -119,3 +119,59 @@
 8. Integrate “Request new entity” in all dropdowns.
 
 ---
+
+## 10. State & Data Flow Architecture (2025-06-06)
+
+### Single Source of Truth
+
+- The entire recipe (target + steps) is stored in a single state object at the top level (page or Zustand store).
+- All edits (target, steps, fields, ingredients) update this central state.
+
+### Change Propagation
+
+- **StepCard** manages only its own form state for UX.
+- On any change (template, fields, ingredients, notes, etc.), StepCard calls a callback (e.g., `onChange`) to inform StepColumn.
+- **StepColumn** receives the change and calls up to the parent (RecipeBuilderPage or Zustand store) to update the central recipe state.
+- No local state in StepCard or StepColumn except for form handling.
+
+### Calculator
+
+- Calculator is a pure function of the current recipe state.
+- Runs on every relevant change and updates the UI in real time.
+- Provides per-step and total ingredient summaries.
+
+### Save/Load
+
+- Save button triggers a POST/PUT with the current recipe state.
+- Load triggers a fetch and replaces the current state.
+- No autosave or versioning unless explicitly added.
+
+### Ingredient Defaults
+
+- When a step is added, it auto-populates with default ingredients from the template if they exist.
+
+### Benefits
+
+- **Consistency:** All UI reflects the latest recipe state.
+- **Predictability:** Unidirectional data flow makes debugging and reasoning about state easy.
+- **Extensibility:** Easy to add features like undo/redo, autosave, or collaborative editing.
+- **Testability:** Pure functions and stateless components are easy to test.
+- **Performance:** With proper state management (e.g., Zustand selectors), only relevant components re-render.
+
+### Component/Data Structure
+
+```plaintext
+RecipeBuilderPage (or Zustand store)
+│
+├── TargetEditor (edits recipe.target)
+│
+├── StepColumn (receives steps, emits onStepChange/onStepRemove/onStepDuplicate/onReorder)
+│     ├── StepCard (receives step, template, emits onChange)
+│     └── ...
+│
+├── CalculatorSummary (receives recipe, displays per-step and total summaries)
+│
+└── Save/Load Controls (trigger backend sync)
+```
+
+---

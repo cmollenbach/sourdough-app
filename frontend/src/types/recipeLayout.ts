@@ -6,21 +6,22 @@ export interface FieldMeta {
   label?: string;
   type?: string;
   visible?: boolean;
-  visibleInList?: boolean; // <-- Add this
+  visibleInList?: boolean;
+  helpText?: string; // <-- Add this line
   // ...other meta fields
 }
 
 export interface IngredientMeta {
   id: number;
   name: string;
-  // Add any other meta properties you use
+  ingredientCategoryId: number;
+  // ...other properties...
 }
 
 export interface RecipeLayoutProps {
   recipe: FullRecipe;
   fieldsMeta: FieldMeta[];
   steps: RecipeStep[];
-  stepFieldsMeta: FieldMeta[];
   ingredientsMeta: IngredientMeta[];
   stepTemplates: StepTemplate[]; // <-- Add this
   showAdvanced: boolean;         // <-- Add this

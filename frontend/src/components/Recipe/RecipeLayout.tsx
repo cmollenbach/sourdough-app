@@ -1,9 +1,10 @@
 // Example: src/components/Recipe/RecipeLayout.tsx
 
 import { IonGrid, IonRow, IonCol } from "@ionic/react";
-import StepColumn from "./StepColumn"; // <-- Import your new StepColumn
 import type { RecipeStep } from "../../types/recipe";
-import type { RecipeLayoutProps } from "../../types/recipeLayout";
+import StepColumn from "./StepColumn";
+import { TargetEditor } from "./TargetEditor";
+import { useRecipeBuilderStore } from "../../store/recipeBuilderStore";
 
 const getEmptyStep = (recipeId: number, order: number): RecipeStep => ({
   id: 0,
@@ -16,55 +17,83 @@ const getEmptyStep = (recipeId: number, order: number): RecipeStep => ({
   ingredients: [],
 });
 
-const RecipeLayout = ({
-  recipe,
-  steps,
-  stepTemplates,
-  showAdvanced,
-  onStepDuplicate,
-  onStepRemove,
-  onStepSave,
-}: RecipeLayoutProps) => {
-  // No need for editingStep or modal editor
+export default function RecipeLayout() {
+  const recipe = useRecipeBuilderStore((state) => state.recipe);
+  const setRecipe = useRecipeBuilderStore((state) => state.setRecipe);
+  const showAdvanced = useRecipeBuilderStore((state) => state.showAdvanced);
+  const setShowAdvanced = useRecipeBuilderStore((state) => state.setShowAdvanced);
+  const stepTemplates = useRecipeBuilderStore((state) => state.stepTemplates);
+  const ingredientsMeta = useRecipeBuilderStore((state) => state.ingredientsMeta);
+  const updateStep = useRecipeBuilderStore((state) => state.updateStep);
+  const removeStep = useRecipeBuilderStore((state) => state.removeStep);
+
+  const steps = recipe?.steps ?? [];
 
   const handleStepChange = (_idx: number, updated: RecipeStep) => {
-    onStepSave(updated, false);
+    updateStep(updated);
   };
 
   const handleStepAdd = () => {
+    if (!recipe) return;
     const newStep = getEmptyStep(recipe.id, steps.length + 1);
-    onStepSave(newStep, true);
+    updateStep(newStep);
   };
 
-  // Optional: stub for onReorder if StepColumn requires it
-  const handleReorder = () => {};
+  const handleStepDuplicate = (step: RecipeStep) => {
+    if (!recipe) return;
+    const newStep: RecipeStep = {
+      ...step,
+      id: 0,
+      order: steps.length + 1,
+    };
+    updateStep(newStep);
+  };
+
+  const handleStepRemove = (stepId: number) => {
+    removeStep(stepId);
+  };
+
+  const handleReorder = () => {
+    // Implement if you support drag-and-drop reordering
+  };
 
   return (
-    <IonGrid>
-      <IonRow>
-        <IonCol size="12" sizeMd="6">
-          {/* Left column content */}
-        </IonCol>
-        <IonCol size="12" sizeMd="6">
-          <button
-            onClick={handleStepAdd}
-            className="mb-2 px-4 py-2 bg-blue-600 text-white rounded"
-          >
-            + Add Step
-          </button>
-          <StepColumn
-            steps={steps}
-            stepTemplates={stepTemplates}
+    <div className="flex flex-col">
+      <div>
+        {recipe && (
+          <TargetEditor
+            recipe={recipe}
             showAdvanced={showAdvanced}
-            onStepChange={handleStepChange}
-            onStepDuplicate={onStepDuplicate}
-            onStepRemove={onStepRemove}
-            onReorder={handleReorder}
+            setShowAdvanced={setShowAdvanced}
+            onChange={setRecipe}
           />
-        </IonCol>
-      </IonRow>
-    </IonGrid>
+        )}
+        <IonGrid>
+          <IonRow>
+            <IonCol size="12" sizeMd="6">
+              {/* Left column content */}
+            </IonCol>
+            <IonCol size="12" sizeMd="6">
+              <button
+                onClick={handleStepAdd}
+                className="mb-2 px-4 py-2 bg-blue-600 text-white rounded"
+              >
+                + Add Step
+              </button>
+              <StepColumn
+                steps={steps}
+                stepTemplates={stepTemplates}
+                ingredientsMeta={ingredientsMeta}
+                showAdvanced={showAdvanced}
+                onStepChange={handleStepChange}
+                onStepDuplicate={handleStepDuplicate}
+                onStepRemove={handleStepRemove}
+                onReorder={handleReorder}
+              />
+            </IonCol>
+          </IonRow>
+        </IonGrid>
+      </div>
+    </div>
   );
-};
-
-export default RecipeLayout;
+}

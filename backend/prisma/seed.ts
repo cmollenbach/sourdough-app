@@ -1,4 +1,5 @@
-// prisma/seed.ts
+// backend/prisma/seed.ts
+
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -21,177 +22,55 @@ async function main() {
   console.log(`Upserted system user: ${systemUser.email}`);
 
   // --- Ingredient Categories ---
-  const flourCategory = await prisma.ingredientCategory.upsert({
-    where: { name: 'Flour' },
-    update: {},
-    create: { name: 'Flour', description: 'Various types of flour.', order: 1 },
-  });
-  const liquidCategory = await prisma.ingredientCategory.upsert({
-    where: { name: 'Liquid' },
-    update: {},
-    create: { name: 'Liquid', description: 'Water, milk, etc.', order: 2 },
-  });
-  const saltCategory = await prisma.ingredientCategory.upsert({
-    where: { name: 'Salt' },
-    update: {},
-    create: { name: 'Salt', description: 'All types of salt.', order: 3 },
-  });
-  const prefermentCategory = await prisma.ingredientCategory.upsert({
-    where: { name: 'Preferment/Starter' },
-    update: {},
-    create: { name: 'Preferment/Starter', description: 'Levain, poolish, biga, etc.', order: 4 },
-  });
-  const inclusionsCategory = await prisma.ingredientCategory.upsert({
-    where: { name: 'Inclusions' },
-    update: {},
-    create: { name: 'Inclusions', description: 'Seeds, nuts, dried fruit, etc.', order: 5 },
-  });
-  const enrichmentsCategory = await prisma.ingredientCategory.upsert({
-    where: { name: 'Enrichments' },
-    update: {},
-    create: { name: 'Enrichments', description: 'Butter, oil, sugar, eggs, etc.', order: 6 },
-  });
-  const aidsCategory = await prisma.ingredientCategory.upsert({
-    where: { name: 'Processing Aids' },
-    update: {},
-    create: { name: 'Processing Aids', description: 'Malt, ascorbic acid, etc.', order: 7 },
-  });
+  const flourCategory = await prisma.ingredientCategory.upsert({ where: { name: 'Flour' }, update: {}, create: { name: 'Flour', order: 1 } });
+  const liquidCategory = await prisma.ingredientCategory.upsert({ where: { name: 'Liquid' }, update: {}, create: { name: 'Liquid', order: 2 } });
+  const saltCategory = await prisma.ingredientCategory.upsert({ where: { name: 'Salt' }, update: {}, create: { name: 'Salt', order: 3 } });
+  const prefermentCategory = await prisma.ingredientCategory.upsert({ where: { name: 'Preferment/Starter' }, update: {}, create: { name: 'Preferment/Starter', order: 4 } });
+  const inclusionsCategory = await prisma.ingredientCategory.upsert({ where: { name: 'Inclusions' }, update: {}, create: { name: 'Inclusions', order: 5 } });
+  const enrichmentsCategory = await prisma.ingredientCategory.upsert({ where: { name: 'Enrichments' }, update: {}, create: { name: 'Enrichments', order: 6 } });
+  
+  console.log('Seeded Ingredient Categories');
 
   // --- Ingredients ---
-  const flour = await prisma.ingredient.upsert({
-    where: { name: 'Bread Flour' },
-    update: {},
-    create: { name: 'Bread Flour', ingredientCategoryId: flourCategory.id },
-  });
-  const wholeWheatFlour = await prisma.ingredient.upsert({
-    where: { name: 'Whole Wheat Flour' },
-    update: {},
-    create: { name: 'Whole Wheat Flour', ingredientCategoryId: flourCategory.id },
-  });
-  const ryeFlour = await prisma.ingredient.upsert({
-    where: { name: 'Rye Flour' },
-    update: {},
-    create: { name: 'Rye Flour', ingredientCategoryId: flourCategory.id, advanced: true },
-  });
-  const water = await prisma.ingredient.upsert({
-    where: { name: 'Water' },
-    update: {},
-    create: { name: 'Water', ingredientCategoryId: liquidCategory.id },
-  });
-  const salt = await prisma.ingredient.upsert({
-    where: { name: 'Salt' },
-    update: {},
-    create: { name: 'Salt', ingredientCategoryId: saltCategory.id },
-  });
-  const levain = await prisma.ingredient.upsert({
-    where: { name: 'Levain' },
-    update: {},
-    create: { name: 'Levain', ingredientCategoryId: prefermentCategory.id },
-  });
-  const sunflowerSeeds = await prisma.ingredient.upsert({
-    where: { name: 'Sunflower Seeds' },
-    update: {},
-    create: { name: 'Sunflower Seeds', ingredientCategoryId: inclusionsCategory.id },
-  });
-  const honey = await prisma.ingredient.upsert({
-    where: { name: 'Honey' },
-    update: {},
-    create: { name: 'Honey', ingredientCategoryId: enrichmentsCategory.id, advanced: true },
-  });
+  const flour = await prisma.ingredient.upsert({ where: { name: 'Bread Flour' }, update: {}, create: { name: 'Bread Flour', ingredientCategoryId: flourCategory.id } });
+  const wholeWheatFlour = await prisma.ingredient.upsert({ where: { name: 'Whole Wheat Flour' }, update: {}, create: { name: 'Whole Wheat Flour', ingredientCategoryId: flourCategory.id } });
+  const water = await prisma.ingredient.upsert({ where: { name: 'Water' }, update: {}, create: { name: 'Water', ingredientCategoryId: liquidCategory.id } });
+  const salt = await prisma.ingredient.upsert({ where: { name: 'Salt' }, update: {}, create: { name: 'Salt', ingredientCategoryId: saltCategory.id } });
+  const levain = await prisma.ingredient.upsert({ where: { name: 'Levain' }, update: {}, create: { name: 'Levain', ingredientCategoryId: prefermentCategory.id } });
+  
+  console.log('Seeded Ingredients');
 
   // --- Step Types ---
-  const prepType = await prisma.stepType.upsert({
-    where: { name: 'Preparation' },
-    update: {},
-    create: { name: 'Preparation', description: 'Gather and prep ingredients.' },
-  });
-  const mixType = await prisma.stepType.upsert({
-    where: { name: 'Mixing' },
-    update: {},
-    create: { name: 'Mixing', description: 'Mix dough ingredients.' },
-  });
-  const fermentType = await prisma.stepType.upsert({
-    where: { name: 'Fermentation' },
-    update: {},
-    create: { name: 'Fermentation', description: 'Bulk fermentation.' },
-  });
-  const shapeType = await prisma.stepType.upsert({
-    where: { name: 'Shaping' },
-    update: {},
-    create: { name: 'Shaping', description: 'Shape the dough.' },
-  });
-  const proofType = await prisma.stepType.upsert({
-    where: { name: 'Proofing' },
-    update: {},
-    create: { name: 'Proofing', description: 'Final proof before baking.' },
-  });
-  const bakeType = await prisma.stepType.upsert({
-    where: { name: 'Baking' },
-    update: {},
-    create: { name: 'Baking', description: 'Bake the dough.' },
-  });
-  const coolType = await prisma.stepType.upsert({
-    where: { name: 'Cooling' },
-    update: {},
-    create: { name: 'Cooling', description: 'Cool the bread.' },
-  });
+  const prepType = await prisma.stepType.upsert({ where: { name: 'Preparation' }, update: {}, create: { name: 'Preparation' } });
+  const mixType = await prisma.stepType.upsert({ where: { name: 'Mixing' }, update: {}, create: { name: 'Mixing' } });
+  const fermentType = await prisma.stepType.upsert({ where: { name: 'Fermentation' }, update: {}, create: { name: 'Fermentation' } });
+  const bakeType = await prisma.stepType.upsert({ where: { name: 'Baking' }, update: {}, create: { name: 'Baking' } });
+  
+  console.log('Seeded Step Types');
 
-  // --- Fields ---
-  const totalWeightField = await prisma.field.upsert({
-    where: { name: 'Total Dough Weight (g)' },
-    update: {},
-    create: { name: 'Total Dough Weight (g)', type: 'float', description: 'Total weight of finished dough.' },
-  });
-  const hydrationField = await prisma.field.upsert({
-    where: { name: 'Hydration (%)' },
-    update: {},
-    create: { name: 'Hydration (%)', type: 'float', description: 'Total hydration percent.' },
-  });
-  const saltPctField = await prisma.field.upsert({
-    where: { name: 'Salt (%)' },
-    update: {},
-    create: { name: 'Salt (%)', type: 'float', description: 'Salt percent.' },
-  });
-  const foldsField = await prisma.field.upsert({
-    where: { name: 'Number of Folds' },
-    update: {},
-    create: { name: 'Number of Folds', type: 'integer', description: 'Number of folds during bulk fermentation.' },
-  });
-  const foldIntervalField = await prisma.field.upsert({
-    where: { name: 'Fold Interval (minutes)' },
-    update: {},
-    create: { name: 'Fold Interval (minutes)', type: 'integer', description: 'Minutes between folds.' },
-  });
-  const foldTypeField = await prisma.field.upsert({
-    where: { name: 'Fold Type (text)' },
-    update: {},
-    create: { name: 'Fold Type (text)', type: 'text', description: 'Type of fold.', advanced: true },
-  });
-  const initialBakeField = await prisma.field.upsert({
-    where: { name: 'Initial Bake Duration (Covered/Steamed)' },
-    update: {},
-    create: { name: 'Initial Bake Duration (Covered/Steamed)', type: 'integer', description: 'Initial covered bake time.' },
-  });
-  const finalBakeField = await prisma.field.upsert({
-    where: { name: 'Final Bake Duration (Uncovered)' },
-    update: {},
-    create: { name: 'Final Bake Duration (Uncovered)', type: 'integer', description: 'Final uncovered bake time.' },
-  });
-  const notesField = await prisma.field.upsert({
-    where: { name: 'Notes' },
-    update: {},
-    create: { name: 'Notes', type: 'text', description: 'General notes.' },
-  });
-  const prefermentPctField = await prisma.field.upsert({
-    where: { name: 'Preferment % of Total Dough Weight' },
-    update: {},
-    create: { name: 'Preferment % of Total Dough Weight', type: 'float', description: 'Percent of dough weight as preferment.' },
-  });
-  const prefermentHydrationField = await prisma.field.upsert({
-    where: { name: 'Target Preferment Hydration (%)' },
-    update: {},
-    create: { name: 'Target Preferment Hydration (%)', type: 'float', description: 'Hydration of the preferment.' },
-  });
+  // --- Step-Level Parameters ---
+  // Note: We have removed recipe-level concepts like "Hydration (%)" from here.
+  const notesField = await prisma.stepParameter.upsert({ where: { name: 'Notes' }, update: {}, create: { name: 'Notes', type: 'text', description: 'General notes.' } });
+  const durationField = await prisma.stepParameter.upsert({ where: { name: 'Duration (minutes)' }, update: {}, create: { name: 'Duration (minutes)', type: 'integer', description: 'Duration of the step in minutes.' } });
+  const tempField = await prisma.stepParameter.upsert({ where: { name: 'Dough Temperature (C)' }, update: {}, create: { name: 'Dough Temperature (C)', type: 'integer', description: 'Target dough temperature.' } });
+  
+  console.log('Seeded Step Parameters');
+
+  // --- Recipe-Level Parameters ---
+  const recipeParameters = [
+    { name: 'name', label: 'Recipe Name', type: 'string', order: 1, required: true, defaultValue: 'Untitled Recipe' },
+    { name: 'totalWeight', label: 'Total Dough Weight (g)', type: 'number', order: 2, required: true, defaultValue: '1000' },
+    { name: 'hydrationPct', label: 'Target Hydration (%)', type: 'number', order: 3, required: true, defaultValue: '75' },
+    { name: 'saltPct', label: 'Salt (%)', type: 'number', order: 4, required: true, defaultValue: '2' },
+    { name: 'notes', label: 'Recipe Notes', type: 'text', order: 5, required: false },
+  ];
+  
+  const recipeParamRecords = [];
+  for (const param of recipeParameters) {
+    const record = await prisma.recipeParameter.upsert({ where: { name: param.name }, update: {}, create: param });
+    recipeParamRecords.push(record);
+  }
+  console.log("Seeded Recipe Parameters.");
 
   // --- Step Templates ---
   const mixDoughTemplate = await prisma.stepTemplate.upsert({
@@ -201,256 +80,74 @@ async function main() {
       name: 'Mix Dough',
       stepTypeId: mixType.id,
       description: 'Mix all main dough ingredients.',
-      active: true,
-      fields: {
-        create: [
-          { fieldId: totalWeightField.id },
-          { fieldId: hydrationField.id },
-          { fieldId: saltPctField.id },
-          { fieldId: notesField.id },
-        ],
-      },
-      ingredientRules: {
-        create: [
-          { ingredientCategoryId: flourCategory.id, required: true },
-          { ingredientCategoryId: liquidCategory.id, required: false },
-          { ingredientCategoryId: saltCategory.id, required: false },
-          { ingredientCategoryId: inclusionsCategory.id, required: false },
-        ],
-      },
+      parameters: { create: [{ parameterId: notesField.id }, { parameterId: durationField.id }] },
+      ingredientRules: { create: [{ ingredientCategoryId: flourCategory.id, required: true }, { ingredientCategoryId: liquidCategory.id, required: true }, { ingredientCategoryId: saltCategory.id, required: true }] },
     },
   });
 
-  const prefermentTemplate = await prisma.stepTemplate.upsert({
-    where: { name: 'Activate Starter / Feed Levain' },
+  const bulkFermentTemplate = await prisma.stepTemplate.upsert({
+    where: { name: 'Bulk Fermentation' },
     update: {},
     create: {
-      name: 'Activate Starter / Feed Levain',
-      stepTypeId: prepType.id,
-      description: 'Build and activate levain or other preferment.',
-      active: true,
-      fields: {
-        create: [
-          { fieldId: prefermentPctField.id },
-          { fieldId: prefermentHydrationField.id },
-          { fieldId: notesField.id },
-        ],
-      },
-      ingredientRules: {
-        create: [
-          { ingredientCategoryId: flourCategory.id, required: true },
-          { ingredientCategoryId: liquidCategory.id, required: true },
-        ],
-      },
+      name: 'Bulk Fermentation',
+      stepTypeId: fermentType.id,
+      description: 'First fermentation phase with folds.',
+      parameters: { create: [{ parameterId: notesField.id }, { parameterId: durationField.id }, { parameterId: tempField.id }] },
     },
   });
+  console.log('Seeded Step Templates');
 
-  // --- Recipe Fields Metadata ---
-  const recipeFields = [
-    {
-      name: 'name',
-      label: 'Recipe Name',
-      type: 'string',
-      order: 1,
-      visible: true,
-      advanced: false,
-      required: true,
-      helpText: 'The name of your recipe.',
-      defaultValue: 'Untitled Recipe',
-    },
-    {
-      name: 'totalWeight',
-      label: 'Total Dough Weight (g)',
-      type: 'number',
-      order: 2,
-      visible: true,
-      advanced: false,
-      required: true,
-      helpText: 'Total weight of finished dough in grams.',
-      defaultValue: '1000',
-    },
-    {
-      name: 'hydrationPct',
-      label: 'Hydration (%)',
-      type: 'number',
-      order: 3,
-      visible: true,
-      advanced: false,
-      required: true,
-      helpText: 'Total hydration percent.',
-      defaultValue: '75',
-    },
-    {
-      name: 'saltPct',
-      label: 'Salt (%)',
-      type: 'number',
-      order: 4,
-      visible: true,
-      advanced: false,
-      required: true,
-      helpText: 'Salt percent.',
-      defaultValue: '2',
-    },
-    {
-      name: 'notes',
-      label: 'Notes',
-      type: 'text',
-      order: 5,
-      visible: true,
-      advanced: false,
-      required: false,
-      helpText: 'General notes about this recipe.',
-      defaultValue: '',
-    },
-  ];
-
-  // Upsert RecipeField metadata
-  const recipeFieldRecords = [];
-  for (const field of recipeFields) {
-    const record = await prisma.recipeField.upsert({
-      where: { name: field.name },
-      update: {},
-      create: field,
-    });
-    recipeFieldRecords.push(record);
-  }
-  console.log("Seeded recipe fields.");
-
-  // --- Predefined Recipe (Dynamic) ---
-  const nameField = recipeFieldRecords.find(f => f.name === 'name');
-  if (!nameField) {
-    throw new Error("RecipeField 'name' not found. Check your recipeFields array.");
-  }
-  const classicRecipe = await prisma.recipe.findFirst({
-    where: {
-      fieldValues: {
-        some: {
-          fieldId: nameField.id,
-          value: 'Classic Everyday Sourdough',
-        },
-      },
-    },
+  // --- Predefined Recipe ---
+  const classicRecipeName = 'Classic Everyday Sourdough';
+  const existingRecipe = await prisma.recipe.findFirst({
+    where: { parameterValues: { some: { parameter: { name: 'name' }, value: classicRecipeName } } }
   });
-  if (!classicRecipe) {
-    const newRecipe = await prisma.recipe.create({
+
+  if (!existingRecipe) {
+    await prisma.recipe.create({
       data: {
         ownerId: systemUser.id,
         isPredefined: true,
-        fieldValues: {
+        parameterValues: {
           create: [
-            {
-              fieldId: recipeFieldRecords.find(f => f.name === 'name')!.id,
-              value: 'Classic Everyday Sourdough',
-            },
-            {
-              fieldId: recipeFieldRecords.find(f => f.name === 'totalWeight')!.id,
-              value: '1000',
-            },
-            {
-              fieldId: recipeFieldRecords.find(f => f.name === 'hydrationPct')!.id,
-              value: '75',
-            },
-            {
-              fieldId: recipeFieldRecords.find(f => f.name === 'saltPct')!.id,
-              value: '2',
-            },
-            {
-              fieldId: recipeFieldRecords.find(f => f.name === 'notes')!.id,
-              value: 'A classic, versatile sourdough bread.',
-            },
-          ],
+            { parameterId: recipeParamRecords.find(p => p.name === 'name')!.id, value: classicRecipeName },
+            { parameterId: recipeParamRecords.find(p => p.name === 'totalWeight')!.id, value: '950' },
+            { parameterId: recipeParamRecords.find(p => p.name === 'hydrationPct')!.id, value: '78' },
+            { parameterId: recipeParamRecords.find(p => p.name === 'saltPct')!.id, value: '2.2' },
+            { parameterId: recipeParamRecords.find(p => p.name === 'notes')!.id, value: 'A versatile and reliable country loaf.' },
+          ]
         },
         steps: {
           create: [
             {
-              stepTemplateId: prefermentTemplate.id,
-              order: 1,
-              notes: 'Build levain overnight.',
-              fields: {
-                create: [
-                  { fieldId: prefermentPctField.id, value: 20 },
-                  { fieldId: prefermentHydrationField.id, value: 100 },
-                ],
-              },
-              ingredients: {
-                create: [
-                  { ingredientId: flour.id, percentage: 50 },
-                  { ingredientId: wholeWheatFlour.id, percentage: 50 },
-                  { ingredientId: water.id, percentage: 100 },
-                ],
-              },
-            },
-            {
               stepTemplateId: mixDoughTemplate.id,
-              order: 2,
-              notes: 'Mix all ingredients.',
-              fields: {
-                create: [
-                  { fieldId: hydrationField.id, value: 75 },
-                  { fieldId: saltPctField.id, value: 2 },
-                ],
-              },
+              order: 1,
+              notes: 'Mix until just combined (shaggy mass).',
+              parameterValues: { create: [{ parameterId: durationField.id, value: '15' }] },
               ingredients: {
                 create: [
                   { ingredientId: flour.id, percentage: 90 },
                   { ingredientId: wholeWheatFlour.id, percentage: 10 },
-                ],
-              },
+                  { ingredientId: water.id, percentage: 78 },
+                  { ingredientId: salt.id, percentage: 2.2 },
+                  { ingredientId: levain.id, percentage: 20 },
+                ]
+              }
             },
-          ],
-        },
-      },
+            {
+              stepTemplateId: bulkFermentTemplate.id,
+              order: 2,
+              notes: 'Perform 4 sets of folds every 30 minutes for the first 2 hours.',
+              parameterValues: { create: [{ parameterId: durationField.id, value: '240' }, { parameterId: tempField.id, value: '25' }] },
+            }
+          ]
+        }
+      }
     });
-    console.log(`Created recipe: Classic Everyday Sourdough (id: ${newRecipe.id})`);
+    console.log(`Created recipe: ${classicRecipeName}`);
   } else {
-    console.log("Classic Everyday Sourdough recipe already exists.");
+    console.log(`${classicRecipeName} recipe already exists.`);
   }
-
-  // --- Demo User for Requests ---
-  const demoUser = await prisma.user.upsert({
-    where: { email: 'demo@sourdough.app' },
-    update: {},
-    create: {
-      email: 'demo@sourdough.app',
-      role: 'user',
-      emailVerified: true,
-      isActive: true,
-      notes: 'Demo user for sample entity requests.',
-    },
-  });
-
-  // --- Sample Entity Requests ---
-  await prisma.entityRequest.upsert({
-    where: { id: 1 },
-    update: {},
-    create: {
-      userId: demoUser.id,
-      type: 'ingredient',
-      name: 'Spelt Flour',
-      description: 'Request to add Spelt Flour as a new ingredient.',
-      extra: {
-        ingredientCategory: 'Flour',
-        suggestedDescription: 'Ancient grain, mild nutty flavor',
-      },
-      status: 'pending',
-    },
-  });
-
-  await prisma.entityRequest.upsert({
-    where: { id: 2 },
-    update: {},
-    create: {
-      userId: demoUser.id,
-      type: 'stepType',
-      name: 'Autolyse',
-      description: 'Suggest adding Autolyse as a step type.',
-      extra: {
-        stepUsage: 'Rest flour and water before mixing other ingredients.',
-        icon: '⏳'
-      },
-      status: 'pending',
-    },
-  });
 
   console.log(`Seeding finished.`);
 }

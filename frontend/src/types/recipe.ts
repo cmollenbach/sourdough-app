@@ -1,4 +1,3 @@
-// filepath: c:\Sourdough-app\sourdough-app\frontend\src\types\recipe.ts
 // --- Recipe Field Value (for dynamic recipe fields) ---
 export interface RecipeFieldValue {
   fieldId: number;
@@ -25,12 +24,12 @@ export interface RecipeStepField {
   notes?: string | null;
 }
 
-// --- Step Ingredient Value ---
+// --- Step Ingredient Value (matches Prisma schema, but optional for form) ---
 export interface RecipeStepIngredient {
   id: number;
-  recipeStepId: number;
   ingredientId: number;
   percentage: number;
+  ingredientCategoryId: number;
   preparation?: string | null;
   notes?: string | null;
 }
