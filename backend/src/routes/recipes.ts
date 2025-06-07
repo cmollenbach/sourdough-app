@@ -1,5 +1,5 @@
 import express from "express";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, IngredientCalculationMode } from "@prisma/client"; // Removed RecipeParameter import
 import { authenticateJWT, AuthRequest } from "../middleware/authMiddleware";
 
 const router = express.Router();
@@ -8,11 +8,12 @@ const prisma = new PrismaClient();
 // --- Create a recipe ---
 router.post("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
   try {
-    const { parameterValues, steps } = req.body;
+    const { name, notes, steps, totalWeight, hydrationPct, saltPct } = req.body; // Expect name and notes directly
 
-    if (!Array.isArray(parameterValues) || parameterValues.some(pv => typeof pv.parameterId !== "number" || typeof pv.value === "undefined")) {
-      return res.status(400).json({ error: "Invalid or missing parameterValues" });
+    if (!name) { // Name is now a required direct field
+      return res.status(400).json({ error: "Recipe name is required" });
     }
+    // Validate steps if provided
     if (steps && !Array.isArray(steps)) {
       return res.status(400).json({ error: "Steps must be an array" });
     }
@@ -21,11 +22,14 @@ router.post("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
       data: {
         ownerId: req.user!.userId,
         isPredefined: false,
-        parameterValues: {
-          create: parameterValues,
-        },
+        totalWeight: totalWeight ? parseFloat(totalWeight) : null,
+        hydrationPct: hydrationPct ? parseFloat(hydrationPct) : null,
+        saltPct: saltPct ? parseFloat(saltPct) : null,
+        name: name, // Set name directly
+        notes: notes, // Set notes directly
         steps: steps
           ? {
+              // Ensure ingredients have amount and calculationMode
               create: steps.map((step: any) => ({
                 stepTemplateId: step.stepTemplateId,
                 order: step.order,
@@ -35,14 +39,19 @@ router.post("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
                   ? { create: step.parameterValues }
                   : undefined,
                 ingredients: step.ingredients
-                  ? { create: step.ingredients }
+                  ? { create: step.ingredients.map((ing: any) => ({
+                      ingredientId: ing.ingredientId,
+                      amount: parseFloat(ing.amount),
+                      calculationMode: ing.calculationMode as IngredientCalculationMode, // Assuming frontend sends valid enum string
+                      preparation: ing.preparation,
+                      notes: ing.notes,
+                    }))}
                   : undefined,
               })),
             }
           : undefined,
       },
       include: {
-        parameterValues: true,
         steps: {
           include: {
             parameterValues: true,
@@ -70,30 +79,23 @@ router.get("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
         ]
       },
       include: {
-        parameterValues: { include: { parameter: true } }, // For RecipeParameter.advanced
         steps: { // To check for advanced step templates, step parameters, or ingredients
           include: {
             stepTemplate: true, // For StepTemplate.advanced
-            parameterValues: { include: { parameter: true } }, // For StepParameter.advanced in steps
+            parameterValues: {
+              include: {
+                parameter: true // For StepParameter.advanced in steps
+              }
+            },
             ingredients: { include: { ingredient: true } }, // For Ingredient.advanced in steps
           }
         }
       },
     });
     const transformedRecipes = recipes.map(recipe => {
-      const fieldValues = recipe.parameterValues.map(pv => ({
-        fieldId: pv.parameterId,
-        value: pv.value,
-        name: pv.parameter.name,
-      }));
-      // Extract recipe name and notes from parameterValues
-      const recipeNameParam = recipe.parameterValues.find(pv => pv.parameter.name === 'name');
-      const recipeNotesParam = recipe.parameterValues.find(pv => pv.parameter.name === 'notes');
-
       // Determine if a template is advanced based on its elements
       let isTemplateAdvanced = false;
       if (recipe.isPredefined) {
-        const usesAdvancedRecipeParam = recipe.parameterValues.some(pv => pv.parameter.advanced === true);
         const usesAdvancedStepTemplate = recipe.steps.some(step => step.stepTemplate?.advanced === true);
         const usesAdvancedStepParam = recipe.steps.some(step =>
           step.parameterValues.some(spv => spv.parameter.advanced === true)
@@ -101,25 +103,20 @@ router.get("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
         const usesAdvancedIngredient = recipe.steps.some(step =>
           step.ingredients.some(ing => ing.ingredient?.advanced === true)
         );
-        isTemplateAdvanced = usesAdvancedRecipeParam || usesAdvancedStepTemplate || usesAdvancedStepParam || usesAdvancedIngredient;
+        isTemplateAdvanced = usesAdvancedStepTemplate || usesAdvancedStepParam || usesAdvancedIngredient;
       }
 
       // Explicitly construct the object for the list view / RecipeStub
       return {
         id: recipe.id, // Explicitly include id
-        name: typeof recipeNameParam?.value === 'string' ? recipeNameParam.value : "Unnamed Recipe",
-        // Add any other fields from the 'recipe' object that your main /recipes list page might need
-        notes: typeof recipeNotesParam?.value === 'string' ? recipeNotesParam.value : undefined,
+        name: recipe.name, // Use direct field
+        notes: recipe.notes, // Use direct field
+        totalWeight: recipe.totalWeight, // Direct field
+        hydrationPct: recipe.hydrationPct, // Direct field
+        saltPct: recipe.saltPct,       // Direct field
         isTemplateAdvanced: recipe.isPredefined ? isTemplateAdvanced : undefined,
         createdAt: recipe.createdAt,
         isPredefined: recipe.isPredefined,
-        // fieldValues are not typically needed for a simple name/id dropdown,
-        // but your main /recipes list page might use them.
-        // If the dropdown ONLY needs id/name, you could even omit fieldValues here.
-        // For clarity, we'll keep the full fieldValues array as it was,
-        // which contains all parameters, including name and notes again.
-        // The frontend RecipeStub will only pick id and name.
-        fieldValues,
       };
     });
     res.json(transformedRecipes);
@@ -146,12 +143,13 @@ router.get("/recipes/:id/full", authenticateJWT, async (req: AuthRequest, res) =
         ]
       },
       include: {
-        parameterValues: { include: { parameter: true } },
         steps: {
           orderBy: { order: "asc" },
           include: {
             parameterValues: { include: { parameter: true } },
-            ingredients: true,
+            ingredients: { // Ensure we get all ingredient details
+              include: { ingredient: true }
+            },
           }
         }
       },
@@ -159,25 +157,23 @@ router.get("/recipes/:id/full", authenticateJWT, async (req: AuthRequest, res) =
     if (!recipe) return res.status(404).json({ error: "Recipe not found" });
 
     // Destructure to separate specific parameters from the rest of the recipe object
-    const { parameterValues: allParameterValues, steps, ...recipeBaseProperties } = recipe;
-
-    // Extract top-level name and notes for the FullRecipe structure
-    const recipeNameParamValue = allParameterValues.find(pv => pv.parameter.name === 'name')?.value;
-    const recipeNotesParamValue = allParameterValues.find(pv => pv.parameter.name === 'notes')?.value;
+    const { steps, ...recipeBaseProperties } = recipe; // No more allParameterValues at recipe level
 
     const transformedRecipe = {
       ...recipeBaseProperties, // Includes id, ownerId, createdAt, etc.
-      name: typeof recipeNameParamValue === 'string' ? recipeNameParamValue : "Unnamed Recipe", // Ensure name is a string
-      notes: typeof recipeNotesParamValue === 'string' ? recipeNotesParamValue : undefined, // Ensure notes is string or undefined
-      fieldValues: allParameterValues.map(pv => ({ // This will list all parameters, including name and notes again
-        fieldId: pv.parameterId,
-        value: String(pv.value), // Ensure value is string for RecipeFieldValue
-        name: pv.parameter.name,
-      })),
+      // Core targets are now direct properties
+      totalWeight: recipe.totalWeight,
+      hydrationPct: recipe.hydrationPct,
+      saltPct: recipe.saltPct,
+      name: recipe.name, // Use direct field
+      notes: recipe.notes, // Use direct field
+      fieldValues: [], // RecipeParameterValues are gone for recipe level
       steps: steps.map(step => {
         const { parameterValues: stepPVs, ...restStep } = step;
         return {
           ...restStep,
+          // ingredients already includes amount and calculationMode from the DB
+          // if the include for ingredients was correct
           fields: stepPVs.map(spv => ({
             id: spv.id,
             recipeStepId: spv.recipeStepId,
@@ -185,7 +181,12 @@ router.get("/recipes/:id/full", authenticateJWT, async (req: AuthRequest, res) =
             value: spv.value,
             notes: spv.notes,
             name: spv.parameter.name,
-          }))
+          })),
+          // Ensure ingredients are passed through correctly
+          ingredients: step.ingredients.map(ing => ({
+            ...ing, // includes id, recipeStepId, ingredientId, amount, calculationMode, preparation, notes
+            ingredientName: ing.ingredient.name // for convenience if needed by UI
+          })),
         };
       })
     };
@@ -203,24 +204,27 @@ router.put("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => {
     return res.status(400).json({ error: "Invalid recipe id" });
   }
   try {
-    const { parameterValues } = req.body;
-    for (const pv of parameterValues) {
-      await prisma.recipeParameterValue.upsert({
-        where: {
-          recipeId_parameterId: {
-            recipeId: id,
-            parameterId: pv.parameterId,
-          },
-        },
-        update: { value: pv.value },
-        create: {
-          recipeId: id,
-          parameterId: pv.parameterId,
-          value: pv.value,
-        },
-      });
+    const { name, notes, totalWeight, hydrationPct, saltPct, ...otherRecipeData } = req.body; // Expect name, notes
+
+    // Prepare data for direct field updates
+    const recipeUpdateData: any = { ...otherRecipeData }; // For any other direct fields like 'active' if sent
+    if (typeof totalWeight !== 'undefined') recipeUpdateData.totalWeight = parseFloat(totalWeight) || null;
+    if (typeof hydrationPct !== 'undefined') recipeUpdateData.hydrationPct = parseFloat(hydrationPct) || null;
+    if (typeof saltPct !== 'undefined') recipeUpdateData.saltPct = parseFloat(saltPct) || null;
+    if (typeof name !== 'undefined') recipeUpdateData.name = name; // Update name directly
+    if (typeof notes !== 'undefined') recipeUpdateData.notes = notes; // Update notes directly
+
+    // Update direct fields on Recipe
+    const updatedRecipe = await prisma.recipe.update({
+      where: { id, ownerId: req.user!.userId }, // Ensure user owns the recipe
+      data: recipeUpdateData,
+    });
+
+    if (!updatedRecipe) {
+      return res.status(404).json({ error: "Recipe not found or not authorized to update." });
     }
-    res.json({ message: "Recipe updated" });
+
+    res.json({ message: "Recipe updated", recipe: updatedRecipe });
   } catch (err) {
     console.error("Error in PUT /api/recipes/:id:", err);
     res.status(500).json({ error: "Failed to update recipe" });
@@ -255,7 +259,6 @@ router.post("/recipes/:id/clone", authenticateJWT, async (req: AuthRequest, res)
     const recipe = await prisma.recipe.findFirst({
       where: { id, active: true, isPredefined: true },
       include: {
-        parameterValues: true,
         steps: {
           include: {
             parameterValues: true,
@@ -271,12 +274,12 @@ router.post("/recipes/:id/clone", authenticateJWT, async (req: AuthRequest, res)
       data: {
         ownerId: req.user!.userId,
         isPredefined: false,
-        parameterValues: {
-          create: recipe.parameterValues.map(pv => ({
-            parameterId: pv.parameterId,
-            value: pv.value,
-          }))
-        },
+        // Copy direct fields
+        totalWeight: recipe.totalWeight,
+        hydrationPct: recipe.hydrationPct,
+        saltPct: recipe.saltPct,
+        name: recipe.name + " (Clone)", // Add (Clone) to the name
+        notes: recipe.notes, // Copy notes
         steps: {
           create: recipe.steps.map(step => ({
             stepTemplateId: step.stepTemplateId,
@@ -293,7 +296,8 @@ router.post("/recipes/:id/clone", authenticateJWT, async (req: AuthRequest, res)
             ingredients: {
               create: step.ingredients.map(ing => ({
                 ingredientId: ing.ingredientId,
-                percentage: ing.percentage,
+                amount: ing.amount, // Use amount
+                calculationMode: ing.calculationMode, // Use calculationMode
                 preparation: ing.preparation,
                 notes: ing.notes,
               }))

@@ -1,4 +1,10 @@
 // --- Recipe Field Value (for dynamic recipe fields) ---
+
+export const enum IngredientCalculationMode { // Changed to const enum
+  PERCENTAGE = 'PERCENTAGE',
+  FIXED_WEIGHT = 'FIXED_WEIGHT',
+}
+
 export interface RecipeFieldValue {
   fieldId: number;
   value: string;
@@ -11,8 +17,10 @@ export interface Recipe {
   notes?: string;
   createdAt?: string;
   isPredefined?: boolean;
-  // ...other fields
-  [key: string]: unknown; // <-- Add this for meta-driven dynamic access
+  totalWeight?: number | null;
+  hydrationPct?: number | null;
+  saltPct?: number | null;
+  // [key: string]: unknown; // Keep if you have other truly dynamic string-keyed properties not covered by fieldValues
 }
 
 // --- Step Field Value (for dynamic step fields) ---
@@ -29,8 +37,9 @@ export interface RecipeStepIngredient {
   id: number;
   recipeStepId: number; // Added: An ingredient in a step should know its step's ID
   ingredientId: number;
-  percentage: number;
   ingredientCategoryId: number;
+  amount: number;
+  calculationMode: IngredientCalculationMode;
   preparation?: string | null;
   notes?: string | null;
 }

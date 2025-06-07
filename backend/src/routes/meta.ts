@@ -3,16 +3,6 @@ import { PrismaClient } from "@prisma/client";
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// Get all RecipeParameters (formerly RecipeFields)
-router.get("/recipe-fields", async (_req, res) => {
-  // CHANGED: Use the new 'recipeParameter' model name
-  const recipeParameters = await prisma.recipeParameter.findMany({
-    orderBy: { order: "asc" },
-  });
-  // The frontend might expect the key 'fields', so we can keep the response shape
-  res.json({ fields: recipeParameters });
-});
-
 // Step templates (with fields/groups)
 router.get("/step-templates", async (_req, res) => {
   const templates = await prisma.stepTemplate.findMany({

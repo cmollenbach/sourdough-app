@@ -1,7 +1,7 @@
 // RecipeControls.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRecipeBuilderStore } from '../../store/recipeBuilderStore';
-import type { FullRecipe, Recipe, RecipeFieldValue, RecipeStep, RecipeStepField, RecipeStepIngredient } from '../../types/recipe';
+import type { FullRecipe, RecipeFieldValue, RecipeStep, RecipeStepField, RecipeStepIngredient, IngredientCalculationMode } from '../../types/recipe';
 import { apiGet } from '../../utils/api'; // Import your actual apiGet function
 
 // Define RecipeStub based on the Recipe type for the dropdown
@@ -21,7 +21,10 @@ async function fetchFullRecipe(id: number): Promise<FullRecipe | null> {
 interface BackendRecipePayload {
   name: string;
   notes?: string | null;
-  parameterValues: { parameterId: number, value: string | number | boolean | null }[]; // Corresponds to FullRecipe['fieldValues'] (fieldId -> parameterId)
+  totalWeight?: number | null;
+  hydrationPct?: number | null;
+  saltPct?: number | null;
+  parameterValues: { parameterId: number, value: string | number | boolean | null }[]; // For any *other* dynamic parameters
   steps?: {
     id?: number; // For existing steps during an update
     stepTemplateId: number;
@@ -32,8 +35,9 @@ interface BackendRecipePayload {
     ingredients?: {
       id?: number;
       ingredientId: number;
-      percentage: number;
-      ingredientCategoryId: number; // Frontend has this, backend POST might not use it
+      amount: number; // Changed from percentage
+      calculationMode: IngredientCalculationMode; // Added
+      ingredientCategoryId?: number; // Frontend has this, backend POST might not use it
       preparation?: string | null;
       notes?: string | null;
     }[]; // Corresponds to RecipeStep['ingredients']
@@ -47,7 +51,10 @@ async function apiSaveRecipe(payload: BackendRecipePayload): Promise<FullRecipe>
     id: newId,
     name: payload.name,
     notes: payload.notes ?? undefined,
-    fieldValues: payload.parameterValues.map(pv => ({ fieldId: pv.parameterId, value: String(pv.value) } as RecipeFieldValue)), // Ensure value is string
+  totalWeight: payload.totalWeight,
+  hydrationPct: payload.hydrationPct,
+  saltPct: payload.saltPct,
+  fieldValues: payload.parameterValues.map(pv => ({ fieldId: pv.parameterId, value: String(pv.value) } as RecipeFieldValue)),
     steps: payload.steps?.map((s, idx) => ({
       id: idx + 1000, // Simulate new step IDs
       recipeId: newId,
@@ -56,7 +63,12 @@ async function apiSaveRecipe(payload: BackendRecipePayload): Promise<FullRecipe>
       notes: s.notes,
       description: s.description,
       fields: s.parameterValues?.map(spv => ({ id: idx + 2000, recipeStepId: idx + 1000, fieldId: spv.parameterId, value: spv.value, notes: spv.notes } as RecipeStepField)) || [],
-      ingredients: s.ingredients?.map(ing => ({ ...ing, id: idx + 3000, recipeStepId: idx + 1000 } as RecipeStepIngredient)) || []
+      ingredients: s.ingredients?.map(ing => ({
+        ...ing, // This would include amount and calculationMode if payload was correct
+        id: idx + 3000, // Simulate new ID
+        recipeStepId: idx + 1000, // Simulate new recipeStepId
+        // Ensure amount and calculationMode are present for the type cast
+      } as RecipeStepIngredient)) || []
     } as RecipeStep)) || []
   };
 }
@@ -67,7 +79,10 @@ async function apiUpdateRecipe(id: number, payload: BackendRecipePayload): Promi
     id,
     name: payload.name,
     notes: payload.notes ?? undefined,
-    fieldValues: payload.parameterValues.map(pv => ({ fieldId: pv.parameterId, value: String(pv.value) } as RecipeFieldValue)),
+  totalWeight: payload.totalWeight,
+  hydrationPct: payload.hydrationPct,
+  saltPct: payload.saltPct,
+  fieldValues: payload.parameterValues.map(pv => ({ fieldId: pv.parameterId, value: String(pv.value) } as RecipeFieldValue)),
     steps: payload.steps?.map((s, idx) => ({
       id: s.id || idx + 1000,
       recipeId: id,
@@ -76,7 +91,11 @@ async function apiUpdateRecipe(id: number, payload: BackendRecipePayload): Promi
       notes: s.notes,
       description: s.description,
       fields: s.parameterValues?.map(spv => ({ id: spv.id || idx + 2000, recipeStepId: s.id || idx + 1000, fieldId: spv.parameterId, value: spv.value, notes: spv.notes } as RecipeStepField)) || [],
-      ingredients: s.ingredients?.map(ing => ({ ...ing, id: ing.id || idx + 3000, recipeStepId: s.id || idx + 1000 } as RecipeStepIngredient)) || []
+      ingredients: s.ingredients?.map(ing => ({
+        ...ing, // This would include amount and calculationMode if payload was correct
+        id: ing.id || idx + 3000,
+        recipeStepId: s.id || idx + 1000,
+      } as RecipeStepIngredient)) || []
     } as RecipeStep)) || []
   };
 }
@@ -88,6 +107,7 @@ const SIMPLE_BASE_RECIPE_ID = 1;
 export default function RecipeControls() {
   const currentRecipe = useRecipeBuilderStore(state => state.recipe);
   const setRecipe = useRecipeBuilderStore(state => state.setRecipe);
+  const fieldsMeta = useRecipeBuilderStore(state => state.fieldsMeta); // Access fieldsMeta from the store
 
   const [recipeList, setRecipeList] = useState<RecipeStub[]>([]);
   const [selectedRecipeId, setSelectedRecipeId] = useState<string>('');
@@ -173,7 +193,16 @@ export default function RecipeControls() {
     return {
       name: recipe.name,
       notes: recipe.notes,
-      parameterValues: recipe.fieldValues.map(fv => ({ parameterId: fv.fieldId, value: fv.value })),
+    totalWeight: recipe.totalWeight,
+    hydrationPct: recipe.hydrationPct,
+    saltPct: recipe.saltPct,
+    parameterValues: recipe.fieldValues
+      .filter(fv => {
+        const meta = fieldsMeta.find(fm => fm.id === fv.fieldId);
+        // Send only *other* dynamic params that are not direct fields
+        return meta ? !['name', 'notes', 'totalWeight', 'hydrationPct', 'saltPct'].includes(meta.name) : false;
+      })
+      .map(fv => ({ parameterId: fv.fieldId, value: fv.value })),
       steps: recipe.steps.map(step => ({
         id: step.id === 0 ? undefined : step.id, // Send step ID if it exists and is not 0
         stepTemplateId: step.stepTemplateId,
@@ -189,8 +218,9 @@ export default function RecipeControls() {
         ingredients: step.ingredients.map(ing => ({
           id: ing.id === 0 ? undefined : ing.id,
           ingredientId: ing.ingredientId,
-          percentage: ing.percentage,
-          ingredientCategoryId: ing.ingredientCategoryId,
+          amount: ing.amount, // Use amount
+          calculationMode: ing.calculationMode, // Use calculationMode
+          ingredientCategoryId: ing.ingredientCategoryId, // Keep if backend uses it, otherwise optional
           preparation: ing.preparation,
           notes: ing.notes,
         })),
@@ -263,6 +293,10 @@ export default function RecipeControls() {
           ...baseRecipe,
           id: 0,
           name: newName,
+      notes: baseRecipe.notes, // Copy notes directly
+      totalWeight: baseRecipe.totalWeight,
+      hydrationPct: baseRecipe.hydrationPct,
+      saltPct: baseRecipe.saltPct,
           steps: baseRecipe.steps.map((step, stepIdx) => ({
             ...step,
             id: 0,
@@ -271,7 +305,11 @@ export default function RecipeControls() {
             fields: step.fields.map(f => ({ ...f, id: 0, recipeStepId: 0 } as RecipeStepField)),
             ingredients: step.ingredients.map(i => ({ ...i, id: 0, recipeStepId: 0 } as RecipeStepIngredient)),
           } as RecipeStep)),
-          fieldValues: baseRecipe.fieldValues.map(fv => ({ ...fv } as RecipeFieldValue)),
+      fieldValues: baseRecipe.fieldValues
+        .filter(fv => {
+          const meta = fieldsMeta.find(fm => fm.id === fv.fieldId);
+          return meta ? !['name', 'notes'].includes(meta.name) : false; // Copy only *other* dynamic params
+        }).map(fv => ({ ...fv } as RecipeFieldValue)),
         };
         setRecipe(newRecipe);
       } else {
@@ -304,7 +342,7 @@ export default function RecipeControls() {
           value={selectedRecipeId}
           onChange={handleRecipeSelect}
           disabled={isLoading}
-          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
         >
           <option value="">-- Select a Recipe --</option>
           {groupedRecipes.userRecipes.length > 0 && (
@@ -335,25 +373,25 @@ export default function RecipeControls() {
         </select>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <button
           onClick={handleSave}
           disabled={!canSave}
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400"
+          className="px-4 py-2 flex-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-60 disabled:cursor-not-allowed text-center"
         >
           Save New Recipe
         </button>
         <button
           onClick={handleUpdate}
           disabled={!canUpdate}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
+          className="px-4 py-2 flex-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-60 disabled:cursor-not-allowed text-center"
         >
           Update Current Recipe
         </button>
         <button
           onClick={handleNew}
           disabled={isLoading}
-          className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:bg-gray-400"
+          className="px-4 py-2 flex-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-60 disabled:cursor-not-allowed text-center"
         >
           New from Base
         </button>

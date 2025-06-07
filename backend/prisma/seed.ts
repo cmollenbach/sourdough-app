@@ -1,5 +1,11 @@
 // prisma/seed.ts
-import { PrismaClient } from '@prisma/client';
+import {
+  PrismaClient,
+  UserRole,
+  ParameterDataType,
+  IngredientCalculationMode,
+  // StepExecutionStatus, // Not used in seed, but good to have if needed
+} from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -8,7 +14,6 @@ async function main() {
 
   // --- 1. CLEANUP ---
   console.log('Cleaning up existing data...');
-  await prisma.recipeParameterValue.deleteMany({});
   await prisma.recipeStepParameterValue.deleteMany({});
   await prisma.recipeStepIngredient.deleteMany({});
   await prisma.recipeStep.deleteMany({});
@@ -16,11 +21,9 @@ async function main() {
   await prisma.stepTemplateParameter.deleteMany({});
   await prisma.stepTemplateIngredientRule.deleteMany({});
   await prisma.stepTemplate.deleteMany({});
-  await prisma.ingredient.deleteMany({});
-  await prisma.ingredientCategory.deleteMany({});
   await prisma.stepType.deleteMany({});
   await prisma.stepParameter.deleteMany({});
-  await prisma.recipeParameter.deleteMany({});
+  await prisma.user.deleteMany({ where: { email: 'system@sourdough.app' } });
   console.log('Cleanup complete.');
 
   // --- 2. SEED SYSTEM DATA ---
@@ -29,7 +32,7 @@ async function main() {
     update: {},
     create: {
       email: 'system@sourdough.app',
-      role: 'SYSTEM',
+      role: UserRole.ADMIN, // Using UserRole enum
       emailVerified: true,
       isActive: true,
       notes: 'System user for predefined recipes and system data.',
@@ -37,327 +40,267 @@ async function main() {
   });
   console.log(`Upserted system user: ${systemUser.email}`);
 
-  // Ingredient Categories
+  // --- Ingredient Categories ---
   console.log('Seeding Ingredient Categories...');
-  const flourCategory = await prisma.ingredientCategory.upsert({ where: { name: 'Flour' }, update: {}, create: { name: 'Flour', order: 1 }});
-  const liquidCategory = await prisma.ingredientCategory.upsert({ where: { name: 'Liquid' }, update: {}, create: { name: 'Liquid', order: 2 }});
-  const saltCategory = await prisma.ingredientCategory.upsert({ where: { name: 'Salt' }, update: {}, create: { name: 'Salt', order: 3 }});
-  const prefermentCategory = await prisma.ingredientCategory.upsert({ where: { name: 'Preferment/Starter' }, update: {}, create: { name: 'Preferment/Starter', order: 4 }});
-  const inclusionsCategory = await prisma.ingredientCategory.upsert({ where: { name: 'Inclusions' }, update: {}, create: { name: 'Inclusions', order: 5 }});
-  const enrichmentsCategory = await prisma.ingredientCategory.upsert({ where: { name: 'Enrichments' }, update: {}, create: { name: 'Enrichments', order: 6 }});
+  const flourCategory = await prisma.ingredientCategory.upsert({ where: { name: 'Flour' }, update: {}, create: { name: 'Flour', order: 1 } });
+  const liquidCategory = await prisma.ingredientCategory.upsert({ where: { name: 'Liquid' }, update: {}, create: { name: 'Liquid', order: 2 } });
+  const saltCategory = await prisma.ingredientCategory.upsert({ where: { name: 'Salt' }, update: {}, create: { name: 'Salt', order: 3 } });
+  const prefermentCategory = await prisma.ingredientCategory.upsert({ where: { name: 'Preferment' }, update: {}, create: { name: 'Preferment', order: 4, description: 'Sourdough starter, levain, or other preferments.' } });
+  const inclusionsCategory = await prisma.ingredientCategory.upsert({ where: { name: 'Inclusions' }, update: {}, create: { name: 'Inclusions', order: 5, description: 'Fruits, nuts, seeds, cheese, etc.' } });
+  const enrichmentsCategory = await prisma.ingredientCategory.upsert({ where: { name: 'Enrichments' }, update: {}, create: { name: 'Enrichments', order: 6, description: 'Fats, sugars, and dairy.' } });
 
-  // Ingredients
+  // --- Ingredients ---
   console.log('Seeding Ingredients...');
-  const apFlour = await prisma.ingredient.upsert({ where: { name: 'All-Purpose Flour' }, update: {}, create: { name: 'All-Purpose Flour', ingredientCategoryId: flourCategory.id }});
-  const breadFlour = await prisma.ingredient.upsert({ where: { name: 'Bread Flour' }, update: {}, create: { name: 'Bread Flour', ingredientCategoryId: flourCategory.id }});
-  const wholeWheatFlour = await prisma.ingredient.upsert({ where: { name: 'Whole Wheat Flour' }, update: {}, create: { name: 'Whole Wheat Flour', ingredientCategoryId: flourCategory.id }});
-  const ryeFlour = await prisma.ingredient.upsert({ where: { name: 'Rye Flour' }, update: {}, create: { name: 'Rye Flour', ingredientCategoryId: flourCategory.id, advanced: true }});
-  const speltFlour = await prisma.ingredient.upsert({ where: { name: 'Spelt Flour' }, update: {}, create: { name: 'Spelt Flour', ingredientCategoryId: flourCategory.id, advanced: true }});
-  const water = await prisma.ingredient.upsert({ where: { name: 'Water' }, update: {}, create: { name: 'Water', ingredientCategoryId: liquidCategory.id }});
-  const salt = await prisma.ingredient.upsert({ where: { name: 'Salt' }, update: {}, create: { name: 'Salt', ingredientCategoryId: saltCategory.id }});
-  const levain = await prisma.ingredient.upsert({ where: { name: 'Active Sourdough Starter' }, update: {}, create: { name: 'Active Sourdough Starter', ingredientCategoryId: prefermentCategory.id }});
-  const oliveOil = await prisma.ingredient.upsert({ where: { name: 'Olive Oil' }, update: {}, create: { name: 'Olive Oil', ingredientCategoryId: enrichmentsCategory.id, advanced: true }});
-  const rolledOats = await prisma.ingredient.upsert({ where: { name: 'Rolled Oats' }, update: {}, create: { name: 'Rolled Oats', ingredientCategoryId: inclusionsCategory.id, advanced: true }});
-  const cheddarCheese = await prisma.ingredient.upsert({ where: { name: 'Cheddar Cheese' }, update: {}, create: { name: 'Cheddar Cheese', ingredientCategoryId: inclusionsCategory.id, advanced: true }});
-  const jalapenos = await prisma.ingredient.upsert({ where: { name: 'Pickled Jalapeños' }, update: {}, create: { name: 'Pickled Jalapeños', ingredientCategoryId: inclusionsCategory.id, advanced: true }});
+  // Non-Advanced
+  const breadFlour = await prisma.ingredient.upsert({ where: { name: 'Bread Flour' }, update: {}, create: { name: 'Bread Flour', ingredientCategoryId: flourCategory.id, order: 1 } });
+  const wholeWheatFlour = await prisma.ingredient.upsert({ where: { name: 'Whole Wheat Flour' }, update: {}, create: { name: 'Whole Wheat Flour', ingredientCategoryId: flourCategory.id, order: 2 } });
+  const water = await prisma.ingredient.upsert({ where: { name: 'Water' }, update: {}, create: { name: 'Water', ingredientCategoryId: liquidCategory.id, order: 1 } });
+  const salt = await prisma.ingredient.upsert({ where: { name: 'Fine Sea Salt' }, update: {}, create: { name: 'Fine Sea Salt', ingredientCategoryId: saltCategory.id, order: 1 } });
+  const starter = await prisma.ingredient.upsert({ where: { name: 'Sourdough Starter' }, update: {}, create: { name: 'Sourdough Starter', ingredientCategoryId: prefermentCategory.id, order: 1 } });
+  // Advanced
+  const ryeFlour = await prisma.ingredient.upsert({ where: { name: 'Rye Flour' }, update: {}, create: { name: 'Rye Flour', ingredientCategoryId: flourCategory.id, advanced: true, order: 3 } });
+  const speltFlour = await prisma.ingredient.upsert({ where: { name: 'Spelt Flour' }, update: {}, create: { name: 'Spelt Flour', ingredientCategoryId: flourCategory.id, advanced: true, order: 4 } });
+  const oliveOil = await prisma.ingredient.upsert({ where: { name: 'Olive Oil' }, update: {}, create: { name: 'Olive Oil', ingredientCategoryId: enrichmentsCategory.id, advanced: true, order: 1 } });
+  const honey = await prisma.ingredient.upsert({ where: { name: 'Honey' }, update: {}, create: { name: 'Honey', ingredientCategoryId: enrichmentsCategory.id, advanced: true, order: 2 } });
+  const milk = await prisma.ingredient.upsert({ where: { name: 'Milk' }, update: {}, create: { name: 'Milk', ingredientCategoryId: enrichmentsCategory.id, advanced: true, order: 3 } });
+  const butter = await prisma.ingredient.upsert({ where: { name: 'Butter' }, update: {}, create: { name: 'Butter', ingredientCategoryId: enrichmentsCategory.id, advanced: true, order: 4 } });
+  const egg = await prisma.ingredient.upsert({ where: { name: 'Egg' }, update: {}, create: { name: 'Egg', ingredientCategoryId: enrichmentsCategory.id, advanced: true, order: 5 } });
 
-  // Step Types
+
+  // --- Step Types (for grouping templates) ---
   console.log('Seeding Step Types...');
-  const prepType = await prisma.stepType.upsert({ where: { name: 'Preparation' }, update: {}, create: { name: 'Preparation' }});
-  const mixType = await prisma.stepType.upsert({ where: { name: 'Mixing' }, update: {}, create: { name: 'Mixing' }});
-  const fermentType = await prisma.stepType.upsert({ where: { name: 'Fermentation' }, update: {}, create: { name: 'Fermentation' }});
-  const shapeType = await prisma.stepType.upsert({ where: { name: 'Shaping' }, update: {}, create: { name: 'Shaping' }});
-  const proofType = await prisma.stepType.upsert({ where: { name: 'Proofing' }, update: {}, create: { name: 'Proofing' }});
-  const bakeType = await prisma.stepType.upsert({ where: { name: 'Baking' }, update: {}, create: { name: 'Baking' }});
-  const coolType = await prisma.stepType.upsert({ where: { name: 'Cooling' }, update: {}, create: { name: 'Cooling' }});
+  const prepType = await prisma.stepType.upsert({ where: { name: 'Preparation' }, update: {}, create: { name: 'Preparation', description: 'Steps taken before mixing the main dough.', order: 1 } });
+  const mixType = await prisma.stepType.upsert({ where: { name: 'Mixing' }, update: {}, create: { name: 'Mixing', description: 'Combining ingredients to form the dough.', order: 2 } });
+  const bulkType = await prisma.stepType.upsert({ where: { name: 'Bulk Fermentation' }, update: {}, create: { name: 'Bulk Fermentation', description: 'The first rise of the dough, where strength and flavor develop.', order: 3 } });
+  const shapeProofType = await prisma.stepType.upsert({ where: { name: 'Shaping & Proofing' }, update: {}, create: { name: 'Shaping & Proofing', description: 'Forming the loaf and the final rise.', order: 4 } });
+  const bakeType = await prisma.stepType.upsert({ where: { name: 'Baking' }, update: {}, create: { name: 'Baking', description: 'Baking the loaf.', order: 5 } });
 
-  // Step Parameters
+  // --- Step Parameters (the "Fields" for steps) ---
   console.log('Seeding Step Parameters...');
-  const durationParam = await prisma.stepParameter.upsert({ where: { name: 'Duration (minutes)' }, update: {}, create: { name: 'Duration (minutes)', type: 'integer' }});
-  const tempParam = await prisma.stepParameter.upsert({ where: { name: 'Temperature (°C)' }, update: {}, create: { name: 'Temperature (°C)', type: 'integer' }});
-  const numFoldsParam = await prisma.stepParameter.upsert({ where: { name: 'Number of Folds' }, update: {}, create: { name: 'Number of Folds', type: 'integer' }});
-  const foldTypeParam = await prisma.stepParameter.upsert({ where: { name: 'Fold Type' }, update: {}, create: { name: 'Fold Type', type: 'text', advanced: true }});
-  const prefermentPctParam = await prisma.stepParameter.upsert({ where: { name: 'Preferment % of Total Flour' }, update: {}, create: { name: 'Preferment % of Total Flour', type: 'float', advanced: true }});
-  const prefermentHydrationParam = await prisma.stepParameter.upsert({ where: { name: 'Preferment Hydration (%)' }, update: {}, create: { name: 'Preferment Hydration (%)', type: 'float', advanced: true }});
+  const durationParam = await prisma.stepParameter.upsert({ where: { name: 'Duration (minutes)' }, update: {}, create: { name: 'Duration (minutes)', type: ParameterDataType.NUMBER, helpText: 'How long this step should last.', defaultValue: '60' } });
+  const tempParam = await prisma.stepParameter.upsert({ where: { name: 'Temperature (°C)' }, update: {}, create: { name: 'Temperature (°C)', type: ParameterDataType.NUMBER, helpText: 'Target temperature for the dough or environment.', defaultValue: '24' } });
+  const numFoldsParam = await prisma.stepParameter.upsert({ where: { name: 'Number of Folds' }, update: {}, create: { name: 'Number of Folds', type: ParameterDataType.NUMBER, advanced: true, helpText: 'How many sets of folds to perform.', defaultValue: '4' } });
 
-  // Step Templates
+  // --- Recipe Parameters (the "Fields" for recipes) ---
+  // RecipeParameter table has been removed from the schema. No parameters to seed here.
+
+  // --- Step Templates ---
   console.log('Seeding Step Templates...');
-  const feedStarterTemplate = await prisma.stepTemplate.upsert({ where: { name: 'Feed Starter (Build Levain)' }, update: {}, create: { name: 'Feed Starter (Build Levain)', stepTypeId: prepType.id, order: 1, parameters: { create: [{ parameterId: prefermentPctParam.id }, { parameterId: prefermentHydrationParam.id }]}}});
-  const autolyseTemplate = await prisma.stepTemplate.upsert({ where: { name: 'Autolyse' }, update: {}, create: { name: 'Autolyse', stepTypeId: prepType.id, advanced: true, order: 2, parameters: { create: [{ parameterId: durationParam.id }]}}});
-  const mixTemplate = await prisma.stepTemplate.upsert({ where: { name: 'Mix' }, update: {}, create: { name: 'Mix', stepTypeId: mixType.id, order: 3 }});
-  const stretchFoldTemplate = await prisma.stepTemplate.upsert({ where: { name: 'Stretch and Fold' }, update: {}, create: { name: 'Stretch and Fold', stepTypeId: fermentType.id, order: 4, parameters: { create: [{ parameterId: numFoldsParam.id }]}}});
-  const bulkFermentTemplate = await prisma.stepTemplate.upsert({ where: { name: 'Bulk Ferment' }, update: {}, create: { name: 'Bulk Ferment', stepTypeId: fermentType.id, order: 5, parameters: { create: [{ parameterId: durationParam.id }]}}});
-  const shapeTemplate = await prisma.stepTemplate.upsert({ where: { name: 'Shape' }, update: {}, create: { name: 'Shape', stepTypeId: shapeType.id, order: 6 }});
-  const finalProofTemplate = await prisma.stepTemplate.upsert({ where: { name: 'Final Proof' }, update: {}, create: { name: 'Final Proof', stepTypeId: proofType.id, order: 7, parameters: { create: [{ parameterId: durationParam.id }, { parameterId: tempParam.id }]}}});
-  const bakeTemplate = await prisma.stepTemplate.upsert({ where: { name: 'Bake' }, update: {}, create: { name: 'Bake', stepTypeId: bakeType.id, order: 8, parameters: { create: [{ parameterId: durationParam.id }, { parameterId: tempParam.id }]}}});
-  const coolTemplate = await prisma.stepTemplate.upsert({ where: { name: 'Cool' }, update: {}, create: { name: 'Cool', stepTypeId: coolType.id, order: 9, parameters: { create: [{ parameterId: durationParam.id }]}}});
-  const cookPorridgeTemplate = await prisma.stepTemplate.upsert({ where: { name: 'Cook Porridge' }, update: {}, create: { name: 'Cook Porridge', stepTypeId: prepType.id, advanced: true, order: 10 }});
-  const laminationTemplate = await prisma.stepTemplate.upsert({ where: { name: 'Lamination' }, update: {}, create: { name: 'Lamination', stepTypeId: fermentType.id, advanced: true, order: 11 }});
-  const coilFoldTemplate = await prisma.stepTemplate.upsert({ where: { name: 'Coil Folds' }, update: {}, create: { name: 'Coil Folds', stepTypeId: fermentType.id, advanced: true, order: 12, parameters: { create: [{ parameterId: numFoldsParam.id }, { parameterId: foldTypeParam.id }]}}});
-  
-  // Recipe Parameters Metadata
-  const recipeParameters = [
-    { name: 'name', label: 'Recipe Name', type: 'string', order: 1, visible: true, required: true },
-    { name: 'description', label: 'Description', type: 'text', order: 2, visible: true },
-    { name: 'totalWeight', label: 'Total Dough Weight (g)', type: 'number', order: 3, visible: true, required: true },
-    { name: 'hydrationPct', label: 'Hydration (%)', type: 'number', order: 4, visible: true, required: true },
-    { name: 'saltPct', label: 'Salt (%)', type: 'number', order: 5, visible: true, required: true },
-    { name: 'notes', label: 'Notes', type: 'text', order: 6, visible: true }
-  ];
-  for (const param of recipeParameters) {
-    await prisma.recipeParameter.upsert({ where: { name: param.name }, update: {}, create: param });
-  }
-  const recipeParamMap = (await prisma.recipeParameter.findMany()).reduce((acc, param) => {
-    acc[param.name] = param.id;
-    return acc;
-  }, {} as Record<string, number>);
-  console.log("Seeded recipe parameters metadata.");
+  // Non-Advanced Templates
+  const prefermentTemplate = await prisma.stepTemplate.upsert({
+    where: { name: 'Preferment' }, update: {}, create: {
+      name: 'Preferment', stepTypeId: prepType.id, order: 1, description: 'Build the levain or starter.',
+      ingredientRules: { create: [{ ingredientCategoryId: prefermentCategory.id, required: true }] }
+    }
+  });
+  const mixTemplate = await prisma.stepTemplate.upsert({
+    where: { name: 'Final Mix' }, update: {}, create: {
+      name: 'Final Mix', stepTypeId: mixType.id, order: 2, description: 'Combine all ingredients for the final dough.',
+      ingredientRules: { create: [{ ingredientCategoryId: flourCategory.id, required: true }, { ingredientCategoryId: liquidCategory.id, required: true }, { ingredientCategoryId: saltCategory.id, required: true }] }
+    }
+  });
+  const bulkFermentTemplate = await prisma.stepTemplate.upsert({
+    where: { name: 'Bulk Ferment' }, update: {}, create: {
+      name: 'Bulk Ferment', stepTypeId: bulkType.id, order: 3, description: 'The first rise.',
+      parameters: { create: [{ parameterId: durationParam.id }, { parameterId: tempParam.id }] }
+    }
+  });
+  const shapeTemplate = await prisma.stepTemplate.upsert({ where: { name: 'Shape' }, update: {}, create: { name: 'Shape', stepTypeId: shapeProofType.id, order: 4, description: 'Shape the dough into its final form.' } });
+  const proofTemplate = await prisma.stepTemplate.upsert({
+    where: { name: 'Final Proof' }, update: {}, create: {
+      name: 'Final Proof', stepTypeId: shapeProofType.id, order: 5, description: 'The final rise before baking.',
+      parameters: { create: [{ parameterId: durationParam.id }, { parameterId: tempParam.id }] }
+    }
+  });
+  const bakeTemplate = await prisma.stepTemplate.upsert({
+    where: { name: 'Bake' }, update: {}, create: {
+      name: 'Bake', stepTypeId: bakeType.id, order: 6, description: 'Bake the loaf.',
+      parameters: { create: [{ parameterId: durationParam.id }, { parameterId: tempParam.id }] }
+    }
+  });
+
+  // Advanced Templates
+  const autolyseTemplate = await prisma.stepTemplate.upsert({
+    where: { name: 'Autolyse' }, update: {}, create: {
+      name: 'Autolyse', stepTypeId: prepType.id, order: 7, advanced: true, description: 'Resting flour and water before adding salt and starter.',
+      parameters: { create: [{ parameterId: durationParam.id }] },
+      ingredientRules: { create: [{ ingredientCategoryId: flourCategory.id, required: true }, { ingredientCategoryId: liquidCategory.id, required: true }] }
+    }
+  });
+  const stretchFoldTemplate = await prisma.stepTemplate.upsert({
+    where: { name: 'Stretch & Fold' }, update: {}, create: {
+      name: 'Stretch & Fold', stepTypeId: bulkType.id, order: 8, advanced: true, description: 'A gentle method of developing gluten.',
+      parameters: { create: [{ parameterId: numFoldsParam.id }] }
+    }
+  });
+  const laminationTemplate = await prisma.stepTemplate.upsert({
+    where: { name: 'Lamination' }, update: {}, create: {
+      name: 'Lamination', stepTypeId: bulkType.id, order: 9, advanced: true, description: 'Stretch the dough thin to incorporate additions.',
+      ingredientRules: { create: [{ ingredientCategoryId: inclusionsCategory.id }] }
+    }
+  });
+  const enrichTemplate = await prisma.stepTemplate.upsert({
+    where: { name: 'Add Enrichments' }, update: {}, create: {
+      name: 'Add Enrichments', stepTypeId: mixType.id, order: 10, advanced: true, description: 'Incorporate fats, sugars, or dairy.',
+      ingredientRules: { create: [{ ingredientCategoryId: enrichmentsCategory.id }] }
+    }
+  });
+  const restTemplate = await prisma.stepTemplate.upsert({ // Added Rest Template
+    where: { name: 'Rest' }, update: {}, create: {
+      name: 'Rest', stepTypeId: bakeType.id, order: 11, description: 'Resting the loaf after baking to allow the crumb to set.',
+      parameters: { create: [{ parameterId: durationParam.id }] }
+    }
+  });
 
   // --- 3. SEED RECIPE TEMPLATES ---
   console.log("Seeding Recipe Templates...");
 
-  // --- Add ingredient rules to step templates ---
-  await prisma.stepTemplate.update({
-    where: { id: feedStarterTemplate.id },
+  // 1. Base Template
+  const baseRecipe = await prisma.recipe.create({
     data: {
-      ingredientRules: {
+      name: 'Base Template',
+      notes: 'The simplest starting point for any recipe.',
+      ownerId: systemUser.id, isPredefined: true, totalWeight: 1000, hydrationPct: 70, saltPct: 2,
+      steps: { create: [{ stepTemplateId: prefermentTemplate.id, order: 1 }, { stepTemplateId: mixTemplate.id, order: 2 }] }
+    }
+  });
+  console.log(`Created: ${baseRecipe.id} - Base Template`);
+
+  // --- Basic Recipes ---
+  const firstLoaf = await prisma.recipe.create({
+    data: {
+      name: "My First Sourdough Loaf",
+      notes: "A simple, reliable recipe for beginners based on the 1-2-3 method.",
+      ownerId: systemUser.id, isPredefined: true, totalWeight: 909, hydrationPct: 67, saltPct: 2,
+      steps: {
         create: [
-          { ingredientCategoryId: flourCategory.id },
-          { ingredientCategoryId: liquidCategory.id },
-          { ingredientCategoryId: prefermentCategory.id },
+          { stepTemplateId: prefermentTemplate.id, order: 1, ingredients: { create: [{ ingredientId: starter.id, amount: 15, calculationMode: IngredientCalculationMode.PERCENTAGE }] } },
+          { stepTemplateId: mixTemplate.id, order: 2, ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: water.id, amount: 67, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: salt.id, amount: 2, calculationMode: IngredientCalculationMode.PERCENTAGE }] } },
+          { stepTemplateId: bulkFermentTemplate.id, order: 3, parameterValues: { create: [{ parameterId: durationParam.id, value: 240 }, { parameterId: tempParam.id, value: 24 }] } },
+          { stepTemplateId: shapeTemplate.id, order: 4 },
+          { stepTemplateId: proofTemplate.id, order: 5, parameterValues: { create: [{ parameterId: durationParam.id, value: 720 }, { parameterId: tempParam.id, value: 4 }] } },
+          { stepTemplateId: bakeTemplate.id, order: 6, parameterValues: { create: [{ parameterId: durationParam.id, value: 45 }, { parameterId: tempParam.id, value: 230 }] } },
         ]
       }
     }
   });
-  await prisma.stepTemplate.update({
-    where: { id: autolyseTemplate.id },
+  console.log(`Created: ${firstLoaf.id} - My First Sourdough Loaf`);
+
+  const basicWholeWheat = await prisma.recipe.create({
     data: {
-      ingredientRules: {
+      name: "Simple Whole Wheat",
+      notes: "A slightly heartier loaf with the nutty flavor of whole wheat.",
+      ownerId: systemUser.id, isPredefined: true, totalWeight: 1020, hydrationPct: 72, saltPct: 2,
+      steps: {
         create: [
-          { ingredientCategoryId: flourCategory.id },
-          { ingredientCategoryId: liquidCategory.id },
+          { stepTemplateId: prefermentTemplate.id, order: 1, ingredients: { create: [{ ingredientId: starter.id, amount: 20, calculationMode: IngredientCalculationMode.PERCENTAGE }] } },
+          {
+            stepTemplateId: mixTemplate.id, order: 2, ingredients: {
+              create: [{ ingredientId: breadFlour.id, amount: 70, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: wholeWheatFlour.id, amount: 30, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: water.id, amount: 72, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: salt.id, amount: 2, calculationMode: IngredientCalculationMode.PERCENTAGE }]
+            }
+          },
+          { stepTemplateId: bulkFermentTemplate.id, order: 3, parameterValues: { create: [{ parameterId: durationParam.id, value: 240 }, { parameterId: tempParam.id, value: 24 }] } },
+          { stepTemplateId: shapeTemplate.id, order: 4 },
+          { stepTemplateId: proofTemplate.id, order: 5, parameterValues: { create: [{ parameterId: durationParam.id, value: 720 }, { parameterId: tempParam.id, value: 4 }] } },
+          { stepTemplateId: bakeTemplate.id, order: 6, parameterValues: { create: [{ parameterId: durationParam.id, value: 45 }, { parameterId: tempParam.id, value: 230 }] } },
         ]
       }
     }
   });
-  await prisma.stepTemplate.update({
-    where: { id: mixTemplate.id },
+  console.log(`Created: ${basicWholeWheat.id} - Simple Whole Wheat`);
+
+  const sameDay = await prisma.recipe.create({
     data: {
-      ingredientRules: {
+      name: "Same-Day Sourdough",
+      notes: "For when you want fresh bread tonight. A higher percentage of levain speeds up the process.",
+      ownerId: systemUser.id, isPredefined: true, totalWeight: 1060, hydrationPct: 70, saltPct: 2,
+      steps: {
         create: [
-          { ingredientCategoryId: flourCategory.id },
-          { ingredientCategoryId: liquidCategory.id },
-          { ingredientCategoryId: saltCategory.id },
-          { ingredientCategoryId: prefermentCategory.id },
-          { ingredientCategoryId: enrichmentsCategory.id },
-          { ingredientCategoryId: inclusionsCategory.id },
+          { stepTemplateId: prefermentTemplate.id, order: 1, ingredients: { create: [{ ingredientId: starter.id, amount: 40, calculationMode: IngredientCalculationMode.PERCENTAGE }] } },
+          { stepTemplateId: mixTemplate.id, order: 2, ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: water.id, amount: 70, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: salt.id, amount: 2, calculationMode: IngredientCalculationMode.PERCENTAGE }] } },
+          { stepTemplateId: bulkFermentTemplate.id, order: 3, parameterValues: { create: [{ parameterId: durationParam.id, value: 180 }, { parameterId: tempParam.id, value: 26 }] } },
+          { stepTemplateId: shapeTemplate.id, order: 4 },
+          { stepTemplateId: proofTemplate.id, order: 5, parameterValues: { create: [{ parameterId: durationParam.id, value: 120 }, { parameterId: tempParam.id, value: 26 }] } },
+          { stepTemplateId: bakeTemplate.id, order: 6, parameterValues: { create: [{ parameterId: durationParam.id, value: 40 }, { parameterId: tempParam.id, value: 240 }] } },
         ]
       }
     }
   });
-  await prisma.stepTemplate.update({
-    where: { id: laminationTemplate.id },
+  console.log(`Created: ${sameDay.id} - Same-Day Sourdough`);
+
+  // --- Advanced Recipes ---
+  const highHydration = await prisma.recipe.create({
     data: {
-      ingredientRules: {
+      name: "High Hydration Challenge",
+      notes: "Mastering wet dough for an open, airy crumb. Requires gentle handling.",
+      ownerId: systemUser.id, isPredefined: true, totalWeight: 1035, hydrationPct: 85, saltPct: 2.2,
+      steps: {
         create: [
-          { ingredientCategoryId: inclusionsCategory.id },
+          { stepTemplateId: prefermentTemplate.id, order: 1, ingredients: { create: [{ ingredientId: starter.id, amount: 20, calculationMode: IngredientCalculationMode.PERCENTAGE }] } },
+          {
+            stepTemplateId: autolyseTemplate.id, order: 2, /* advanced: true, */ parameterValues: { create: [{ parameterId: durationParam.id, value: 60 }] }, // Removed advanced from RecipeStep
+            ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: water.id, amount: 85, calculationMode: IngredientCalculationMode.PERCENTAGE }] }
+          },
+          { stepTemplateId: mixTemplate.id, order: 3, ingredients: { create: [{ ingredientId: salt.id, amount: 2.2, calculationMode: IngredientCalculationMode.PERCENTAGE }] } },
+          { stepTemplateId: stretchFoldTemplate.id, order: 4, /* advanced: true, */ parameterValues: { create: [{ parameterId: numFoldsParam.id, value: 4 }] } }, // Removed advanced from RecipeStep
+          { stepTemplateId: bulkFermentTemplate.id, order: 5, parameterValues: { create: [{ parameterId: durationParam.id, value: 180 }, { parameterId: tempParam.id, value: 26 }] } },
+          { stepTemplateId: shapeTemplate.id, order: 6 },
+          { stepTemplateId: proofTemplate.id, order: 7, parameterValues: { create: [{ parameterId: durationParam.id, value: 720 }, { parameterId: tempParam.id, value: 4 }] } },
+          { stepTemplateId: bakeTemplate.id, order: 8, parameterValues: { create: [{ parameterId: durationParam.id, value: 45 }, { parameterId: tempParam.id, value: 250 }] } },
         ]
       }
     }
   });
-  await prisma.stepTemplate.update({
-    where: { id: cookPorridgeTemplate.id },
+  console.log(`Created: ${highHydration.id} - High Hydration Challenge`);
+
+  const panettone = await prisma.recipe.create({
     data: {
-      ingredientRules: {
+      name: "Sourdough Panettone",
+      notes: "A decadent, highly enriched dough. A true test of a baker's skill.",
+      ownerId: systemUser.id, isPredefined: true, totalWeight: 1200, hydrationPct: 60, saltPct: 1.5,
+      steps: {
         create: [
-          { ingredientCategoryId: inclusionsCategory.id },
-          { ingredientCategoryId: liquidCategory.id },
+          { stepTemplateId: prefermentTemplate.id, order: 1, notes: 'Primo Impasto: Let this first dough ferment for 10-12 hours.', ingredients: { create: [{ ingredientId: starter.id, amount: 20, calculationMode: IngredientCalculationMode.PERCENTAGE }] } },
+          {
+            stepTemplateId: enrichTemplate.id, order: 2, /* advanced: true, */ notes: 'Secondo Impasto: Add final ingredients.', // Removed advanced from RecipeStep
+            ingredients: { create: [
+              { ingredientId: breadFlour.id, amount: 80, calculationMode: IngredientCalculationMode.PERCENTAGE },
+              { ingredientId: water.id, amount: 40, calculationMode: IngredientCalculationMode.PERCENTAGE },
+              { ingredientId: salt.id, amount: 1.5, calculationMode: IngredientCalculationMode.PERCENTAGE },
+              { ingredientId: honey.id, amount: 75, calculationMode: IngredientCalculationMode.FIXED_WEIGHT }, // Example: 75g
+              { ingredientId: butter.id, amount: 150, calculationMode: IngredientCalculationMode.FIXED_WEIGHT }, // Example: 150g
+              { ingredientId: egg.id, amount: 100, calculationMode: IngredientCalculationMode.FIXED_WEIGHT } // Example: 100g (approx 2 large eggs)
+            ] }
+          },
+          { stepTemplateId: laminationTemplate.id, order: 3, /* advanced: true, */ notes: 'Fold in candied fruits and nuts.' }, // Removed advanced from RecipeStep
+          { stepTemplateId: proofTemplate.id, order: 4, parameterValues: { create: [{ parameterId: durationParam.id, value: 480 }, { parameterId: tempParam.id, value: 28 }] } },
+          { stepTemplateId: bakeTemplate.id, order: 5, notes: 'Hang upside down to cool after baking.', parameterValues: { create: [{ parameterId: durationParam.id, value: 50 }, { parameterId: tempParam.id, value: 175 }] } },
         ]
       }
     }
   });
-  // Add more as needed for other templates...
+  console.log(`Created: ${panettone.id} - Sourdough Panettone`);
 
-  // Recipe 1: Simple Base Recipe
-  await prisma.recipe.create({
+  const danishRye = await prisma.recipe.create({
     data: {
-      ownerId: systemUser.id,
-      isPredefined: true,
-      parameterValues: { create: [
-        { parameterId: recipeParamMap.name, value: 'Simple Base Recipe' },
-        { parameterId: recipeParamMap.description, value: 'The most basic starting point. A simple, reliable recipe to build upon.' },
-        { parameterId: recipeParamMap.totalWeight, value: '1000' },
-        { parameterId: recipeParamMap.hydrationPct, value: '72' },
-        { parameterId: recipeParamMap.saltPct, value: '2' },
-      ]},
-      steps: { create: [
-        { stepTemplateId: feedStarterTemplate.id, order: 1, notes: 'Build your levain to be 10% of the total flour weight.',
-          parameterValues: { create: [ { parameterId: prefermentPctParam.id, value: '10' }, { parameterId: prefermentHydrationParam.id, value: '100' } ]},
-          ingredients: { create: [ { ingredientId: breadFlour.id, percentage: 50 }, { ingredientId: wholeWheatFlour.id, percentage: 50 } ]}},
-        { stepTemplateId: mixTemplate.id, order: 2, notes: 'Mix final dough ingredients. The levain will be added automatically.', ingredients: { create: [
-          { ingredientId: breadFlour.id, percentage: 100 }, { ingredientId: water.id, percentage: 72 }, { ingredientId: salt.id, percentage: 2 } ]}},
-      ]}
+      name: "Danish Rye (Rugbrød)",
+      notes: "A dense, hearty, and wholesome loaf, central to Danish cuisine. No kneading required.",
+      ownerId: systemUser.id, isPredefined: true, totalWeight: 1115, hydrationPct: 87.5, saltPct: 3.75,
+      steps: {
+        create: [
+          { stepTemplateId: prefermentTemplate.id, order: 1, ingredients: { create: [{ ingredientId: starter.id, amount: 50, calculationMode: IngredientCalculationMode.PERCENTAGE }] } },
+          {
+            stepTemplateId: mixTemplate.id, order: 2, notes: 'Mix into a thick, sticky paste.',
+            ingredients: { create: [{ ingredientId: ryeFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: water.id, amount: 87.5, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: salt.id, amount: 3.75, calculationMode: IngredientCalculationMode.PERCENTAGE }] }
+          },
+          { stepTemplateId: proofTemplate.id, order: 3, notes: 'Proof in a loaf pan.', parameterValues: { create: [{ parameterId: durationParam.id, value: 240 }, { parameterId: tempParam.id, value: 24 }] } },
+          { stepTemplateId: bakeTemplate.id, order: 4, parameterValues: { create: [{ parameterId: durationParam.id, value: 60 }, { parameterId: tempParam.id, value: 190 }] } },
+          { stepTemplateId: restTemplate.id, order: 5, notes: 'MUST rest for at least 24 hours before slicing.', parameterValues: { create: [{ parameterId: durationParam.id, value: 1440 }] } },
+        ]
+      }
     }
   });
-  console.log('Created: Simple Base Recipe');
-
-  // Recipe 2: Simple Overnight Loaf
-  await prisma.recipe.create({
-    data: {
-      ownerId: systemUser.id,
-      isPredefined: true,
-      parameterValues: { create: [
-        { parameterId: recipeParamMap.name, value: 'Simple Overnight Loaf' },
-        { parameterId: recipeParamMap.description, value: 'A forgiving, no-fuss recipe that relies on time more than technique.' },
-        { parameterId: recipeParamMap.totalWeight, value: '960' },
-        { parameterId: recipeParamMap.hydrationPct, value: '70' },
-        { parameterId: recipeParamMap.saltPct, value: '2' },
-      ]},
-      steps: { create: [
-        { stepTemplateId: feedStarterTemplate.id, order: 1 },
-        { stepTemplateId: mixTemplate.id, order: 2, notes: 'Mix all ingredients in the evening.', ingredients: { create: [
-          { ingredientId: apFlour.id, percentage: 100 }, { ingredientId: water.id, percentage: 70 }, { ingredientId: levain.id, percentage: 20 }, { ingredientId: salt.id, percentage: 2 } ]}},
-        { stepTemplateId: bulkFermentTemplate.id, order: 3, notes: 'Leave covered on the counter for 8-12 hours.', parameterValues: { create: [{ parameterId: durationParam.id, value: '600' }]}},
-        { stepTemplateId: shapeTemplate.id, order: 4, notes: 'In the morning, gently fold into a round ball.' },
-        { stepTemplateId: finalProofTemplate.id, order: 5, notes: 'Rest for 1 hour while oven preheats.', parameterValues: { create: [{ parameterId: durationParam.id, value: '60' }, {parameterId: tempParam.id, value: '22'}]}},
-        { stepTemplateId: bakeTemplate.id, order: 6, notes: 'Bake covered for 25 mins, then uncovered for 20-25 mins.', parameterValues: { create: [{ parameterId: durationParam.id, value: '45' }, {parameterId: tempParam.id, value: '230'}]}},
-      ]}
-    }
-  });
-  console.log('Created: Simple Overnight Loaf');
-
-  // Recipe 3: Classic Country Loaf
-  await prisma.recipe.create({
-    data: {
-      ownerId: systemUser.id,
-      isPredefined: true,
-      parameterValues: { create: [
-        { parameterId: recipeParamMap.name, value: 'Classic Country Loaf' },
-        { parameterId: recipeParamMap.description, value: 'A foundational recipe that teaches the core rhythm of sourdough baking and the "stretch and fold" technique.'},
-        { parameterId: recipeParamMap.totalWeight, value: '1000' },
-        { parameterId: recipeParamMap.hydrationPct, value: '75' },
-        { parameterId: recipeParamMap.saltPct, value: '2' },
-      ]},
-      steps: { create: [
-        { stepTemplateId: feedStarterTemplate.id, order: 1 },
-        { stepTemplateId: autolyseTemplate.id, order: 2, notes: 'Mix flours and water, rest for 60 mins.', parameterValues: { create: [{ parameterId: durationParam.id, value: '60' }]}, ingredients: { create: [ { ingredientId: breadFlour.id, percentage: 90 }, { ingredientId: wholeWheatFlour.id, percentage: 10 }, { ingredientId: water.id, percentage: 75 } ]}},
-        { stepTemplateId: mixTemplate.id, order: 3, notes: 'Add starter and salt, mix to combine.', ingredients: { create: [ { ingredientId: levain.id, percentage: 20 }, { ingredientId: salt.id, percentage: 2 } ]}},
-        { stepTemplateId: stretchFoldTemplate.id, order: 4, notes: 'Perform 4 sets of folds, 30 mins apart.', parameterValues: { create: [{ parameterId: numFoldsParam.id, value: '4' }]}},
-        { stepTemplateId: bulkFermentTemplate.id, order: 5, notes: 'Rest for 2-3 hours after last fold.', parameterValues: { create: [{ parameterId: durationParam.id, value: '150' }]}},
-        { stepTemplateId: shapeTemplate.id, order: 6 },
-        { stepTemplateId: finalProofTemplate.id, order: 7, notes: 'Cover and refrigerate for 12-18 hours.', parameterValues: { create: [{ parameterId: durationParam.id, value: '840' }, {parameterId: tempParam.id, value: '4'}]}},
-        { stepTemplateId: bakeTemplate.id, order: 8, notes: 'Bake from fridge, 20 mins covered, 20-25 mins uncovered.', parameterValues: { create: [{ parameterId: durationParam.id, value: '45' }, {parameterId: tempParam.id, value: '230'}]}},
-      ]}
-    }
-  });
-  console.log('Created: Classic Country Loaf');
-
-  // Recipe 4: Soft Sourdough Sandwich Loaf
-  await prisma.recipe.create({
-    data: {
-      ownerId: systemUser.id,
-      isPredefined: true,
-      parameterValues: { create: [
-        { parameterId: recipeParamMap.name, value: 'Soft Sandwich Loaf' },
-        { parameterId: recipeParamMap.description, value: 'Includes olive oil to produce a softer, more tender crumb perfect for sandwiches.'},
-        { parameterId: recipeParamMap.totalWeight, value: '1050' },
-        { parameterId: recipeParamMap.hydrationPct, value: '65' },
-        { parameterId: recipeParamMap.saltPct, value: '2' },
-      ]},
-      steps: { create: [
-        { stepTemplateId: feedStarterTemplate.id, order: 1 },
-        { stepTemplateId: mixTemplate.id, order: 2, ingredients: { create: [ { ingredientId: breadFlour.id, percentage: 100 }, { ingredientId: water.id, percentage: 65 }, { ingredientId: levain.id, percentage: 30 }, { ingredientId: oliveOil.id, percentage: 5 }, { ingredientId: salt.id, percentage: 2 } ]}},
-        { stepTemplateId: stretchFoldTemplate.id, order: 3, parameterValues: { create: [{ parameterId: numFoldsParam.id, value: '4' }]}},
-        { stepTemplateId: bulkFermentTemplate.id, order: 4, parameterValues: { create: [{ parameterId: durationParam.id, value: '240' }]}},
-        { stepTemplateId: shapeTemplate.id, order: 5 },
-        { stepTemplateId: finalProofTemplate.id, order: 6, notes: 'Cover and refrigerate for 12-18 hours.', parameterValues: { create: [{ parameterId: durationParam.id, value: '840' }, {parameterId: tempParam.id, value: '4'}]}},
-        { stepTemplateId: bakeTemplate.id, order: 7, parameterValues: { create: [{ parameterId: durationParam.id, value: '40' }, {parameterId: tempParam.id, value: '230'}]}},
-      ]}
-    }
-  });
-  console.log('Created: Soft Sourdough Sandwich Loaf');
-
-  // Recipe 5: High-Hydration Challenge
-  await prisma.recipe.create({
-    data: {
-      ownerId: systemUser.id,
-      isPredefined: true,
-      parameterValues: { create: [
-        { parameterId: recipeParamMap.name, value: 'High-Hydration Challenge (85%)' },
-        { parameterId: recipeParamMap.description, value: 'Master handling wet dough for a super open, custardy crumb. Requires gentle hands.'},
-        { parameterId: recipeParamMap.totalWeight, value: '1000' },
-        { parameterId: recipeParamMap.hydrationPct, value: '85' },
-        { parameterId: recipeParamMap.saltPct, value: '2.2' },
-      ]},
-      steps: { create: [
-        { stepTemplateId: feedStarterTemplate.id, order: 1 },
-        { stepTemplateId: autolyseTemplate.id, order: 2, parameterValues: { create: [{ parameterId: durationParam.id, value: '90'}]}, ingredients: { create: [ { ingredientId: breadFlour.id, percentage: 90 }, { ingredientId: ryeFlour.id, percentage: 10 }, { ingredientId: water.id, percentage: 85 } ]}},
-        { stepTemplateId: mixTemplate.id, order: 3, ingredients: { create: [ { ingredientId: levain.id, percentage: 20 }, { ingredientId: salt.id, percentage: 2.2 } ]}},
-        { stepTemplateId: coilFoldTemplate.id, order: 4, notes: 'Use wet hands. Perform 5 gentle coil folds, 30 mins apart.', parameterValues: { create: [{ parameterId: numFoldsParam.id, value: '5' }, { parameterId: foldTypeParam.id, value: 'Coil Fold' }]}},
-        { stepTemplateId: bulkFermentTemplate.id, order: 5, parameterValues: { create: [{ parameterId: durationParam.id, value: '180' }]}},
-        { stepTemplateId: shapeTemplate.id, order: 6, notes: 'Be very gentle. Use a bench scraper and plenty of flour.'},
-        { stepTemplateId: finalProofTemplate.id, order: 7, notes: 'Refrigerate for 12-16 hours.', parameterValues: { create: [{ parameterId: durationParam.id, value: '840' }, {parameterId: tempParam.id, value: '4'}]}},
-        { stepTemplateId: bakeTemplate.id, order: 8, notes: 'Bake extra hot, 20 mins covered, 25 mins uncovered.', parameterValues: { create: [{ parameterId: durationParam.id, value: '45' }, {parameterId: tempParam.id, value: '260'}]}},
-      ]}
-    }
-  });
-  console.log('Created: High-Hydration Challenge (85%)');
-
-  // Recipe 6: Oat Porridge Loaf
-  await prisma.recipe.create({
-    data: {
-      ownerId: systemUser.id,
-      isPredefined: true,
-      parameterValues: { create: [
-        { parameterId: recipeParamMap.name, value: 'Oat Porridge Loaf' },
-        { parameterId: recipeParamMap.description, value: 'Adds a cooked porridge for an incredibly moist, soft crumb and a longer shelf life.'},
-        { parameterId: recipeParamMap.totalWeight, value: '1100' },
-        { parameterId: recipeParamMap.hydrationPct, value: '78' },
-        { parameterId: recipeParamMap.saltPct, value: '2' },
-      ]},
-      steps: { create: [
-        { stepTemplateId: feedStarterTemplate.id, order: 1 },
-        { stepTemplateId: cookPorridgeTemplate.id, order: 2, notes: 'Cook oats with 2x weight in water until absorbed. Cool completely.', ingredients: { create: [ { ingredientId: rolledOats.id, percentage: 20 } ]}},
-        { stepTemplateId: autolyseTemplate.id, order: 3, parameterValues: { create: [{ parameterId: durationParam.id, value: '60' }]}, ingredients: { create: [ { ingredientId: breadFlour.id, percentage: 80 }, { ingredientId: wholeWheatFlour.id, percentage: 20 }, { ingredientId: water.id, percentage: 78 } ]}},
-        { stepTemplateId: mixTemplate.id, order: 4, ingredients: { create: [ { ingredientId: levain.id, percentage: 20 }, { ingredientId: salt.id, percentage: 2 } ]}},
-        { stepTemplateId: laminationTemplate.id, order: 5, notes: 'After 1 hour, laminate the dough and spread the cooled porridge on top before folding.'},
-        { stepTemplateId: coilFoldTemplate.id, order: 6, notes: 'Perform 3 gentle coil folds to incorporate.', parameterValues: { create: [{ parameterId: numFoldsParam.id, value: '3' }, { parameterId: foldTypeParam.id, value: 'Coil Fold' }]}},
-        { stepTemplateId: bulkFermentTemplate.id, order: 7, parameterValues: { create: [{ parameterId: durationParam.id, value: '180' }]}},
-        { stepTemplateId: shapeTemplate.id, order: 8},
-        { stepTemplateId: finalProofTemplate.id, order: 9, parameterValues: { create: [{ parameterId: durationParam.id, value: '840' }, {parameterId: tempParam.id, value: '4'}]}},
-        { stepTemplateId: bakeTemplate.id, order: 10, parameterValues: { create: [{ parameterId: durationParam.id, value: '50' }, {parameterId: tempParam.id, value: '230'}]}},
-      ]}
-    }
-  });
-  console.log('Created: Oat Porridge Loaf');
-
-  // Recipe 7: Jalapeño-Cheddar Loaf
-  await prisma.recipe.create({
-    data: {
-      ownerId: systemUser.id,
-      isPredefined: true,
-      parameterValues: { create: [
-        { parameterId: recipeParamMap.name, value: 'Jalapeño-Cheddar Loaf' },
-        { parameterId: recipeParamMap.description, value: 'Learn to add a large volume of savory inclusions using the lamination technique.'},
-        { parameterId: recipeParamMap.totalWeight, value: '1200' },
-        { parameterId: recipeParamMap.hydrationPct, value: '75' },
-        { parameterId: recipeParamMap.saltPct, value: '2' },
-      ]},
-      steps: { create: [
-        { stepTemplateId: feedStarterTemplate.id, order: 1},
-        { stepTemplateId: autolyseTemplate.id, order: 2, parameterValues: { create: [{ parameterId: durationParam.id, value: '60'}]}, ingredients: { create: [ { ingredientId: breadFlour.id, percentage: 90 }, { ingredientId: speltFlour.id, percentage: 10 }, { ingredientId: water.id, percentage: 75 } ]}},
-        { stepTemplateId: mixTemplate.id, order: 3, ingredients: { create: [ { ingredientId: levain.id, percentage: 20 }, { ingredientId: salt.id, percentage: 2 } ]}},
-        { stepTemplateId: stretchFoldTemplate.id, order: 4, notes: 'Perform 2 sets of folds to build initial strength.', parameterValues: { create: [{ parameterId: numFoldsParam.id, value: '2' }]}},
-        { stepTemplateId: laminationTemplate.id, order: 5, notes: 'Laminate dough and sprinkle evenly with cheese and jalapeños before folding.', ingredients: { create: [ { ingredientId: cheddarCheese.id, percentage: 25 }, { ingredientId: jalapenos.id, percentage: 10 }]}},
-        { stepTemplateId: bulkFermentTemplate.id, order: 6, parameterValues: { create: [{ parameterId: durationParam.id, value: '150' }]}},
-        { stepTemplateId: shapeTemplate.id, order: 7},
-        { stepTemplateId: finalProofTemplate.id, order: 8, parameterValues: { create: [{ parameterId: durationParam.id, value: '840' }, {parameterId: tempParam.id, value: '4'}]}},
-        { stepTemplateId: bakeTemplate.id, order: 9, parameterValues: { create: [{ parameterId: durationParam.id, value: '45' }, {parameterId: tempParam.id, value: '230'}]}},
-      ]}
-    }
-  });
-  console.log('Created: Jalapeño-Cheddar Loaf');
-
+  console.log(`Created: ${danishRye.id} - Danish Rye (Rugbrød)`);
 
   console.log(`Seeding finished.`);
 }

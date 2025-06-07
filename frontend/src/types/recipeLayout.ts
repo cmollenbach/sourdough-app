@@ -1,4 +1,4 @@
-import type { FullRecipe, RecipeStep } from "./recipe";
+import type { FullRecipe, RecipeStep, IngredientCalculationMode } from "./recipe";
 
 export interface FieldMeta {
   id: number;
@@ -18,19 +18,23 @@ export interface IngredientMeta {
   id: number;
   name: string;
   ingredientCategoryId: number;
+  defaultCalculationMode?: IngredientCalculationMode; // Added optional property
   // ...other properties...
 }
 
 export interface RecipeLayoutProps {
   recipe: FullRecipe;
-  fieldsMeta: FieldMeta[];
   steps: RecipeStep[];
   ingredientsMeta: IngredientMeta[];
   stepTemplates: StepTemplate[]; // <-- Add this
   showAdvanced: boolean;         // <-- Add this
+  setShowAdvanced: (show: boolean) => void; // <-- Add this
+  onRecipeChange: (updatedRecipe: FullRecipe) => void; // For TargetEditor
   onStepDuplicate: (step: RecipeStep) => void;
   onStepRemove: (stepId: number) => void;
   onStepSave: (step: RecipeStep, isNew: boolean) => void;
+  onStepAddHandler: () => void; // For adding a new step to the recipe
+  onStepsReorderHandler: (reorderedSteps: RecipeStep[]) => void; // For reordering steps
 }
 
 export interface RecipeStepEditorProps {

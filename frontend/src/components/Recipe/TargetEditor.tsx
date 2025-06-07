@@ -1,29 +1,18 @@
 import type { FullRecipe } from "../../types/recipe";
-import type { FieldMeta } from "../../types/recipeLayout";
 
 interface TargetEditorProps {
   recipe: FullRecipe;
-  fieldsMeta: FieldMeta[];
-  showAdvanced: boolean;
-  setShowAdvanced: (show: boolean) => void;
+  showAdvanced: boolean; 
+  setShowAdvanced: (show: boolean) => void; 
   onChange: (updated: FullRecipe) => void;
 }
 
 export function TargetEditor({
   recipe,
-  fieldsMeta,
   showAdvanced,
   setShowAdvanced,
   onChange,
 }: TargetEditorProps) {
-  // Merge meta and values
-  const mergedFields = fieldsMeta
-    .filter(f => showAdvanced || !f.advanced)
-    .map(meta => ({
-      ...meta,
-      value: recipe.fieldValues?.find(v => v.fieldId === meta.id)?.value ?? meta.defaultValue ?? "",
-    }));
-
   return (
     <div className="mb-6 p-4 bg-white rounded-xl shadow border border-gray-100">
       <div className="flex items-center justify-between mb-4">
@@ -31,35 +20,68 @@ export function TargetEditor({
         <label className="flex items-center gap-2 cursor-pointer select-none">
           <input
             type="checkbox"
-            checked={showAdvanced}
-            onChange={e => setShowAdvanced(e.target.checked)}
+            checked={showAdvanced} 
+            onChange={e => setShowAdvanced(e.target.checked)} 
             className="accent-blue-600"
           />
           Show advanced fields
         </label>
       </div>
+      {/* Core target inputs in one line */}
+      <div className="flex flex-col md:flex-row gap-4 mb-3">
+        <div className="flex-1 min-w-0">
+          <label htmlFor="totalWeight" className="block font-medium text-sm mb-1">Total Weight (g)</label>
+          <input
+            id="totalWeight"
+            className="border rounded px-3 py-2 w-full text-center"
+            type="number"
+            value={recipe.totalWeight ?? ""}
+            onChange={(e) =>
+              onChange({ ...recipe, totalWeight: e.target.value ? parseFloat(e.target.value) : null })
+            }
+            placeholder="e.g., 1000"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <label htmlFor="hydrationPct" className="block font-medium text-sm mb-1">Hydration (%)</label>
+          <input
+            id="hydrationPct"
+            className="border rounded px-3 py-2 w-full text-center"
+            type="number"
+            value={recipe.hydrationPct ?? ""}
+            onChange={(e) =>
+              onChange({ ...recipe, hydrationPct: e.target.value ? parseFloat(e.target.value) : null })
+            }
+            placeholder="e.g., 75"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <label htmlFor="saltPct" className="block font-medium text-sm mb-1">Salt (%)</label>
+          <input
+            id="saltPct"
+            className="border rounded px-3 py-2 w-full text-center"
+            type="number"
+            value={recipe.saltPct ?? ""}
+            onChange={(e) =>
+              onChange({ ...recipe, saltPct: e.target.value ? parseFloat(e.target.value) : null })
+            }
+            placeholder="e.g., 2"
+          />
+        </div>
+      </div>
+
+      {/* Notes field remains below */}
       <div className="flex flex-col gap-3">
-        {mergedFields.map(field => (
-          <div key={field.id}>
-            <label className="block font-medium">{field.label || field.name}</label>
-            <input
-              className="border rounded px-3 py-2"
-              type={field.type === "number" ? "number" : "text"}
-              value={field.value}
-              onChange={e => {
-                const newValue = e.target.value;
-                onChange({
-                  ...recipe,
-                  fieldValues: [
-                    ...(recipe.fieldValues?.filter(fv => fv.fieldId !== field.id) ?? []),
-                    { fieldId: field.id, value: newValue }
-                  ]
-                });
-              }}
-              placeholder={field.helpText || ""}
-            />
-          </div>
-        ))}
+        <div>
+        <label className="block font-medium">Notes</label>
+        <textarea
+          className="border rounded px-3 py-2 w-full"
+          value={recipe.notes ?? ""}
+          onChange={(e) => onChange({ ...recipe, notes: e.target.value })}
+          placeholder="Any special notes about this recipe..."
+          rows={3}
+          />
+        </div>
       </div>
     </div>
   );

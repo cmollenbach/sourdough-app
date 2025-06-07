@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMemo, useEffect } from "react";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
-import type { RecipeStep, RecipeStepIngredient } from "../../types/recipe";
+import { useForm, Controller, useFieldArray, type UseFormSetValue } from "react-hook-form";
+import type { RecipeStep, RecipeStepIngredient, RecipeStepField } from "../../types/recipe";
+import { IngredientCalculationMode } from "../../types/recipe"; // Import the enum
 import type { StepTemplate, IngredientMeta } from "../../types/recipeLayout";
 import { StepIngredientTable } from "./StepIngredientTable";
 
@@ -55,14 +56,16 @@ export default function StepCard({
     [stepTemplates]
   );
 
-
-
-  // Watch for templateId changes and ensure it's a number
-  const { watch, control, handleSubmit, reset, setValue, getValues } = useForm<{
+  type StepFormValues = {
     templateId: number;
     fields: Record<number, string | number>;
     ingredients: RecipeStepIngredient[];
-  }>({
+  };
+
+
+
+  // Watch for templateId changes and ensure it's a number
+  const { watch, control, reset, setValue, getValues, formState } = useForm<StepFormValues>({
     mode: "onChange", // Make RHF more responsive to input changes
     defaultValues: {
       templateId: step.stepTemplateId,
@@ -85,8 +88,11 @@ export default function StepCard({
   });
 
   const selectedTemplateId = Number(watch("templateId"));
+  const watchedFields = watch("fields"); // Watch fields for the useEffect dependency
+  const watchedIngredients = watch('ingredients'); // For exhaustive-deps and useEffect dependency
+
   const template = stepTemplates.find((t) => t.id === selectedTemplateId);
-  const watchedIngredients = watch('ingredients'); // For exhaustive-deps rule
+
 
 
   // For dynamic ingredient lines
@@ -143,21 +149,24 @@ export default function StepCard({
     const flourIngredientsInForm = watchedIngredients
       .map((ing, index) => ({ ...ing, originalIndex: index })) // Keep original index
       .filter((ing) => ing.ingredientCategoryId === flourCategoryId);
+      // Filter further for ingredients that are meant to be percentages
+    const flourPercentageIngredientsInForm = flourIngredientsInForm.filter( // Use enum member
+      (ing) => ing.calculationMode === IngredientCalculationMode.PERCENTAGE
+    );
 
-    if (flourIngredientsInForm.length === 0) return; // No flours in this step yet
+    if (flourPercentageIngredientsInForm.length === 0) return; // No percentage-based flours in this step yet
 
-    if (flourIngredientsInForm.length === 1) {
-      const firstFlour = flourIngredientsInForm[0];
-      if (firstFlour.percentage !== 100) {
-        setValue(`ingredients.${firstFlour.originalIndex}.percentage`, 100, { shouldDirty: true, shouldValidate: true });
+    if (flourPercentageIngredientsInForm.length === 1) {
+      const firstFlour = flourPercentageIngredientsInForm[0];
+      if (firstFlour.amount !== 100) {
+        setValue(`ingredients.${firstFlour.originalIndex}.amount`, 100, { shouldDirty: true, shouldValidate: true });
       }
     } else {
       let sumOfEditableFlours = 0;
-      const lastFlourIndexInFilteredArray = flourIngredientsInForm.length - 1;
-
-      for (let i = 0; i < lastFlourIndexInFilteredArray; i++) { // Iterate all but the last flour
-        const flour = flourIngredientsInForm[i];
-        let currentPercentage = Number(flour.percentage);
+      const lastFlourIndexInFilteredArray = flourPercentageIngredientsInForm.length - 1;
+      for (let i = 0; i < lastFlourIndexInFilteredArray; i++) { // Iterate all but the last percentage-based flour
+        const flour = flourPercentageIngredientsInForm[i];
+        let currentPercentage = Number(flour.amount);
 
         // Clamp individual editable flour percentage
         if (isNaN(currentPercentage) || currentPercentage < 0) currentPercentage = 0;
@@ -172,21 +181,54 @@ export default function StepCard({
         sumOfEditableFlours += currentPercentage;
 
         // Update the value in the form if it was clamped or changed
-        if (Number(flour.percentage) !== currentPercentage) {
-            setValue(`ingredients.${flour.originalIndex}.percentage`, currentPercentage, { shouldDirty: true, shouldValidate: true });
+        if (Number(flour.amount) !== currentPercentage) {
+            setValue(`ingredients.${flour.originalIndex}.amount`, currentPercentage, { shouldDirty: true, shouldValidate: true });
         }
       }
 
-      const lastFlour = flourIngredientsInForm[lastFlourIndexInFilteredArray];
+      const lastFlour = flourPercentageIngredientsInForm[lastFlourIndexInFilteredArray];
       // The last flour's percentage is 100 minus the sum of (clamped) editable flours.
       // It should naturally be >= 0 because sumOfEditableFlours is capped at 100.
       const lastFlourPercentage = Math.max(0, 100 - sumOfEditableFlours); 
       
-      if (Number(lastFlour.percentage) !== lastFlourPercentage) {
-        setValue(`ingredients.${lastFlour.originalIndex}.percentage`, lastFlourPercentage, { shouldDirty: true, shouldValidate: true });
+      if (Number(lastFlour.amount) !== lastFlourPercentage) {
+        setValue(`ingredients.${lastFlour.originalIndex}.amount`, lastFlourPercentage, { shouldDirty: true, shouldValidate: true });
       }
     }
-  }, [watchedIngredients, template, setValue, getValues, FLOUR_CATEGORY_NAME]);
+  }, [watchedIngredients, template, setValue, FLOUR_CATEGORY_NAME]); // Removed getValues as it wasn't used
+
+  // Effect to call onChange prop when form data changes and is dirty (user-driven change)
+  useEffect(() => {
+    if (formState.isDirty) {
+      const currentFormData = getValues();
+      const newFieldsArray: RecipeStepField[] = [];
+      if (currentFormData.fields) {
+        for (const fieldIdStr in currentFormData.fields) {
+          const fieldId = Number(fieldIdStr);
+          const value = currentFormData.fields[fieldId];
+          const existingStepField = step.fields.find(f => f.fieldId === fieldId);
+          newFieldsArray.push({
+            id: existingStepField?.id || 0,
+            recipeStepId: step.id,
+            fieldId: fieldId,
+            value: value,
+            notes: existingStepField?.notes || null,
+          });
+        }
+      }
+
+      onChange({
+        ...step,
+        stepTemplateId: Number(currentFormData.templateId),
+        fields: newFieldsArray,
+        ingredients: currentFormData.ingredients.map(ing => ({
+          ...ing,
+          recipeStepId: step.id,
+        })),
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formState.isDirty, selectedTemplateId, watchedFields, watchedIngredients, onChange, step.id]); // getValues and step are not needed as direct deps here
 
   const visibleFields = (template?.fields || []).filter(
     (f) => showAdvanced || !f.advanced
@@ -198,28 +240,16 @@ export default function StepCard({
 
   return (
     <form
-      className="bg-white rounded-2xl shadow-lg p-6 mb-8 flex flex-col gap-8 border border-gray-100 max-w-3xl mx-auto"
-      onBlur={handleSubmit((data) => {
-        onChange({
-          ...step,
-          stepTemplateId: Number(data.templateId),
-          fields: Object.entries(data.fields).map(([fieldId, value]) => ({
-            id: 0,
-            recipeStepId: step.id,
-            fieldId: Number(fieldId),
-            value,
-          })),
-          ingredients: data.ingredients,
-        });
-      })}
+      className="bg-white rounded-2xl shadow-lg p-4 mb-6 flex flex-col gap-4 border border-gray-100 max-w-3xl mx-auto"
+      // onBlur removed to favor useEffect-based onChange
       tabIndex={0}
       aria-label={`Step ${step.order}`}
     >
       {/* Header Row */}
-      <div className="flex flex-wrap items-center gap-4 justify-between">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
+      <div className="flex flex-wrap items-center gap-3 justify-between">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
           <span {...dragHandleProps} className="cursor-grab text-gray-400 hover:text-gray-600 text-2xl" aria-label="Reorder step">
-            {/* Drag handle icon here */}
+            ☰
           </span>
           <span className="font-bold text-xl">{step.order}.</span>
           <Controller
@@ -230,7 +260,7 @@ export default function StepCard({
                 {...field}
                 value={field.value}
                 onChange={e => field.onChange(Number(e.target.value))}
-                className="border rounded px-3 py-2 min-w-[180px] bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="px-3 py-2 text-base border border-gray-300 rounded-md min-w-[180px] bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
                 {stepTemplates.map((t) => (
                   <option key={t.id} value={t.id}>{t.name}</option>
@@ -241,15 +271,22 @@ export default function StepCard({
           />
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={() => onDuplicate(step)} aria-label="Duplicate">Duplicate</button>
-          <button type="button" onClick={() => onRemove(step.id)} aria-label="Delete">Delete</button>
+          <button
+            type="button"
+            onClick={() => onDuplicate(step)}
+            aria-label="Duplicate"
+            className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-60 disabled:cursor-not-allowed"
+          >Duplicate</button>
+          <button type="button"
+            onClick={() => onRemove(step.id)}
+            aria-label="Delete"
+            className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-60 disabled:cursor-not-allowed"
+          >Delete</button>
         </div>
       </div>
 
-      <hr className="my-4" />
-
       {/* Fields Grid */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         {visibleFields.map((meta) => {
           const inputId = `step-${step.id}-field-${meta.fieldId}`;
           return (
@@ -258,10 +295,10 @@ export default function StepCard({
               name={`fields.${meta.fieldId}` as any}
               control={control}
               render={({ field, fieldState }) => (
-                <div className="flex flex-col md:flex-row md:items-center w-full gap-1 md:gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center w-full gap-1 sm:gap-2">
                   <label
                     htmlFor={inputId}
-                    className="block font-medium min-w-[180px] md:text-right md:mb-0 mb-1 pr-2"
+                    className="block font-medium text-sm sm:min-w-[160px] sm:mb-0 mb-1 pr-2"
                   >
                     {meta.field.label || meta.field.name}
                   </label>
@@ -271,7 +308,9 @@ export default function StepCard({
                       id={inputId}
                       value={typeof field.value === "string" || typeof field.value === "number" ? field.value : ""}
                       type={meta.field.type === "number" ? "number" : "text"}
-                      className={`border rounded px-3 py-2 w-full bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition ${fieldState.invalid ? "border-red-500" : ""}`}
+                      className={`border rounded px-3 py-2 w-full bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition ${
+                        fieldState.invalid ? "border-red-500" : ""
+                      } ${meta.field.type.toUpperCase() === "NUMBER" ? "text-center" : ""}`}
                       aria-label={meta.field.label || meta.field.name}
                     />
                     {(meta.helpText || meta.field.helpText) && (
@@ -318,38 +357,14 @@ export default function StepCard({
               // The useEffect will adjust percentages.
             }
             append(finalIngredientToAdd);
-            // Immediately sync with parent
-            setTimeout(() => handleSubmit((data) => {
-              onChange({
-                ...step,
-                stepTemplateId: Number(data.templateId),
-                fields: Object.entries(data.fields).map(([fieldId, value]) => ({
-                  id: 0,
-                  recipeStepId: step.id,
-                  fieldId: Number(fieldId),
-                  value,
-                })),
-                ingredients: data.ingredients,
-              });
-            })(), 0);
+            // The main useEffect watching formState.isDirty will handle calling onChange
           }}
           remove={(idx) => {
             remove(idx);
-            setTimeout(() => handleSubmit((data) => {
-              onChange({
-                ...step,
-                stepTemplateId: Number(data.templateId),
-                fields: Object.entries(data.fields).map(([fieldId, value]) => ({
-                  id: 0,
-                  recipeStepId: step.id,
-                  fieldId: Number(fieldId),
-                  value,
-                })),
-                ingredients: data.ingredients,
-              });
-            })(), 0);
+            // The main useEffect watching formState.isDirty will handle calling onChange
           }}
           control={control}
+          setValue={setValue as UseFormSetValue<StepFormValues>} // Pass setValue down
           // Pass down information needed for disabling/calculating flour percentages
           flourCategoryName={FLOUR_CATEGORY_NAME}
           recipeStepId={step.id}

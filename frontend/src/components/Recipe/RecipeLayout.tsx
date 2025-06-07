@@ -4,60 +4,34 @@ import { IonGrid, IonRow, IonCol } from "@ionic/react";
 import type { DragEndEvent } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import type { RecipeStep } from "../../types/recipe";
-import type { StepTemplate } from "../../types/recipeLayout";
+import type { RecipeLayoutProps } from "../../types/recipeLayout";
 import StepColumn from "./StepColumn";
 import { TargetEditor } from "./TargetEditor";
 import RecipeControls from "./RecipeControls"; // Import the new component
-import { useRecipeBuilderStore } from "../../store/recipeBuilderStore";
+import RecipeCalculator from "./RecipeCalculator"; // Import the RecipeCalculator
 
-const getEmptyStep = (recipeId: number, order: number, stepTemplates: StepTemplate[]): RecipeStep => ({
-  id: 0,
-  recipeId,
-  stepTemplateId: stepTemplates.length > 0 ? stepTemplates[0].id : 0, // Use first template if available
-  order,
-  notes: "",
-  description: "",
-  fields: [],
-  ingredients: [],
-});
+export default function RecipeLayout({
+  recipe,
+  steps, // Use the steps prop
+  ingredientsMeta,
+  stepTemplates,
+  showAdvanced,
+  setShowAdvanced,
+  onRecipeChange,    // New prop
+  onStepDuplicate, // Use the prop
+  onStepRemove,    // Use the prop
+  onStepSave,      // Use the prop
+  onStepAddHandler,  // New prop
+  onStepsReorderHandler, // New prop
+}: RecipeLayoutProps) {
 
-export default function RecipeLayout() {
-  const recipe = useRecipeBuilderStore((state) => state.recipe);
-  const setRecipe = useRecipeBuilderStore((state) => state.setRecipe);
-  const showAdvanced = useRecipeBuilderStore((state) => state.showAdvanced);
-  const setShowAdvanced = useRecipeBuilderStore((state) => state.setShowAdvanced);
-  const stepTemplates = useRecipeBuilderStore((state) => state.stepTemplates);
-  const ingredientsMeta = useRecipeBuilderStore((state) => state.ingredientsMeta);
-  const fieldsMeta = useRecipeBuilderStore((state) => state.fieldsMeta);
-  const updateStep = useRecipeBuilderStore((state) => state.updateStep);
-  const reorderSteps = useRecipeBuilderStore((state) => state.reorderSteps);
-  const removeStep = useRecipeBuilderStore((state) => state.removeStep);
-
-  const steps = recipe?.steps ?? [];
-
-  const handleStepChange = (_idx: number, updated: RecipeStep) => {
-    updateStep(updated);
+  const handleStepChange = (_idx: number, updatedStep: RecipeStep) => {
+    // The onStepSave prop now handles this. The _isNew flag might need to be determined.
+    onStepSave(updatedStep, updatedStep.id === 0);
   };
 
-  const handleStepAdd = () => {
-    if (!recipe) return;
-    const newStep = getEmptyStep(recipe.id, steps.length + 1, stepTemplates);
-    updateStep(newStep);
-  };
-
-  const handleStepDuplicate = (step: RecipeStep) => {
-    if (!recipe) return;
-    const newStep: RecipeStep = {
-      ...step,
-      id: 0,
-      order: steps.length + 1,
-    };
-    updateStep(newStep);
-  };
-
-  const handleStepRemove = (stepId: number) => {
-    removeStep(stepId);
-  };
+  // Local handleStepAdd is removed; onStepAddHandler prop will be used by StepColumn.
+  // Local reorderSteps is removed; onStepsReorderHandler prop will be used by DndContext.
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -73,7 +47,7 @@ export default function RecipeLayout() {
           ...step,
           order: index + 1,
         }));
-        reorderSteps(finalSteps); // Call store action to update all steps
+        onStepsReorderHandler(finalSteps); // Use prop handler
       }
     }
   };
@@ -88,13 +62,12 @@ export default function RecipeLayout() {
               {recipe && (
                 <TargetEditor
                   recipe={recipe}
-                  fieldsMeta={fieldsMeta}
                   showAdvanced={showAdvanced}
                   setShowAdvanced={setShowAdvanced}
-                  onChange={setRecipe}
+                  onChange={onRecipeChange} // Use prop handler
                 />
               )}
-              {/* You can add more left column content here */}
+              <RecipeCalculator /> {/* Add the RecipeCalculator here */}
             </IonCol>
             <IonCol size="12" sizeMd="6">
               <StepColumn
@@ -103,9 +76,9 @@ export default function RecipeLayout() {
                 ingredientsMeta={ingredientsMeta}
                 showAdvanced={showAdvanced}
                 onStepChange={handleStepChange}
-                onStepAdd={handleStepAdd} // Pass the handler here
-                onStepDuplicate={handleStepDuplicate}
-                onStepRemove={handleStepRemove}
+                onStepAdd={onStepAddHandler} // Pass the new prop handler here
+                onStepDuplicate={onStepDuplicate} // Use prop
+                onStepRemove={onStepRemove}       // Use prop
                 onDragEnd={handleDragEnd} // Changed prop name
               />
             </IonCol>

@@ -124,20 +124,6 @@ model StepParameter {
   bakeStepParameterValues BakeStepParameterValue[]
 }
 
-model RecipeParameter {
-  id              Int                    @id @default(autoincrement())
-  name            String                 @unique
-  label           String?
-  type            ParameterDataType
-  order           Int?
-  visible         Boolean                @default(true)
-  advanced        Boolean                @default(false)
-  required        Boolean                @default(false)
-  helpText        String?
-  defaultValue    String?
-  parameterValues RecipeParameterValue[]
-}
-
 model StepType {
   id          Int            @id @default(autoincrement())
   name        String         @unique
@@ -219,31 +205,22 @@ model StepTemplateIngredientRule {
 
 model Recipe {
   id              Int                    @id @default(autoincrement())
+  name            String                 // Added: Direct field for recipe name
   ownerId         Int
   active          Boolean                @default(true)
   parentRecipeId  Int?
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
   isPredefined    Boolean                @default(false)
-  totalWeight     Float? // Added as per plan
-  hydrationPct    Float? // Added as per plan
-  saltPct         Float? // Added as per plan
+  totalWeight     Float?
+  hydrationPct    Float?
+  saltPct         Float?
+  notes           String?                // Added: Direct field for recipe notes
   owner           User                   @relation(fields: [ownerId], references: [id])
   parentRecipe    Recipe?                @relation("RecipeVersion", fields: [parentRecipeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   clonedRecipes   Recipe[]               @relation("RecipeVersion")
-  parameterValues RecipeParameterValue[]
   steps           RecipeStep[]
   bakes           Bake[]
-}
-
-model RecipeParameterValue {
-  id          Int             @id @default(autoincrement())
-  recipeId    Int
-  parameterId Int
-  value       String
-  recipe      Recipe          @relation(fields: [recipeId], references: [id])
-  parameter   RecipeParameter @relation(fields: [parameterId], references: [id])
-  @@unique([recipeId, parameterId])
 }
 
 model RecipeStep {
