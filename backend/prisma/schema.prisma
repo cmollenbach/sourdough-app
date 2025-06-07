@@ -9,6 +9,51 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum UserRole {
+  USER
+  ADMIN
+  MODERATOR // Example of another role
+}
+
+enum ParameterDataType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+  DATE
+  DURATION // Example for time-based parameters
+}
+
+enum IngredientCalculationMode {
+  PERCENTAGE
+  FIXED_WEIGHT
+}
+
+enum StepExecutionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+  FAILED
+}
+
+enum EntityRequestType {
+  INGREDIENT_SUGGESTION
+  FEATURE_REQUEST
+  BUG_REPORT
+  RECIPE_SUBMISSION
+  OTHER
+}
+
+enum EntityRequestStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  IMPLEMENTED
+  CLOSED
+}
+
 model User {
   id                Int             @id @default(autoincrement())
   email             String?         @unique
@@ -18,7 +63,7 @@ model User {
   updatedAt         DateTime        @updatedAt
   isActive          Boolean         @default(true)
   lastLoginAt       DateTime?
-  role              String          @default("user")
+  role              UserRole        @default(USER)
   notes             String?
   accounts          Account[]
   sessions          Session[]
@@ -34,7 +79,6 @@ model Account {
   userId            Int
   provider          String
   providerAccountId String
-  passwordHash      String?
   accessToken       String?
   refreshToken      String?
   tokenExpiresAt    DateTime?
@@ -67,7 +111,7 @@ model UserProfile {
 model StepParameter {
   id                      Int                        @id @default(autoincrement())
   name                    String                     @unique
-  type                    String
+  type                    ParameterDataType
   advanced                Boolean                    @default(false)
   description             String?
   active                  Boolean                    @default(true)
@@ -84,7 +128,7 @@ model RecipeParameter {
   id              Int                    @id @default(autoincrement())
   name            String                 @unique
   label           String?
-  type            String
+  type            ParameterDataType
   order           Int?
   visible         Boolean                @default(true)
   advanced        Boolean                @default(false)
@@ -181,6 +225,9 @@ model Recipe {
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
   isPredefined    Boolean                @default(false)
+  totalWeight     Float? // Added as per plan
+  hydrationPct    Float? // Added as per plan
+  saltPct         Float? // Added as per plan
   owner           User                   @relation(fields: [ownerId], references: [id])
   parentRecipe    Recipe?                @relation("RecipeVersion", fields: [parentRecipeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   clonedRecipes   Recipe[]               @relation("RecipeVersion")
@@ -227,7 +274,8 @@ model RecipeStepIngredient {
   id           Int        @id @default(autoincrement())
   recipeStepId Int
   ingredientId Int
-  percentage   Float
+  amount       Float // Renamed from percentage as per plan
+  calculationMode IngredientCalculationMode @default(PERCENTAGE) // Added as per plan, with default
   preparation  String?
   notes        String?
   recipeStep   RecipeStep @relation(fields: [recipeStepId], references: [id])
@@ -255,7 +303,7 @@ model BakeStep {
   bakeId          Int
   recipeStepId    Int
   order           Int
-  status          String
+  status          StepExecutionStatus @default(PENDING)
   startTimestamp  DateTime?
   finishTimestamp DateTime?
   deviations      Json?
@@ -291,11 +339,11 @@ model BakeStepIngredient {
 model EntityRequest {
   id          Int       @id @default(autoincrement())
   userId      Int?
-  type        String
+  type        EntityRequestType
   name        String
   description String?
   extra       Json?
-  status      String    @default("pending")
+  status      EntityRequestStatus @default(PENDING)
   reviewerId  Int?
   reviewedAt  DateTime?
   createdAt   DateTime  @default(now())
