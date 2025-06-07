@@ -1,6 +1,5 @@
 import { BrowserRouter, Switch, Route, Redirect } from "react-router-dom";
 import Navbar from "./components/Navbar/Navbar";
-import RecipesListPage from "./pages/recipes";
 import RecipeBuilderPage from "./pages/recipes/[id]";
 import BakesListPage from "./pages/bakes";
 import BakeHistoryPage from "./pages/history";
@@ -17,6 +16,8 @@ import UserSettingsPage from "./pages/settings/user";
 import RequireAuth from "./components/Auth/RequireAuth";
 import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
+import LandingPage from "./pages/landing";
+import RegisterPage from "./pages/register";
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -38,21 +39,14 @@ function AppRoutes() {
     <BrowserRouter>
       <Navbar />
       <Switch>
+        <Route path="/" exact component={LandingPage} />
         <Route
           path="/login"
           render={() =>
             user ? <Redirect to="/recipes" /> : <LoginPage />
           }
         />
-        <Route
-          path="/recipes"
-          exact
-          render={() => (
-            <RequireAuth>
-              <RecipesListPage />
-            </RequireAuth>
-          )}
-        />
+        <Route path="/register" component={RegisterPage} />
         <Route
           path="/recipes/:id"
           render={() => (

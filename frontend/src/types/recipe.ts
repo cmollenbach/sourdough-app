@@ -27,6 +27,7 @@ export interface RecipeStepField {
 // --- Step Ingredient Value (matches Prisma schema, but optional for form) ---
 export interface RecipeStepIngredient {
   id: number;
+  recipeStepId: number; // Added: An ingredient in a step should know its step's ID
   ingredientId: number;
   percentage: number;
   ingredientCategoryId: number;

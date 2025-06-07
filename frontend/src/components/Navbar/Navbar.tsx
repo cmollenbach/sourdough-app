@@ -22,24 +22,13 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Placeholder handlers
-  function handleNewRecipe() {
-    alert('New Recipe action');
-  }
-  function handleOpenRecipe() {
-    alert('Open Recipe action');
-  }
-  function handleSaveRecipe() {
-    alert('Save Recipe action');
-  }
-
   return (
     <nav className={`bg-white shadow ${darkMode ? "dark bg-gray-900 text-white" : ""}`}>
       <div className="flex items-center justify-between px-4 py-2">
         <div className="flex items-center gap-4">
           <Link to="/" className="font-bold text-xl">SourdoughApp</Link>
           <div className="hidden md:flex items-center gap-4">
-            <Link to="/recipes">Recipes</Link>
+            <Link to="/recipes/1">Recipes</Link>
             <Link to="/bakes">Bakes</Link>
             <Link to="/history">History</Link>
             {/* Active Bake indicator */}
@@ -47,9 +36,6 @@ export default function Navbar() {
           </div>
         </div>
         <div className="hidden md:flex items-center gap-2">
-          <button onClick={handleNewRecipe}>New Recipe</button>
-          <button onClick={handleOpenRecipe}>Open</button>
-          <button onClick={handleSaveRecipe}>Save</button>
           {/* Profile dropdown */}
           <div className="ml-4 relative" ref={dropdownRef}>
             <button
@@ -98,13 +84,10 @@ export default function Navbar() {
       {mobileMenuOpen && (
         <div className="md:hidden px-4 pb-2">
           <div className="flex flex-col gap-2">
-            <Link to="/recipes" onClick={() => setMobileMenuOpen(false)}>Recipes</Link>
+            <Link to="/recipes/1" onClick={() => setMobileMenuOpen(false)}>Recipes</Link>
             <Link to="/bakes" onClick={() => setMobileMenuOpen(false)}>Bakes</Link>
             <Link to="/history" onClick={() => setMobileMenuOpen(false)}>History</Link>
             <ActiveBakeIndicator time="00:40:13" isActive={true} />
-            <button onClick={handleNewRecipe}>New Recipe</button>
-            <button onClick={handleOpenRecipe}>Open</button>
-            <button onClick={handleSaveRecipe}>Save</button>
             {/* Profile dropdown for mobile */}
             <div className="relative" ref={dropdownRef}>
               <button
@@ -137,4 +120,3 @@ export default function Navbar() {
     </nav>
   );
 }
-

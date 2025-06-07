@@ -18,6 +18,8 @@ interface StepIngredientTableProps {
     fields: Record<number, string | number>;
     ingredients: RecipeStepIngredient[];
   }>;
+  flourCategoryName: string; // To identify the flour category
+  recipeStepId: number; // ID of the current step
 }
 
 export function StepIngredientTable({
@@ -27,34 +29,49 @@ export function StepIngredientTable({
   append,
   remove,
   control,
+  flourCategoryName,
+  recipeStepId,
 }: StepIngredientTableProps) {
   return (
     <div className="flex flex-col gap-6">
       {ingredientRules.map((rule) => {
+        const isCurrentCategoryFlour = rule.ingredientCategory.name === flourCategoryName;
+        const flourIngredientsInThisCategory = ingredientFields.filter(field => field.ingredientCategoryId === rule.ingredientCategory.id);
+
         const categoryIngredients = ingredientsMeta.filter(
           (meta) => meta.ingredientCategoryId === rule.ingredientCategory.id
         );
-        const categoryIngredientFields = ingredientFields.filter(
-          (field) => (field.ingredientCategoryId as number) === rule.ingredientCategory.id
-        );
+        const categoryIngredientFields = ingredientFields
+          .map((field, idx) => ({ ...field, idx }))
+          .filter(
+            (field) => (field.ingredientCategoryId as number) === rule.ingredientCategory.id
+          );
+
         return (
           <div key={rule.ingredientCategory.id} className="mb-2">
             <label className="font-semibold">
               {rule.ingredientCategory.name}
               {rule.required && <span className="text-red-500 ml-1">*</span>}
             </label>
-            {categoryIngredientFields.map((ingredient) => {
-              const fieldIdx = ingredientFields.findIndex(
-                (f) => f.id === ingredient.id
-              );
+            {categoryIngredientFields.map((ingredient, indexInFilteredArray) => {
+              // Determine if this percentage input should be disabled
+              // It's disabled if it's a flour category AND it's the last flour in that category AND there's more than one flour.
+              // If only one flour, it's not "last" in a way that makes it calculated by others, it's just 100%.
+              const isLastFlourInList = isCurrentCategoryFlour && flourIngredientsInThisCategory.length > 1 && indexInFilteredArray === flourIngredientsInThisCategory.length - 1;
+              const isPercentageDisabled = isLastFlourInList;
+
               return (
-                <div key={ingredient.id ?? fieldIdx} className="flex items-center gap-2 mt-1">
+                <div key={ingredient.id ?? ingredient.idx} className="flex items-center gap-2 mt-1">
+                  {/* Register ingredientCategoryId so it's tracked */}
                   <Controller
-                    name={`ingredients.${fieldIdx}.ingredientId` as Path<{
-                      templateId: number;
-                      fields: Record<number, string | number>;
-                      ingredients: RecipeStepIngredient[];
-                    }>}
+                    name={`ingredients.${ingredient.idx}.ingredientCategoryId` as Path<{ templateId: number; fields: Record<number, string | number>; ingredients: RecipeStepIngredient[]; }>}
+                    control={control}
+                    render={({ field }) => (
+                      <input type="hidden" {...field} value={rule.ingredientCategory.id} />
+                    )}
+                  />
+                  <Controller
+                    name={`ingredients.${ingredient.idx}.ingredientId` as Path<{ templateId: number; fields: Record<number, string | number>; ingredients: RecipeStepIngredient[]; }>}
                     control={control}
                     render={({ field }) => (
                       <select
@@ -75,28 +92,35 @@ export function StepIngredientTable({
                     )}
                   />
                   <Controller
-                    name={`ingredients.${fieldIdx}.percentage` as Path<{
-                      templateId: number;
-                      fields: Record<number, string | number>;
-                      ingredients: RecipeStepIngredient[];
-                    }>}
+                    name={`ingredients.${ingredient.idx}.percentage` as Path<{ templateId: number; fields: Record<number, string | number>; ingredients: RecipeStepIngredient[]; }>}
                     control={control}
                     render={({ field }) => (
-                      <input
-                        {...field}
-                        type="number"
-                        min={0}
-                        className="border rounded px-2 py-1 w-24"
-                        placeholder="Percentage"
-                        value={typeof field.value === "number" ? field.value : 0}
-                        onChange={e => field.onChange(e.target.value === "" ? 0 : Number(e.target.value))}
-                      />
+                    <input
+                      {...field}
+                      type="number"
+                      min={0}
+                      max={100} // Basic browser-level constraint
+                      className={`border rounded px-2 py-1 w-24 ${isPercentageDisabled ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                      placeholder="Percentage"
+                      value={typeof field.value === "number" ? field.value : 0}
+                      onChange={e => {
+                        let val = 0;
+                        if (e.target.value !== "") {
+                          val = Number(e.target.value);
+                          // Further client-side clamping for immediate UX, useEffect in StepCard is the authority
+                          if (val < 0) val = 0;
+                          if (val > 100) val = 100;
+                        }
+                        field.onChange(val);
+                      }}
+                      disabled={isPercentageDisabled}
+                    />
                     )}
                   />
                   <span>%</span>
                   <button
                     type="button"
-                    onClick={() => remove(fieldIdx)}
+                    onClick={() => remove(ingredient.idx)}
                     aria-label="Remove ingredient"
                     className="text-red-500 px-2"
                   >
@@ -109,10 +133,11 @@ export function StepIngredientTable({
               type="button"
               onClick={() =>
                 append({
+                  id: 0,
                   ingredientId: 0,
                   percentage: 0,
                   ingredientCategoryId: rule.ingredientCategory.id,
-                  id: Math.random(),
+                  recipeStepId: recipeStepId, // Add the recipeStepId here
                 })
               }
               className="mt-2 px-3 py-1 bg-blue-100 rounded text-blue-700"

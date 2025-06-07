@@ -23,7 +23,29 @@ router.get("/step-templates", async (_req, res) => {
     },
     orderBy: { order: "asc" },
   });
-  res.json({ templates });
+
+  // Transform 'parameters' to 'fields'
+  const transformed = templates.map(t => ({
+    ...t,
+    fields: t.parameters.map(tp => ({
+      id: tp.id,
+      fieldId: tp.parameterId,
+      stepTemplateId: tp.stepTemplateId,
+      order: tp.order,
+      advanced: tp.advanced,
+      visible: tp.visible,
+      description: tp.description,
+      helpText: tp.helpText,
+      defaultValue: tp.defaultValue,
+      field: tp.parameter,
+    })),
+    ingredientRules: t.ingredientRules.map(ir => ({
+      ...ir,
+      ingredientCategory: ir.ingredientCategory,
+    })),
+  }));
+
+  res.json({ templates: transformed });
 });
 
 // Ingredients meta

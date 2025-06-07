@@ -4,11 +4,14 @@ export interface FieldMeta {
   id: number;
   name: string;
   label?: string;
-  type?: string;
+  type: string;
+  order?: number;
+  helpText?: string;
+  description?: string;
   visible?: boolean;
-  visibleInList?: boolean;
-  helpText?: string; // <-- Add this line
-  // ...other meta fields
+  advanced?: boolean;
+  defaultValue?: string | number | null; // <-- Use a union type instead of any
+  // Add any other fields your backend returns
 }
 
 export interface IngredientMeta {

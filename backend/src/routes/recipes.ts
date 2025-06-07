@@ -8,10 +8,8 @@ const prisma = new PrismaClient();
 // --- Create a recipe ---
 router.post("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
   try {
-    // CHANGED: Expect 'parameterValues' from the request body instead of 'fieldValues'
     const { parameterValues, steps } = req.body;
 
-    // Basic validation
     if (!Array.isArray(parameterValues) || parameterValues.some(pv => typeof pv.parameterId !== "number" || typeof pv.value === "undefined")) {
       return res.status(400).json({ error: "Invalid or missing parameterValues" });
     }
@@ -23,7 +21,6 @@ router.post("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
       data: {
         ownerId: req.user!.userId,
         isPredefined: false,
-        // CHANGED: Use the 'parameterValues' relation
         parameterValues: {
           create: parameterValues,
         },
@@ -34,7 +31,6 @@ router.post("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
                 order: step.order,
                 notes: step.notes,
                 description: step.description,
-                // CHANGED: Use the 'parameterValues' relation for steps
                 parameterValues: step.parameterValues
                   ? { create: step.parameterValues }
                   : undefined,
@@ -46,7 +42,6 @@ router.post("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
           : undefined,
       },
       include: {
-        // CHANGED: Include the new relation names
         parameterValues: true,
         steps: {
           include: {
@@ -63,23 +58,69 @@ router.post("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
   }
 });
 
-// --- Get all recipes for the logged-in user ---
+// --- Get all recipes for the logged-in user (and templates) ---
 router.get("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
   try {
     const recipes = await prisma.recipe.findMany({
-      where: { ownerId: req.user!.userId, active: true },
-      // CHANGED: Include 'parameterValues' instead of 'fieldValues'
-      include: { parameterValues: { include: { parameter: true } } },
+      where: {
+        active: true,
+        OR: [
+          { ownerId: req.user!.userId },
+          { isPredefined: true }
+        ]
+      },
+      include: {
+        parameterValues: { include: { parameter: true } }, // For RecipeParameter.advanced
+        steps: { // To check for advanced step templates, step parameters, or ingredients
+          include: {
+            stepTemplate: true, // For StepTemplate.advanced
+            parameterValues: { include: { parameter: true } }, // For StepParameter.advanced in steps
+            ingredients: { include: { ingredient: true } }, // For Ingredient.advanced in steps
+          }
+        }
+      },
     });
-    // Transform the data to match the old format for frontend compatibility
     const transformedRecipes = recipes.map(recipe => {
       const fieldValues = recipe.parameterValues.map(pv => ({
         fieldId: pv.parameterId,
         value: pv.value,
-        name: pv.parameter.name, // Add name for easier use on frontend
+        name: pv.parameter.name,
       }));
-      const { parameterValues, ...rest } = recipe;
-      return { ...rest, fieldValues };
+      // Extract recipe name and notes from parameterValues
+      const recipeNameParam = recipe.parameterValues.find(pv => pv.parameter.name === 'name');
+      const recipeNotesParam = recipe.parameterValues.find(pv => pv.parameter.name === 'notes');
+
+      // Determine if a template is advanced based on its elements
+      let isTemplateAdvanced = false;
+      if (recipe.isPredefined) {
+        const usesAdvancedRecipeParam = recipe.parameterValues.some(pv => pv.parameter.advanced === true);
+        const usesAdvancedStepTemplate = recipe.steps.some(step => step.stepTemplate?.advanced === true);
+        const usesAdvancedStepParam = recipe.steps.some(step =>
+          step.parameterValues.some(spv => spv.parameter.advanced === true)
+        );
+        const usesAdvancedIngredient = recipe.steps.some(step =>
+          step.ingredients.some(ing => ing.ingredient?.advanced === true)
+        );
+        isTemplateAdvanced = usesAdvancedRecipeParam || usesAdvancedStepTemplate || usesAdvancedStepParam || usesAdvancedIngredient;
+      }
+
+      // Explicitly construct the object for the list view / RecipeStub
+      return {
+        id: recipe.id, // Explicitly include id
+        name: typeof recipeNameParam?.value === 'string' ? recipeNameParam.value : "Unnamed Recipe",
+        // Add any other fields from the 'recipe' object that your main /recipes list page might need
+        notes: typeof recipeNotesParam?.value === 'string' ? recipeNotesParam.value : undefined,
+        isTemplateAdvanced: recipe.isPredefined ? isTemplateAdvanced : undefined,
+        createdAt: recipe.createdAt,
+        isPredefined: recipe.isPredefined,
+        // fieldValues are not typically needed for a simple name/id dropdown,
+        // but your main /recipes list page might use them.
+        // If the dropdown ONLY needs id/name, you could even omit fieldValues here.
+        // For clarity, we'll keep the full fieldValues array as it was,
+        // which contains all parameters, including name and notes again.
+        // The frontend RecipeStub will only pick id and name.
+        fieldValues,
+      };
     });
     res.json(transformedRecipes);
   } catch (err) {
@@ -88,7 +129,7 @@ router.get("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
   }
 });
 
-// --- Get a single full recipe by ID ---
+// --- Get a single full recipe by ID (user or template) ---
 router.get("/recipes/:id/full", authenticateJWT, async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
   if (isNaN(id)) {
@@ -96,9 +137,15 @@ router.get("/recipes/:id/full", authenticateJWT, async (req: AuthRequest, res) =
   }
   try {
     const recipe = await prisma.recipe.findFirst({
-      where: { id, ownerId: req.user!.userId, active: true },
+      where: {
+        id,
+        active: true,
+        OR: [
+          { ownerId: req.user!.userId },
+          { isPredefined: true }
+        ]
+      },
       include: {
-        // CHANGED: Include the new relation names
         parameterValues: { include: { parameter: true } },
         steps: {
           orderBy: { order: "asc" },
@@ -111,13 +158,20 @@ router.get("/recipes/:id/full", authenticateJWT, async (req: AuthRequest, res) =
     });
     if (!recipe) return res.status(404).json({ error: "Recipe not found" });
 
-    // Transform data for frontend compatibility if needed
-    const { parameterValues, steps, ...rest } = recipe;
+    // Destructure to separate specific parameters from the rest of the recipe object
+    const { parameterValues: allParameterValues, steps, ...recipeBaseProperties } = recipe;
+
+    // Extract top-level name and notes for the FullRecipe structure
+    const recipeNameParamValue = allParameterValues.find(pv => pv.parameter.name === 'name')?.value;
+    const recipeNotesParamValue = allParameterValues.find(pv => pv.parameter.name === 'notes')?.value;
+
     const transformedRecipe = {
-      ...rest,
-      fieldValues: parameterValues.map(pv => ({
+      ...recipeBaseProperties, // Includes id, ownerId, createdAt, etc.
+      name: typeof recipeNameParamValue === 'string' ? recipeNameParamValue : "Unnamed Recipe", // Ensure name is a string
+      notes: typeof recipeNotesParamValue === 'string' ? recipeNotesParamValue : undefined, // Ensure notes is string or undefined
+      fieldValues: allParameterValues.map(pv => ({ // This will list all parameters, including name and notes again
         fieldId: pv.parameterId,
-        value: pv.value,
+        value: String(pv.value), // Ensure value is string for RecipeFieldValue
         name: pv.parameter.name,
       })),
       steps: steps.map(step => {
@@ -149,11 +203,9 @@ router.put("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => {
     return res.status(400).json({ error: "Invalid recipe id" });
   }
   try {
-    // CHANGED: Expect 'parameterValues' from the request body
     const { parameterValues } = req.body;
     for (const pv of parameterValues) {
       await prisma.recipeParameterValue.upsert({
-        // CHANGED: Use the new unique identifier
         where: {
           recipeId_parameterId: {
             recipeId: id,
@@ -176,7 +228,6 @@ router.put("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => {
 });
 
 // --- Soft-delete a recipe ---
-// This route does not need changes as it only updates the Recipe model itself.
 router.delete("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
   if (isNaN(id)) {
@@ -192,6 +243,69 @@ router.delete("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => 
   } catch (err) {
     console.error("Error in DELETE /api/recipes/:id:", err);
     res.status(500).json({ error: "Failed to delete recipe" });
+  }
+});
+
+// --- Clone a recipe (template) ---
+router.post("/recipes/:id/clone", authenticateJWT, async (req: AuthRequest, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: "Invalid recipe id" });
+
+  try {
+    const recipe = await prisma.recipe.findFirst({
+      where: { id, active: true, isPredefined: true },
+      include: {
+        parameterValues: true,
+        steps: {
+          include: {
+            parameterValues: true,
+            ingredients: true,
+          }
+        }
+      }
+    });
+    if (!recipe) return res.status(404).json({ error: "Template not found" });
+
+    // Deep clone parameterValues and steps
+    const newRecipe = await prisma.recipe.create({
+      data: {
+        ownerId: req.user!.userId,
+        isPredefined: false,
+        parameterValues: {
+          create: recipe.parameterValues.map(pv => ({
+            parameterId: pv.parameterId,
+            value: pv.value,
+          }))
+        },
+        steps: {
+          create: recipe.steps.map(step => ({
+            stepTemplateId: step.stepTemplateId,
+            order: step.order,
+            notes: step.notes,
+            description: step.description,
+            parameterValues: {
+              create: step.parameterValues.map(spv => ({
+                parameterId: spv.parameterId,
+                value: spv.value,
+                notes: spv.notes,
+              }))
+            },
+            ingredients: {
+              create: step.ingredients.map(ing => ({
+                ingredientId: ing.ingredientId,
+                percentage: ing.percentage,
+                preparation: ing.preparation,
+                notes: ing.notes,
+              }))
+            }
+          })) as any // <-- Workaround for Prisma type error
+        }
+      }
+    });
+    res.status(201).json(newRecipe);
+  } catch (err) {
+    console.error("Error in POST /api/recipes/:id/clone:", err);
+    res.status(500).json({ error: "Failed to clone recipe" });
   }
 });
 

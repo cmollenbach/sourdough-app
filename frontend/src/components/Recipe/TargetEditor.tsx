@@ -1,14 +1,29 @@
-import React from "react";
 import type { FullRecipe } from "../../types/recipe";
+import type { FieldMeta } from "../../types/recipeLayout";
 
 interface TargetEditorProps {
   recipe: FullRecipe;
+  fieldsMeta: FieldMeta[];
   showAdvanced: boolean;
   setShowAdvanced: (show: boolean) => void;
   onChange: (updated: FullRecipe) => void;
 }
 
-export function TargetEditor({ recipe, showAdvanced, setShowAdvanced, onChange }: TargetEditorProps) {
+export function TargetEditor({
+  recipe,
+  fieldsMeta,
+  showAdvanced,
+  setShowAdvanced,
+  onChange,
+}: TargetEditorProps) {
+  // Merge meta and values
+  const mergedFields = fieldsMeta
+    .filter(f => showAdvanced || !f.advanced)
+    .map(meta => ({
+      ...meta,
+      value: recipe.fieldValues?.find(v => v.fieldId === meta.id)?.value ?? meta.defaultValue ?? "",
+    }));
+
   return (
     <div className="mb-6 p-4 bg-white rounded-xl shadow border border-gray-100">
       <div className="flex items-center justify-between mb-4">
@@ -24,24 +39,27 @@ export function TargetEditor({ recipe, showAdvanced, setShowAdvanced, onChange }
         </label>
       </div>
       <div className="flex flex-col gap-3">
-        <input
-          className="border rounded px-3 py-2"
-          value={recipe.name}
-          onChange={e => onChange({ ...recipe, name: e.target.value })}
-          placeholder="Recipe name"
-        />
-        <textarea
-          className="border rounded px-3 py-2"
-          value={recipe.notes || ""}
-          onChange={e => onChange({ ...recipe, notes: e.target.value })}
-          placeholder="Description"
-        />
-        {/* Add more fields here, and conditionally render advanced fields */}
-        {showAdvanced && (
-          <div>
-            {/* Advanced fields go here */}
+        {mergedFields.map(field => (
+          <div key={field.id}>
+            <label className="block font-medium">{field.label || field.name}</label>
+            <input
+              className="border rounded px-3 py-2"
+              type={field.type === "number" ? "number" : "text"}
+              value={field.value}
+              onChange={e => {
+                const newValue = e.target.value;
+                onChange({
+                  ...recipe,
+                  fieldValues: [
+                    ...(recipe.fieldValues?.filter(fv => fv.fieldId !== field.id) ?? []),
+                    { fieldId: field.id, value: newValue }
+                  ]
+                });
+              }}
+              placeholder={field.helpText || ""}
+            />
           </div>
-        )}
+        ))}
       </div>
     </div>
   );

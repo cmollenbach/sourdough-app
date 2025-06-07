@@ -1,15 +1,19 @@
 // Example: src/components/Recipe/RecipeLayout.tsx
 
 import { IonGrid, IonRow, IonCol } from "@ionic/react";
+import type { DragEndEvent } from "@dnd-kit/core";
+import { arrayMove } from "@dnd-kit/sortable";
 import type { RecipeStep } from "../../types/recipe";
+import type { StepTemplate } from "../../types/recipeLayout";
 import StepColumn from "./StepColumn";
 import { TargetEditor } from "./TargetEditor";
+import RecipeControls from "./RecipeControls"; // Import the new component
 import { useRecipeBuilderStore } from "../../store/recipeBuilderStore";
 
-const getEmptyStep = (recipeId: number, order: number): RecipeStep => ({
+const getEmptyStep = (recipeId: number, order: number, stepTemplates: StepTemplate[]): RecipeStep => ({
   id: 0,
   recipeId,
-  stepTemplateId: 0,
+  stepTemplateId: stepTemplates.length > 0 ? stepTemplates[0].id : 0, // Use first template if available
   order,
   notes: "",
   description: "",
@@ -24,7 +28,9 @@ export default function RecipeLayout() {
   const setShowAdvanced = useRecipeBuilderStore((state) => state.setShowAdvanced);
   const stepTemplates = useRecipeBuilderStore((state) => state.stepTemplates);
   const ingredientsMeta = useRecipeBuilderStore((state) => state.ingredientsMeta);
+  const fieldsMeta = useRecipeBuilderStore((state) => state.fieldsMeta);
   const updateStep = useRecipeBuilderStore((state) => state.updateStep);
+  const reorderSteps = useRecipeBuilderStore((state) => state.reorderSteps);
   const removeStep = useRecipeBuilderStore((state) => state.removeStep);
 
   const steps = recipe?.steps ?? [];
@@ -35,7 +41,7 @@ export default function RecipeLayout() {
 
   const handleStepAdd = () => {
     if (!recipe) return;
-    const newStep = getEmptyStep(recipe.id, steps.length + 1);
+    const newStep = getEmptyStep(recipe.id, steps.length + 1, stepTemplates);
     updateStep(newStep);
   };
 
@@ -53,42 +59,54 @@ export default function RecipeLayout() {
     removeStep(stepId);
   };
 
-  const handleReorder = () => {
-    // Implement if you support drag-and-drop reordering
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = steps.findIndex(step => `step-${step.id}` === active.id);
+      const newIndex = steps.findIndex(step => `step-${step.id}` === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1 && recipe) {
+        const newOrderedSteps = arrayMove(steps, oldIndex, newIndex);
+        // Update the 'order' property for each step to reflect the new sequence
+        const finalSteps = newOrderedSteps.map((step, index) => ({
+          ...step,
+          order: index + 1,
+        }));
+        reorderSteps(finalSteps); // Call store action to update all steps
+      }
+    }
   };
 
   return (
     <div className="flex flex-col">
       <div>
-        {recipe && (
-          <TargetEditor
-            recipe={recipe}
-            showAdvanced={showAdvanced}
-            setShowAdvanced={setShowAdvanced}
-            onChange={setRecipe}
-          />
-        )}
         <IonGrid>
           <IonRow>
             <IonCol size="12" sizeMd="6">
-              {/* Left column content */}
+              <RecipeControls /> {/* Add the RecipeControls component here */}
+              {recipe && (
+                <TargetEditor
+                  recipe={recipe}
+                  fieldsMeta={fieldsMeta}
+                  showAdvanced={showAdvanced}
+                  setShowAdvanced={setShowAdvanced}
+                  onChange={setRecipe}
+                />
+              )}
+              {/* You can add more left column content here */}
             </IonCol>
             <IonCol size="12" sizeMd="6">
-              <button
-                onClick={handleStepAdd}
-                className="mb-2 px-4 py-2 bg-blue-600 text-white rounded"
-              >
-                + Add Step
-              </button>
               <StepColumn
                 steps={steps}
                 stepTemplates={stepTemplates}
                 ingredientsMeta={ingredientsMeta}
                 showAdvanced={showAdvanced}
                 onStepChange={handleStepChange}
+                onStepAdd={handleStepAdd} // Pass the handler here
                 onStepDuplicate={handleStepDuplicate}
                 onStepRemove={handleStepRemove}
-                onReorder={handleReorder}
+                onDragEnd={handleDragEnd} // Changed prop name
               />
             </IonCol>
           </IonRow>

@@ -5,7 +5,7 @@ import type { RecipeStep, RecipeStepIngredient } from "../../types/recipe";
 import type { StepTemplate, IngredientMeta } from "../../types/recipeLayout";
 import { StepIngredientTable } from "./StepIngredientTable";
 
-interface StepCardProps {
+export interface StepCardProps {
   step: RecipeStep;
   stepTemplates: StepTemplate[];
   ingredientsMeta: IngredientMeta[] | undefined;
@@ -58,11 +58,12 @@ export default function StepCard({
 
 
   // Watch for templateId changes and ensure it's a number
-  const { watch, control, handleSubmit, reset } = useForm<{
+  const { watch, control, handleSubmit, reset, setValue, getValues } = useForm<{
     templateId: number;
     fields: Record<number, string | number>;
     ingredients: RecipeStepIngredient[];
   }>({
+    mode: "onChange", // Make RHF more responsive to input changes
     defaultValues: {
       templateId: step.stepTemplateId,
       fields: (() => {
@@ -85,6 +86,7 @@ export default function StepCard({
 
   const selectedTemplateId = Number(watch("templateId"));
   const template = stepTemplates.find((t) => t.id === selectedTemplateId);
+  const watchedIngredients = watch('ingredients'); // For exhaustive-deps rule
 
 
   // For dynamic ingredient lines
@@ -93,6 +95,10 @@ export default function StepCard({
     name: "ingredients",
   });
 
+  // --- START Flour Logic Constants ---
+  const FLOUR_CATEGORY_NAME = "Flour"; // Confirmed category name
+  const BREAD_FLOUR_NAME = "Bread Flour"; // Confirmed default flour name
+  // --- END Flour Logic Constants ---
   // Keep form in sync if step prop changes (e.g. duplicate/reorder)
   useEffect(() => {
     const template = memoizedStepTemplates.find((t) => t.id === step.stepTemplateId);
@@ -104,17 +110,83 @@ export default function StepCard({
         ...(step.fields ? Object.fromEntries(step.fields.map(f => [f.fieldId, f.value])) : {})
       },
       ingredients: step.ingredients.map(ing => {
-        const meta = safeIngredientsMeta.find((m: IngredientMeta) => m.id === ing.ingredientId);
+        // For newly added rows (ingredientId is 0), ing.ingredientCategoryId is already correctly set
+        // by the append action. We should preserve it.
+        // If an ingredient is selected (ingredientId > 0), then derive its categoryId from meta.
+        // If selected but not found in meta (data issue), default to 0.
+        const meta = ing.ingredientId && ing.ingredientId !== 0
+          ? safeIngredientsMeta.find((m: IngredientMeta) => m.id === ing.ingredientId)
+          : undefined;
+
+        const finalIngredientCategoryId = meta
+          ? meta.ingredientCategoryId
+          : (ing.ingredientId === 0 ? ing.ingredientCategoryId : 0);
         return {
           ...ing,
-          ingredientCategoryId: meta ? meta.ingredientCategoryId : 0,
+          ingredientCategoryId: finalIngredientCategoryId,
         };
       }),
     });
   }, [step, reset, memoizedStepTemplates, safeIngredientsMeta]);
 
+  // Effect to manage flour percentages summing to 100%
+  useEffect(() => {
+    if (!template || !watchedIngredients || watchedIngredients.length === 0) return;
 
+    const flourCategoryRule = template.ingredientRules.find(
+      (r) => r.ingredientCategory.name === FLOUR_CATEGORY_NAME
+    );
+    if (!flourCategoryRule) return; // Not a template with flours or flour category not found
 
+    const flourCategoryId = flourCategoryRule.ingredientCategory.id;
+
+    const flourIngredientsInForm = watchedIngredients
+      .map((ing, index) => ({ ...ing, originalIndex: index })) // Keep original index
+      .filter((ing) => ing.ingredientCategoryId === flourCategoryId);
+
+    if (flourIngredientsInForm.length === 0) return; // No flours in this step yet
+
+    if (flourIngredientsInForm.length === 1) {
+      const firstFlour = flourIngredientsInForm[0];
+      if (firstFlour.percentage !== 100) {
+        setValue(`ingredients.${firstFlour.originalIndex}.percentage`, 100, { shouldDirty: true, shouldValidate: true });
+      }
+    } else {
+      let sumOfEditableFlours = 0;
+      const lastFlourIndexInFilteredArray = flourIngredientsInForm.length - 1;
+
+      for (let i = 0; i < lastFlourIndexInFilteredArray; i++) { // Iterate all but the last flour
+        const flour = flourIngredientsInForm[i];
+        let currentPercentage = Number(flour.percentage);
+
+        // Clamp individual editable flour percentage
+        if (isNaN(currentPercentage) || currentPercentage < 0) currentPercentage = 0;
+        if (currentPercentage > 100) currentPercentage = 100;
+
+        // Ensure the sum of *this and previous* editable flours doesn't exceed 100
+        // If it does, cap the current flour's percentage.
+        if (sumOfEditableFlours + currentPercentage > 100) {
+          currentPercentage = 100 - sumOfEditableFlours;
+        }
+        
+        sumOfEditableFlours += currentPercentage;
+
+        // Update the value in the form if it was clamped or changed
+        if (Number(flour.percentage) !== currentPercentage) {
+            setValue(`ingredients.${flour.originalIndex}.percentage`, currentPercentage, { shouldDirty: true, shouldValidate: true });
+        }
+      }
+
+      const lastFlour = flourIngredientsInForm[lastFlourIndexInFilteredArray];
+      // The last flour's percentage is 100 minus the sum of (clamped) editable flours.
+      // It should naturally be >= 0 because sumOfEditableFlours is capped at 100.
+      const lastFlourPercentage = Math.max(0, 100 - sumOfEditableFlours); 
+      
+      if (Number(lastFlour.percentage) !== lastFlourPercentage) {
+        setValue(`ingredients.${lastFlour.originalIndex}.percentage`, lastFlourPercentage, { shouldDirty: true, shouldValidate: true });
+      }
+    }
+  }, [watchedIngredients, template, setValue, getValues, FLOUR_CATEGORY_NAME]);
 
   const visibleFields = (template?.fields || []).filter(
     (f) => showAdvanced || !f.advanced
@@ -222,9 +294,65 @@ export default function StepCard({
           ingredientRules={template.ingredientRules}
           ingredientsMeta={safeIngredientsMeta}
           ingredientFields={ingredientFields}
-          append={append}
-          remove={remove}
+          append={(newIngredientData) => {
+            let finalIngredientToAdd = { ...newIngredientData };
+            const flourCategoryRule = template.ingredientRules.find(r => r.ingredientCategory.name === FLOUR_CATEGORY_NAME);
+            
+            if (flourCategoryRule && newIngredientData.ingredientCategoryId === flourCategoryRule.ingredientCategory.id) {
+              const breadFlourMeta = safeIngredientsMeta.find((m: IngredientMeta) => m.name === BREAD_FLOUR_NAME && m.ingredientCategoryId === flourCategoryRule.ingredientCategory.id);
+              const currentFormIngredients = getValues("ingredients");
+              const flourIngredientsInStep = currentFormIngredients.filter(ing => ing.ingredientCategoryId === flourCategoryRule.ingredientCategory.id);
+              
+              const isBreadFlourPresent = flourIngredientsInStep.some(ing => ing.ingredientId === breadFlourMeta?.id);
+
+              // If adding the first flour to this category, and Bread Flour exists in meta, and it's not already present
+              if (breadFlourMeta && !isBreadFlourPresent && flourIngredientsInStep.length === 0) {
+                finalIngredientToAdd = {
+                  ...newIngredientData,
+                  ingredientId: breadFlourMeta.id,
+                  // Percentage will be set to 100 by the useEffect
+                };
+              }
+              // Otherwise, it's a subsequent flour, or Bread Flour is already there, or Bread Flour not found in meta.
+              // Add as a generic new flour (ingredientId: 0, or as passed in).
+              // The useEffect will adjust percentages.
+            }
+            append(finalIngredientToAdd);
+            // Immediately sync with parent
+            setTimeout(() => handleSubmit((data) => {
+              onChange({
+                ...step,
+                stepTemplateId: Number(data.templateId),
+                fields: Object.entries(data.fields).map(([fieldId, value]) => ({
+                  id: 0,
+                  recipeStepId: step.id,
+                  fieldId: Number(fieldId),
+                  value,
+                })),
+                ingredients: data.ingredients,
+              });
+            })(), 0);
+          }}
+          remove={(idx) => {
+            remove(idx);
+            setTimeout(() => handleSubmit((data) => {
+              onChange({
+                ...step,
+                stepTemplateId: Number(data.templateId),
+                fields: Object.entries(data.fields).map(([fieldId, value]) => ({
+                  id: 0,
+                  recipeStepId: step.id,
+                  fieldId: Number(fieldId),
+                  value,
+                })),
+                ingredients: data.ingredients,
+              });
+            })(), 0);
+          }}
           control={control}
+          // Pass down information needed for disabling/calculating flour percentages
+          flourCategoryName={FLOUR_CATEGORY_NAME}
+          recipeStepId={step.id}
         />
       )}
     </form>
