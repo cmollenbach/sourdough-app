@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 // --- Create a recipe ---
 router.post("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
   try {
-    const { name, notes, steps, totalWeight, hydrationPct, saltPct } = req.body; // Expect name and notes directly
+    const { id: _id, name, notes, steps, totalWeight, hydrationPct, saltPct, parameterValues: _pv, ...otherBodyProps } = req.body; // Destructure and ignore 'id' and 'parameterValues' from top-level body
 
     if (!name) { // Name is now a required direct field
       return res.status(400).json({ error: "Recipe name is required" });
@@ -21,12 +21,14 @@ router.post("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
     const recipe = await prisma.recipe.create({
       data: {
         ownerId: req.user!.userId,
+        ...otherBodyProps, // Spread other potential top-level props, EXCLUDING id
         isPredefined: false,
         totalWeight: totalWeight ? parseFloat(totalWeight) : null,
         hydrationPct: hydrationPct ? parseFloat(hydrationPct) : null,
         saltPct: saltPct ? parseFloat(saltPct) : null,
         name: name, // Set name directly
         notes: notes, // Set notes directly
+        // parameterValues: _pv ? { create: _pv.map(...) } : undefined, // REMOVED: Recipe model no longer directly links to RecipeParameterValue this way
         steps: steps
           ? {
               // Ensure ingredients have amount and calculationMode
@@ -34,13 +36,13 @@ router.post("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
                 stepTemplateId: step.stepTemplateId,
                 order: step.order,
                 notes: step.notes,
-                description: step.description,
+                description: step.description, // Ensure this is handled if sent
                 parameterValues: step.parameterValues
-                  ? { create: step.parameterValues }
+                  ? { create: step.parameterValues.map((pv: any) => ({ parameterId: pv.parameterId, value: String(pv.value), notes: pv.notes })) } // Explicitly map, ensure value is string
                   : undefined,
                 ingredients: step.ingredients
                   ? { create: step.ingredients.map((ing: any) => ({
-                      ingredientId: ing.ingredientId,
+                      ingredientId: Number(ing.ingredientId), // Ensure numeric
                       amount: parseFloat(ing.amount),
                       calculationMode: ing.calculationMode as IngredientCalculationMode, // Assuming frontend sends valid enum string
                       preparation: ing.preparation,
@@ -204,27 +206,183 @@ router.put("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => {
     return res.status(400).json({ error: "Invalid recipe id" });
   }
   try {
-    const { name, notes, totalWeight, hydrationPct, saltPct, ...otherRecipeData } = req.body; // Expect name, notes
+    const { name, notes, totalWeight, hydrationPct, saltPct, steps: incomingSteps } = req.body;
 
-    // Prepare data for direct field updates
-    const recipeUpdateData: any = { ...otherRecipeData }; // For any other direct fields like 'active' if sent
-    if (typeof totalWeight !== 'undefined') recipeUpdateData.totalWeight = parseFloat(totalWeight) || null;
-    if (typeof hydrationPct !== 'undefined') recipeUpdateData.hydrationPct = parseFloat(hydrationPct) || null;
-    if (typeof saltPct !== 'undefined') recipeUpdateData.saltPct = parseFloat(saltPct) || null;
-    if (typeof name !== 'undefined') recipeUpdateData.name = name; // Update name directly
-    if (typeof notes !== 'undefined') recipeUpdateData.notes = notes; // Update notes directly
-
-    // Update direct fields on Recipe
-    const updatedRecipe = await prisma.recipe.update({
-      where: { id, ownerId: req.user!.userId }, // Ensure user owns the recipe
-      data: recipeUpdateData,
+    // Ensure the recipe exists and belongs to the user
+    const existingRecipe = await prisma.recipe.findUnique({
+      where: { id, ownerId: req.user!.userId },
     });
 
-    if (!updatedRecipe) {
-      return res.status(404).json({ error: "Recipe not found or not authorized to update." });
+    if (!existingRecipe) {
+      return res.status(404).json({ error: "Recipe not found or you are not authorized to update it." });
+    }
+    if (existingRecipe.isPredefined) {
+      return res.status(403).json({ error: "Predefined templates cannot be updated directly. Please save as a new recipe." });
     }
 
-    res.json({ message: "Recipe updated", recipe: updatedRecipe });
+    await prisma.$transaction(async (tx) => {
+      // 1. Update Recipe's direct fields
+      const recipeUpdateData: any = {};
+      if (typeof totalWeight !== 'undefined') recipeUpdateData.totalWeight = parseFloat(totalWeight) || null;
+      if (typeof hydrationPct !== 'undefined') recipeUpdateData.hydrationPct = parseFloat(hydrationPct) || null;
+      if (typeof saltPct !== 'undefined') recipeUpdateData.saltPct = parseFloat(saltPct) || null;
+      if (typeof name !== 'undefined') recipeUpdateData.name = name;
+      if (typeof notes !== 'undefined') recipeUpdateData.notes = notes;
+      // Add any other direct recipe fields here if they exist in req.body
+
+      await tx.recipe.update({
+        where: { id }, // ownerId check already done
+        data: recipeUpdateData,
+      });
+
+      // 2. Process Steps
+      if (incomingSteps && Array.isArray(incomingSteps)) {
+        const existingDbSteps = await tx.recipeStep.findMany({ where: { recipeId: id } });
+        const incomingStepClientIds = incomingSteps.map(s => s.id).filter(stepId => stepId && stepId !== 0); // Actual DB IDs from client
+        // Define types for incoming payload items for clarity
+        type IncomingParameterValue = { id?: number; parameterId: number; value: string | number | boolean | null; notes?: string | null };
+        type IncomingIngredient = { id?: number; ingredientId: number; amount: number; calculationMode: IngredientCalculationMode; preparation?: string | null; notes?: string | null };
+
+        
+        // Delete steps from DB that are not in the incoming payload
+        const stepsToDelete = existingDbSteps.filter(dbStep => !incomingStepClientIds.includes(dbStep.id));
+        for (const stepToDelete of stepsToDelete) {
+          await tx.recipeStepParameterValue.deleteMany({ where: { recipeStepId: stepToDelete.id } });
+          await tx.recipeStepIngredient.deleteMany({ where: { recipeStepId: stepToDelete.id } });
+          await tx.recipeStep.delete({ where: { id: stepToDelete.id } });
+        }
+
+        // Update existing steps or create new ones
+        for (const stepPayload of incomingSteps) {
+          const stepData = {
+            stepTemplateId: stepPayload.stepTemplateId,
+            order: stepPayload.order,
+            notes: stepPayload.notes,
+            description: stepPayload.description,
+          };
+
+          let currentStepId: number;
+          const isNewStep = !stepPayload.id || stepPayload.id === 0;
+
+          if (isNewStep) {
+            const newStep = await tx.recipeStep.create({
+              data: { ...stepData, recipeId: id },
+            });
+            currentStepId = newStep.id;
+          } else {
+            currentStepId = stepPayload.id;
+            await tx.recipeStep.update({
+              where: { id: currentStepId },
+              data: stepData,
+            });
+          }
+
+          // Process ParameterValues (RecipeStepField) for the current step
+          const incomingPvs: IncomingParameterValue[] = stepPayload.parameterValues || [];
+          const existingDbStepPvs = await tx.recipeStepParameterValue.findMany({ where: { recipeStepId: currentStepId } });
+          const incomingPvClientIds = incomingPvs.map((pv: IncomingParameterValue) => pv.id).filter((pvId?: number) => pvId && pvId !== 0);
+
+          const pvsToDelete = existingDbStepPvs.filter(dbPv => !incomingPvClientIds.includes(dbPv.id));
+          for (const pvToDelete of pvsToDelete) {
+            await tx.recipeStepParameterValue.delete({ where: { id: pvToDelete.id } });
+          }
+          
+          for (const pvPayload of incomingPvs) {
+            const pvData = { parameterId: pvPayload.parameterId, value: String(pvPayload.value), notes: pvPayload.notes };
+            if (!pvPayload.id || pvPayload.id === 0) {
+              await tx.recipeStepParameterValue.create({ data: { ...pvData, recipeStepId: currentStepId } });
+            } else {
+              await tx.recipeStepParameterValue.update({ where: { id: pvPayload.id }, data: pvData });
+            }
+          }
+
+          // Process Ingredients for the current step
+          const incomingIngs: IncomingIngredient[] = stepPayload.ingredients || [];
+          const existingDbStepIngs = await tx.recipeStepIngredient.findMany({ where: { recipeStepId: currentStepId } });
+          const incomingIngClientIds = incomingIngs.map((ing: IncomingIngredient) => ing.id).filter((ingId?: number) => ingId && ingId !== 0);
+
+          const ingsToDelete = existingDbStepIngs.filter(dbIng => !incomingIngClientIds.includes(dbIng.id));
+          for (const ingToDelete of ingsToDelete) {
+            await tx.recipeStepIngredient.delete({ where: { id: ingToDelete.id } });
+          }
+
+          for (const ingPayload of incomingIngs) {
+            const ingData = {
+              ingredientId: ingPayload.ingredientId,
+              amount: Number(ingPayload.amount), // Ensure it's a number; parseFloat is also an option
+              calculationMode: ingPayload.calculationMode as IngredientCalculationMode,
+              preparation: ingPayload.preparation,
+              notes: ingPayload.notes,
+            };
+            if (!ingPayload.id || ingPayload.id === 0) {
+              await tx.recipeStepIngredient.create({ data: { ...ingData, recipeStepId: currentStepId } });
+            } else {
+              await tx.recipeStepIngredient.update({ where: { id: ingPayload.id }, data: ingData });
+            }
+          }
+        }
+      }
+    }); // End of transaction
+
+    // Fetch the fully updated recipe to return it in the same structure as GET /:id/full
+    // This logic is duplicated from GET /:id/full for consistency in response.
+    // Consider refactoring into a shared function if it grows more complex.
+    const finalRecipe = await prisma.recipe.findUnique({
+      where: { id },
+      include: {
+        steps: {
+          orderBy: { order: "asc" },
+          include: {
+            parameterValues: { include: { parameter: true } },
+            ingredients: { include: { ingredient: true } },
+          }
+        }
+      },
+    });
+
+    if (!finalRecipe) { // Should not happen if transaction succeeded
+        return res.status(500).json({ error: "Failed to retrieve updated recipe." });
+    }
+
+    // Transform to FullRecipe structure
+    const { steps: dbSteps, ...recipeBaseProperties } = finalRecipe;
+    const transformedRecipe = {
+      ...recipeBaseProperties,
+      name: finalRecipe.name,
+      notes: finalRecipe.notes,
+      totalWeight: finalRecipe.totalWeight,
+      hydrationPct: finalRecipe.hydrationPct,
+      saltPct: finalRecipe.saltPct,
+      fieldValues: [], // Recipe-level dynamic fieldValues are removed
+      steps: dbSteps.map(step => {
+        const { parameterValues: stepPVs, ingredients: stepIngs, ...restStep } = step;
+        return {
+          ...restStep,
+          fields: stepPVs.map(spv => ({
+            id: spv.id,
+            recipeStepId: spv.recipeStepId,
+            fieldId: spv.parameterId,
+            value: spv.value,
+            notes: spv.notes,
+            name: spv.parameter.name, // from included parameter
+          })),
+          ingredients: stepIngs.map(ing => ({
+            id: ing.id,
+            recipeStepId: ing.recipeStepId,
+            ingredientId: ing.ingredientId,
+            ingredientCategoryId: ing.ingredient.ingredientCategoryId, // from included ingredient
+            amount: ing.amount,
+            calculationMode: ing.calculationMode,
+            preparation: ing.preparation,
+            notes: ing.notes,
+            // ingredientName: ing.ingredient.name, // Already available via ingredientId lookup on frontend
+          })),
+        };
+      })
+    };
+
+    res.json({ message: "Recipe updated successfully", recipe: transformedRecipe });
+
   } catch (err) {
     console.error("Error in PUT /api/recipes/:id:", err);
     res.status(500).json({ error: "Failed to update recipe" });

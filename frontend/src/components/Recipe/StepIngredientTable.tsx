@@ -1,7 +1,8 @@
-import { Controller } from "react-hook-form";
+import { useFormContext, Controller } from "react-hook-form";
 import type { Control, FieldArrayWithId, Path, UseFormSetValue } from "react-hook-form";
 import type { StepTemplateIngredientRuleMeta, IngredientMeta } from "../../types/recipeLayout";
 import type { RecipeStepIngredient } from "../../types/recipe";
+// import { enforceFlourPercentage } from "../../utils/flourPercentage"; // We'll inline this logic for clarity
 import { IngredientCalculationMode } from "../../types/recipe";
 
 interface StepIngredientTableProps {
@@ -15,7 +16,6 @@ interface StepIngredientTableProps {
   append: (value: RecipeStepIngredient) => void;
   remove: (index: number) => void;
   control: Control<{
-    // Define the full form shape for better type safety with setValue
     templateId: number;
     fields: Record<number, string | number>;
     ingredients: RecipeStepIngredient[];
@@ -23,11 +23,12 @@ interface StepIngredientTableProps {
   setValue: UseFormSetValue<{
     templateId: number;
     fields: Record<number, string | number>;
-    ingredients: RecipeStepIngredient[];
+    ingredients: RecipeStepIngredient[]; // Ensure this matches the form values type
   }>;
-  flourCategoryName: string; // To identify the flour category
-  recipeStepId: number; // ID of the current step
+  flourCategoryName: string;
+  recipeStepId: number;
 }
+
 
 export function StepIngredientTable({
   ingredientRules,
@@ -40,13 +41,24 @@ export function StepIngredientTable({
   flourCategoryName,
   recipeStepId,
 }: StepIngredientTableProps) {
-  const INCLUSIONS_CATEGORY_NAME = "Inclusions"; // Define category name for fixed weights
+  const INCLUSIONS_CATEGORY_NAME = "Inclusions";
+  const { getValues: getStepCardFormValues } = useFormContext<{ templateId: number; fields: Record<number, string | number>; ingredients: RecipeStepIngredient[]; }>();
+
+  const flourCategoryId =
+    ingredientsMeta.find(meta => meta.name === flourCategoryName)?.ingredientCategoryId ?? 0;
+
+  // Compute sum of all flour percentages in this table
+  const flourPercentageSum = ingredientFields
+    .filter(field =>
+      field.ingredientCategoryId === flourCategoryId &&
+      field.calculationMode === IngredientCalculationMode.PERCENTAGE
+    )
+    .reduce((sum, field) => sum + (typeof field.amount === "number" ? field.amount : 0), 0);
 
   return (
     <div className="flex flex-col gap-6">
       {ingredientRules.map((rule) => {
         const isFlourCategoryRule = rule.ingredientCategory.name === flourCategoryName;
-        // const flourIngredientsInThisCategory = ingredientFields.filter(field => field.ingredientCategoryId === rule.ingredientCategory.id);
 
         const categoryIngredients = ingredientsMeta.filter(
           (meta) => meta.ingredientCategoryId === rule.ingredientCategory.id
@@ -57,8 +69,8 @@ export function StepIngredientTable({
             (field) => (field.ingredientCategoryId as number) === rule.ingredientCategory.id
           );
         return (
-          <div key={rule.ingredientCategory.id} className="mb-2 flex flex-col"> {/* Make this a flex column */}
-            <label className="font-semibold mb-1"> {/* Ensure label has some bottom margin */}
+          <div key={rule.ingredientCategory.id} className="mb-2 flex flex-col">
+            <label className="font-semibold mb-1">
               {rule.ingredientCategory.name}
               {rule.required && <span className="text-red-500 ml-1">*</span>}
             </label>
@@ -79,9 +91,9 @@ export function StepIngredientTable({
                   }
                 }
               }
-              
+
               return (
-                <div key={ingredientFieldData.id ?? ingredientFieldData.idx} className="flex items-center gap-2 mt-1 self-center"> {/* Center the ingredient row */}
+                <div key={ingredientFieldData.id ?? ingredientFieldData.idx} className="flex items-center gap-2 mt-1 self-center">
                   {/* Register ingredientCategoryId so it's tracked */}
                   <Controller
                     name={`ingredients.${ingredientFieldData.idx}.ingredientCategoryId` as Path<{ templateId: number; fields: Record<number, string | number>; ingredients: RecipeStepIngredient[]; }>}
@@ -99,22 +111,17 @@ export function StepIngredientTable({
                         value={typeof field.value === "number" ? field.value : 0}
                         onChange={e => {
                           const selectedIngredientId = Number(e.target.value);
-                          field.onChange(selectedIngredientId); // Update ingredientId
+                          field.onChange(selectedIngredientId);
 
                           if (selectedIngredientId > 0) {
-                            // The category of the selected ingredient is known from the current 'rule'
                             const isSelectedIngredientInInclusionsCategory = rule.ingredientCategory.name === INCLUSIONS_CATEGORY_NAME;
-                            
                             const newMode = isSelectedIngredientInInclusionsCategory
                               ? IngredientCalculationMode.FIXED_WEIGHT
                               : IngredientCalculationMode.PERCENTAGE;
-                            
+
                             setValue(`ingredients.${ingredientFieldData.idx}.calculationMode`, newMode);
-                            setValue(`ingredients.${ingredientFieldData.idx}.amount`, 0); // Reset amount
+                            setValue(`ingredients.${ingredientFieldData.idx}.amount`, 0);
                           } else {
-                            // Ingredient deselected or "request new"
-                            // Default to PERCENTAGE and reset amount.
-                            // The append function already defaults to PERCENTAGE, so this handles changes.
                             setValue(`ingredients.${ingredientFieldData.idx}.calculationMode`, IngredientCalculationMode.PERCENTAGE);
                             setValue(`ingredients.${ingredientFieldData.idx}.amount`, 0);
                           }
@@ -135,30 +142,75 @@ export function StepIngredientTable({
                   <Controller
                     name={`ingredients.${ingredientFieldData.idx}.amount` as Path<{ templateId: number; fields: Record<number, string | number>; ingredients: RecipeStepIngredient[]; }>}
                     control={control}
-                    render={({ field }) => (
-                    <input
-                      {...field}
-                      type="number"
-                      min={0}
-                      max={currentCalcMode === IngredientCalculationMode.PERCENTAGE ? 100 : undefined}
-                      className={`border rounded px-2 py-1 w-24 text-center ${inputDisabled ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                      placeholder={currentCalcMode === IngredientCalculationMode.PERCENTAGE ? "Percentage" : "Grams"}
-                      value={typeof field.value === "number" ? field.value : 0}
-                      onChange={e => {
-                        let val = 0;
-                        if (e.target.value !== "") {
-                          val = Number(e.target.value);
-                          // Client-side clamping for immediate UX
-                          if (val < 0) val = 0;
-                          if (currentCalcMode === IngredientCalculationMode.PERCENTAGE && val > 100) {
-                            val = 100;
-                          }
-                        }
-                        field.onChange(val);
-                      }}
-                      disabled={inputDisabled}
-                    />
-                    )}
+                    render={({ field }) => {
+                      return (
+                        <input
+                          type="number"
+                          value={typeof field.value === "number" || typeof field.value === "string" ? field.value : 0}
+                          onChange={e => {
+                            // Determine raw value, allowing empty string for clearing
+                            let rawValue = Number(e.target.value);
+                            const isClearingInput = e.target.value === "";
+                            if (!isClearingInput && isNaN(rawValue)) rawValue = 0; // Default to 0 if invalid and not clearing
+
+                            let valueToSet: number | string = isClearingInput ? "" : rawValue;
+
+                            if (!isClearingInput && isFlourCategoryRule && ingredientFieldData.calculationMode === IngredientCalculationMode.PERCENTAGE) {
+                              // Enforce that the current input, combined with others in the same main flour category, doesn't exceed 100%
+                              const allFormIngredients = getStepCardFormValues("ingredients");
+                              let sumOfOtherFlourPercentagesInMainCategory = 0;
+                              allFormIngredients.forEach((ing, index) => {
+                                if (
+                                  index !== ingredientFieldData.idx && // Exclude current field
+                                  ing.ingredientCategoryId === flourCategoryId && // Must be in THE main flour category
+                                  ing.calculationMode === IngredientCalculationMode.PERCENTAGE
+                                ) {
+                                  sumOfOtherFlourPercentagesInMainCategory += (Number(ing.amount) || 0);
+                                }
+                              });
+
+                              const maxAllowedForCurrentToKeepSum100 = Math.max(0, 100 - sumOfOtherFlourPercentagesInMainCategory);
+                              const individuallyClampedRawValue = Math.min(100, Math.max(0, rawValue)); // Clamp 0-100
+                              valueToSet = Math.min(individuallyClampedRawValue, maxAllowedForCurrentToKeepSum100);
+
+                            } else if (isFlourCategoryRule && ingredientFieldData.calculationMode === IngredientCalculationMode.PERCENTAGE) {
+                              // This case is now covered above. If not clearing, it's a number.
+                            } else if (!isClearingInput) {
+                              // Default clamping for non-flour-percentage numbers
+                              valueToSet = Math.max(0, Math.min(10000, rawValue)); // General clamp for grams etc.
+                            }
+
+                            field.onChange(valueToSet); // Let RHF handle the update
+
+                            // After updating the current field, if it was a flour percentage,
+                            // adjust the 'last' (disabled) flour percentage input in the same category rule.
+                            if (isFlourCategoryRule && ingredientFieldData.calculationMode === IngredientCalculationMode.PERCENTAGE) {
+                              const latestAllIngredientsAfterChange = getStepCardFormValues("ingredients");
+                              const percentageFloursInThisRule = categoryIngredientFields.filter(
+                                f => f.calculationMode === IngredientCalculationMode.PERCENTAGE
+                              );
+
+                              if (percentageFloursInThisRule.length > 1) {
+                                const lastFlourFieldInRule = percentageFloursInThisRule[percentageFloursInThisRule.length - 1];
+                                let sumOfAllExceptLastInRule = 0;
+                                percentageFloursInThisRule.forEach(f => {
+                                  if (f.idx !== lastFlourFieldInRule.idx) { // Sum all *except* the last one
+                                    sumOfAllExceptLastInRule += (Number(latestAllIngredientsAfterChange[f.idx]?.amount) || 0);
+                                  }
+                                });
+                                const amountForLastFlour = Math.max(0, 100 - sumOfAllExceptLastInRule);
+                                setValue(`ingredients.${lastFlourFieldInRule.idx}.amount`, Math.min(100, amountForLastFlour), {
+                                  shouldValidate: true, shouldDirty: true,
+                                });
+                              }
+                            }
+                          }}
+                          className={`border rounded px-2 py-1 w-24 text-center ${inputDisabled ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                          placeholder={currentCalcMode === IngredientCalculationMode.PERCENTAGE ? "Percentage" : "Grams"}
+                          disabled={inputDisabled}
+                        />
+                      );
+                    }}
                   />
                   <span>
                     {currentCalcMode === IngredientCalculationMode.PERCENTAGE ? '%' : 'g'}
@@ -174,19 +226,25 @@ export function StepIngredientTable({
                 </div>
               );
             })}
+            {/* Show a warning if the sum of flour percentages in this table exceeds 100 */}
+            {isFlourCategoryRule && flourPercentageSum > 100 && (
+              <div className="text-red-500 text-sm mt-2">
+                Warning: Total flour percentage exceeds 100%!
+              </div>
+            )}
             <button
               type="button"
               onClick={() =>
                 append({
                   id: 0,
                   ingredientId: 0,
-                  amount: 0, // Changed from percentage
+                  amount: 0,
                   ingredientCategoryId: rule.ingredientCategory.id,
-                  calculationMode: IngredientCalculationMode.PERCENTAGE, // Default for a new ingredient row
-                  recipeStepId: recipeStepId, // Add the recipeStepId here
+                  calculationMode: IngredientCalculationMode.PERCENTAGE,
+                  recipeStepId: recipeStepId,
                 })
               }
-              className="mt-2 px-3 py-1 bg-blue-100 rounded text-blue-700 self-center" // Center the "Add" button
+              className="mt-2 px-3 py-1 bg-blue-100 rounded text-blue-700 self-center"
             >
               + Add {rule.ingredientCategory.name}
             </button>

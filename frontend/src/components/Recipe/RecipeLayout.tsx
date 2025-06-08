@@ -1,5 +1,5 @@
 // Example: src/components/Recipe/RecipeLayout.tsx
-
+import { useCallback } from "react";
 import { IonGrid, IonRow, IonCol } from "@ionic/react";
 import type { DragEndEvent } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
@@ -25,32 +25,29 @@ export default function RecipeLayout({
   onStepsReorderHandler, // New prop
 }: RecipeLayoutProps) {
 
-  const handleStepChange = (_idx: number, updatedStep: RecipeStep) => {
+  const handleStepChange = useCallback((_idx: number, updatedStep: RecipeStep) => {
     // The onStepSave prop now handles this. The _isNew flag might need to be determined.
     onStepSave(updatedStep, updatedStep.id === 0);
-  };
+  }, [onStepSave]);
 
-  // Local handleStepAdd is removed; onStepAddHandler prop will be used by StepColumn.
-  // Local reorderSteps is removed; onStepsReorderHandler prop will be used by DndContext.
-
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      const oldIndex = steps.findIndex(step => `step-${step.id}` === active.id);
-      const newIndex = steps.findIndex(step => `step-${step.id}` === over.id);
+      const oldIndex = steps.findIndex(s => `step-${s.id}` === active.id);
+      const newIndex = steps.findIndex(s => `step-${s.id}` === over.id);
 
       if (oldIndex !== -1 && newIndex !== -1 && recipe) {
         const newOrderedSteps = arrayMove(steps, oldIndex, newIndex);
         // Update the 'order' property for each step to reflect the new sequence
-        const finalSteps = newOrderedSteps.map((step, index) => ({
-          ...step,
+        const finalSteps = newOrderedSteps.map((s, index) => ({
+          ...s,
           order: index + 1,
         }));
         onStepsReorderHandler(finalSteps); // Use prop handler
       }
     }
-  };
+  }, [steps, recipe, onStepsReorderHandler]);
 
   return (
     <div className="flex flex-col">

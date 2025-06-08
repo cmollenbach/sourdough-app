@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRecipeBuilderStore } from '../../store/recipeBuilderStore';
 import type { FullRecipe, RecipeFieldValue, RecipeStep, RecipeStepField, RecipeStepIngredient, IngredientCalculationMode } from '../../types/recipe';
-import { apiGet } from '../../utils/api'; // Import your actual apiGet function
+import { apiGet, apiPost, apiPut, apiDelete } from '../../utils/api'; // Import all needed API utils
 
 // Define RecipeStub based on the Recipe type for the dropdown
 type RecipeStub = {
@@ -12,12 +12,15 @@ type RecipeStub = {
   isTemplateAdvanced?: boolean; // True if a predefined template is considered advanced
 };
 
+// --- Real API Interaction Functions ---
+
 async function fetchFullRecipe(id: number): Promise<FullRecipe | null> {
-  // Use your actual apiGet function to fetch the full recipe details
-  // The backend endpoint /api/recipes/:id/full should return data matching FullRecipe
   return apiGet<FullRecipe>(`/recipes/${id}/full`);
 }
 
+// This interface defines what the backend expects for creating/updating.
+// It should align with what your backend `POST /recipes` and `PUT /recipes/:id` routes consume.
+// Note: The backend `PUT` route now returns the transformed FullRecipe.
 interface BackendRecipePayload {
   name: string;
   notes?: string | null;
@@ -44,61 +47,22 @@ interface BackendRecipePayload {
   }[];
 }
 
-async function apiSaveRecipe(payload: BackendRecipePayload): Promise<FullRecipe> {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const newId = Math.floor(Math.random() * 1000) + 100;
-  return {
-    id: newId,
-    name: payload.name,
-    notes: payload.notes ?? undefined,
-  totalWeight: payload.totalWeight,
-  hydrationPct: payload.hydrationPct,
-  saltPct: payload.saltPct,
-  fieldValues: payload.parameterValues.map(pv => ({ fieldId: pv.parameterId, value: String(pv.value) } as RecipeFieldValue)),
-    steps: payload.steps?.map((s, idx) => ({
-      id: idx + 1000, // Simulate new step IDs
-      recipeId: newId,
-      stepTemplateId: s.stepTemplateId,
-      order: s.order,
-      notes: s.notes,
-      description: s.description,
-      fields: s.parameterValues?.map(spv => ({ id: idx + 2000, recipeStepId: idx + 1000, fieldId: spv.parameterId, value: spv.value, notes: spv.notes } as RecipeStepField)) || [],
-      ingredients: s.ingredients?.map(ing => ({
-        ...ing, // This would include amount and calculationMode if payload was correct
-        id: idx + 3000, // Simulate new ID
-        recipeStepId: idx + 1000, // Simulate new recipeStepId
-        // Ensure amount and calculationMode are present for the type cast
-      } as RecipeStepIngredient)) || []
-    } as RecipeStep)) || []
-  };
+async function apiSaveNewRecipe(payload: BackendRecipePayload): Promise<FullRecipe> {
+  // Backend POST /api/recipes should return the created FullRecipe
+  return apiPost<FullRecipe>('/recipes', payload);
 }
 
-async function apiUpdateRecipe(id: number, payload: BackendRecipePayload): Promise<FullRecipe> {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return {
-    id,
-    name: payload.name,
-    notes: payload.notes ?? undefined,
-  totalWeight: payload.totalWeight,
-  hydrationPct: payload.hydrationPct,
-  saltPct: payload.saltPct,
-  fieldValues: payload.parameterValues.map(pv => ({ fieldId: pv.parameterId, value: String(pv.value) } as RecipeFieldValue)),
-    steps: payload.steps?.map((s, idx) => ({
-      id: s.id || idx + 1000,
-      recipeId: id,
-      stepTemplateId: s.stepTemplateId,
-      order: s.order,
-      notes: s.notes,
-      description: s.description,
-      fields: s.parameterValues?.map(spv => ({ id: spv.id || idx + 2000, recipeStepId: s.id || idx + 1000, fieldId: spv.parameterId, value: spv.value, notes: spv.notes } as RecipeStepField)) || [],
-      ingredients: s.ingredients?.map(ing => ({
-        ...ing, // This would include amount and calculationMode if payload was correct
-        id: ing.id || idx + 3000,
-        recipeStepId: s.id || idx + 1000,
-      } as RecipeStepIngredient)) || []
-    } as RecipeStep)) || []
-  };
+async function apiUpdateExistingRecipe(id: number, payload: BackendRecipePayload): Promise<FullRecipe> {
+  // Backend PUT /api/recipes/:id should return an object like { message: string, recipe: FullRecipe }
+  const response = await apiPut<{ message: string, recipe: FullRecipe }>(`/recipes/${id}`, payload);
+  return response.recipe; // Extract the recipe object
 }
+
+async function apiDeleteRecipe(id: number): Promise<void> {
+  // Backend DELETE /api/recipes/:id usually returns a success message or just a 204 No Content
+  await apiDelete(`/recipes/${id}`);
+}
+
 
 const SIMPLE_BASE_RECIPE_ID = 1;
 // --- End Placeholder API functions ---
@@ -108,11 +72,25 @@ export default function RecipeControls() {
   const currentRecipe = useRecipeBuilderStore(state => state.recipe);
   const setRecipe = useRecipeBuilderStore(state => state.setRecipe);
   const fieldsMeta = useRecipeBuilderStore(state => state.fieldsMeta); // Access fieldsMeta from the store
+  const isRecipeDirty = useRecipeBuilderStore(state => state.isRecipeDirty); // Get the dirty flag
 
   const [recipeList, setRecipeList] = useState<RecipeStub[]>([]);
   const [selectedRecipeId, setSelectedRecipeId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const fetchRecipeList = async () => {
+    // setIsLoading(true); // Optionally set loading for list refresh, but might be too quick
+    // setError(null);
+    try {
+      const list = await apiGet<RecipeStub[]>("/recipes");
+      setRecipeList(list);
+    } catch (_err) {
+      // setError('Failed to refresh recipe list.'); // Avoid overwriting main action error
+      console.error("Failed to refresh recipe list:", _err);
+    }
+    // finally { setIsLoading(false); }
+  };
 
   useEffect(() => {
     const fetchList = async () => {
@@ -165,8 +143,8 @@ export default function RecipeControls() {
       return;
     }
 
-    if (currentRecipe) {
-      if (!window.confirm("You have an active recipe. Loading a new one will discard any unsaved changes. Continue?")) {
+    if (currentRecipe && isRecipeDirty) { // Only confirm if there are unsaved changes
+      if (!window.confirm("You have unsaved changes to the current recipe. Loading a new one will discard these changes. Continue?")) {
         event.target.value = selectedRecipeId; // Revert dropdown
         return;
       }
@@ -228,17 +206,20 @@ export default function RecipeControls() {
     };
   };
 
-  const handleSave = async () => {
-    if (!currentRecipe || currentRecipe.id !== 0) {
-      alert("This recipe is not new. Use 'Update' or create a new one first.");
-      return;
-    }
+  const performSaveAsNew = async (recipeToSave: FullRecipe, suggestedName: string) => {
     setIsLoading(true);
     setError(null);
+    const newName = window.prompt("Enter name for the new recipe:", suggestedName);
+    if (!newName || newName.trim() === "") {
+      setIsLoading(false);
+      return; // User cancelled or entered empty name
+    }
     try {
-      const payload = transformRecipeToBackendPayload(currentRecipe);
-      const savedRecipe = await apiSaveRecipe(payload);
+      const payload = transformRecipeToBackendPayload({ ...recipeToSave, name: newName.trim(), id: 0 });
+      const savedRecipe = await apiSaveNewRecipe(payload); // Use real API call
       setRecipe(savedRecipe);
+      await fetchRecipeList(); // Refresh the recipe list
+      setSelectedRecipeId(savedRecipe.id.toString()); // Select the newly saved recipe
       alert('Recipe saved successfully!');
     } catch (_err) {
       setError('Failed to save recipe.');
@@ -248,19 +229,43 @@ export default function RecipeControls() {
     }
   };
 
-  const handleUpdate = async () => {
-    if (!currentRecipe || currentRecipe.id === 0) {
-      alert('No existing recipe loaded to update. Use "Save" for new recipes.');
+  const handleUpdateOrSave = async () => {
+    if (!currentRecipe) {
+      setError("No recipe loaded.");
       return;
     }
+
+    // If it's a predefined template
+    if (currentRecipe.isPredefined) {
+      performSaveAsNew(currentRecipe, currentRecipe.name);
+      return;
+    }
+
+    // If it's a new, unsaved recipe (ID 0)
+    if (currentRecipe.id === 0) {
+      performSaveAsNew(currentRecipe, currentRecipe.name || "Untitled");
+      return;
+    }
+
+    // Existing user recipe: Ask to update or save as new
+    const shouldUpdate = window.confirm(
+      `Do you want to update the existing recipe "${currentRecipe.name}"?\n\n(OK = Update, Cancel = Save as New)`
+    );
+
+    if (!shouldUpdate) {
+      performSaveAsNew(currentRecipe, currentRecipe.name);
+      return;
+    }
+
+    // Perform Update
     setIsLoading(true);
     setError(null);
     try {
       const payload = transformRecipeToBackendPayload(currentRecipe);
-      const updatedRecipe = await apiUpdateRecipe(currentRecipe.id, payload);
+      const updatedRecipe = await apiUpdateExistingRecipe(currentRecipe.id, payload); // Use real API call
       setRecipe(updatedRecipe);
-      // Note: Backend PUT /api/recipes/:id currently only updates top-level parameterValues.
-      // Full step/ingredient updates require backend enhancement.
+      await fetchRecipeList(); // Refresh the recipe list
+      // setSelectedRecipeId(updatedRecipe.id.toString()); // Already selected, but good for consistency if needed
       alert('Recipe updated successfully!');
     } catch (_err) {
       setError('Failed to update recipe.');
@@ -270,9 +275,9 @@ export default function RecipeControls() {
     }
   };
 
-  const handleNew = async () => {
-    if (currentRecipe) {
-      if (!window.confirm("You have an active recipe. Creating a new one will discard any unsaved changes. Continue?")) {
+  const handleNewFromBase = async () => {
+    if (currentRecipe && isRecipeDirty) { // Only confirm if there are unsaved changes
+      if (!window.confirm("You have unsaved changes to the current recipe. Creating a new one will discard these changes. Continue?")) {
         return;
       }
     }
@@ -323,9 +328,31 @@ export default function RecipeControls() {
     }
   };
 
-  const canUpdate = !isLoading && currentRecipe && currentRecipe.id !== 0;
-  const canSave = !isLoading && currentRecipe && currentRecipe.id === 0;
+  const handleDelete = async () => {
+    if (!currentRecipe || currentRecipe.id === 0 || currentRecipe.isPredefined) {
+      alert("Cannot delete a new, unsaved recipe or a predefined template.");
+      return;
+    }
 
+    if (window.confirm(`Are you sure you want to delete the recipe "${currentRecipe.name}"? This action cannot be undone.`)) {
+      setIsLoading(true);
+      setError(null);
+      try {
+        await apiDeleteRecipe(currentRecipe.id);
+        alert(`Recipe "${currentRecipe.name}" deleted successfully.`);
+        // Optionally, load the base template or clear the current recipe
+        await fetchRecipeList(); // Refresh list first
+        handleNewFromBase(); // Load new from base after delete
+      } catch (_err) {
+        setError('Failed to delete recipe.');
+        console.error("Failed to delete recipe:", _err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const canPerformActions = !isLoading && currentRecipe;
 
   return (
     <div className="p-4 border rounded-lg shadow bg-white mb-6">
@@ -375,25 +402,25 @@ export default function RecipeControls() {
 
       <div className="flex flex-col sm:flex-row gap-2">
         <button
-          onClick={handleSave}
-          disabled={!canSave}
+          onClick={handleUpdateOrSave}
+          disabled={!canPerformActions}
           className="px-4 py-2 flex-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-60 disabled:cursor-not-allowed text-center"
         >
-          Save New Recipe
+          Update / Save
         </button>
         <button
-          onClick={handleUpdate}
-          disabled={!canUpdate}
+          onClick={handleNewFromBase}
+          disabled={isLoading} // Disable if any operation is in progress
           className="px-4 py-2 flex-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-60 disabled:cursor-not-allowed text-center"
         >
-          Update Current Recipe
+          New
         </button>
         <button
-          onClick={handleNew}
-          disabled={isLoading}
-          className="px-4 py-2 flex-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-60 disabled:cursor-not-allowed text-center"
+          onClick={handleDelete}
+          disabled={!canPerformActions || currentRecipe?.isPredefined || currentRecipe?.id === 0}
+          className="px-4 py-2 flex-1 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-60 disabled:cursor-not-allowed text-center"
         >
-          New from Base
+          Delete
         </button>
       </div>
     </div>

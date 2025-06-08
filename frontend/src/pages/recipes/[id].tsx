@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useHistory } from "react-router-dom";
 import RecipeLayout from "../../components/Recipe/RecipeLayout";
 import { apiGet } from "../../utils/api";
@@ -28,12 +28,14 @@ function createNewRecipeFromBaseTemplate(baseRecipe: FullRecipe, existingRecipeN
   return {
     ...baseRecipe,
     id: 0, // Mark as new
-    name: newName,
+    name: newName, // The recipe itself is new
     steps: baseRecipe.steps.map((step, stepIdx) => ({
-      ...step,
-      id: 0, recipeId: 0, order: step.order || stepIdx + 1,
-      fields: step.fields.map(f => ({ ...f, id: 0, recipeStepId: 0 } as RecipeStepField)),
-      ingredients: step.ingredients.map(i => ({ ...i, id: 0, recipeStepId: 0 } as RecipeStepIngredient)),
+      ...step, // Spread original step data first
+      id: -(Date.now() + stepIdx + Math.floor(Math.random() * 100000)), // More robust unique temporary ID
+      recipeId: 0, // Belongs to the new, unsaved recipe (which will have ID 0)
+      order: step.order || stepIdx + 1,
+      fields: step.fields.map((f, fIdx) => ({ ...f, id: -(Date.now() + stepIdx + fIdx + Math.floor(Math.random() * 100000) + 1000), recipeStepId: 0 } as RecipeStepField)), // Assign unique temporary IDs
+      ingredients: step.ingredients.map((i, iIdx) => ({ ...i, id: -(Date.now() + stepIdx + iIdx + Math.floor(Math.random() * 100000) + 2000), recipeStepId: 0 } as RecipeStepIngredient)), // Assign unique temporary IDs
     } as RecipeStep)),
     fieldValues: baseRecipe.fieldValues.map(fv => ({ ...fv })),
   };
@@ -57,6 +59,60 @@ export default function RecipeBuilderPage() {
     addStep, // Get addStep action from store
     reorderSteps, // Get reorderSteps action from store
   } = useRecipeBuilderStore();
+
+  // Define handlers to pass to RecipeLayout, these would typically call store actions
+  // Moved before conditional returns to adhere to Rules of Hooks
+  const handleStepRemove = useCallback((stepId: number) => {
+    // console.log("Remove step:", stepId);
+    const store = useRecipeBuilderStore.getState();
+    store.removeStep(stepId);
+  }, []);
+
+  const handleStepSave = useCallback((
+    updatedStep: RecipeStep,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _isNew: boolean // _isNew is part of the prop signature, but not used in this specific implementation
+  ) => {
+    // console.log("Save step:", updatedStep, "isNew:", _isNew);
+    const store = useRecipeBuilderStore.getState();
+    store.updateStep(updatedStep);
+  }, []);
+
+  const handleStepDuplicate = useCallback((stepToDuplicate: RecipeStep) => {
+    // console.log("Duplicate step:", stepToDuplicate);
+    const store = useRecipeBuilderStore.getState();
+    if (store.recipe) {
+      const newStep: RecipeStep = {
+        ...stepToDuplicate,
+        // Assign unique temporary ID. Store's addStep/updateStep should handle if it's truly new.
+        id: -(Date.now() + Math.floor(Math.random() * 100000) + 3000),
+        order: store.recipe.steps.length + 1,
+        fields: stepToDuplicate.fields.map((f, fIdx) => ({ ...f, id: -(Date.now() + fIdx + Math.floor(Math.random() * 100000) + 4000), recipeStepId: 0 })), // Assign unique temp IDs
+        ingredients: stepToDuplicate.ingredients.map((i, iIdx) => ({ ...i, id: -(Date.now() + iIdx + Math.floor(Math.random() * 100000) + 5000), recipeStepId: 0 })), // Assign unique temp IDs
+      };
+      // Consider if addStep is more appropriate if the ID generation implies it's always new here
+      store.updateStep(newStep);
+    }
+  }, []);
+
+  const handleRecipeChange = useCallback((updatedRecipe: FullRecipe) => {
+    // Call the store action that updates details AND marks the recipe as dirty
+    useRecipeBuilderStore.getState().updateRecipeDetails(updatedRecipe);
+  }, []);
+
+  const handleStepAdd = useCallback(() => {
+    const defaultTemplate = stepTemplates.length > 0 ? stepTemplates[0] : undefined;
+    if (defaultTemplate) {
+      addStep({ stepTemplateId: defaultTemplate.id }, defaultTemplate);
+    } else {
+      addStep({ stepTemplateId: 0 });
+      console.warn("No step templates available to add a new step with a default template.");
+    }
+  }, [addStep, stepTemplates]);
+
+  const handleStepsReorder = useCallback((reorderedSteps: RecipeStep[]) => {
+    reorderSteps(reorderedSteps);
+  }, [reorderSteps]);
 
   useEffect(() => {
     let isMounted = true;
@@ -118,52 +174,6 @@ export default function RecipeBuilderPage() {
 
   if (loading) return <div className="p-8 text-center">Loading recipe editor...</div>;
   if (!recipe) return <div className="p-8 text-center">Recipe data could not be loaded.</div>;
-
-  // Define handlers to pass to RecipeLayout, these would typically call store actions
-  const handleStepRemove = (stepId: number) => {
-    // Example: useRecipeBuilderStore.getState().removeStep(stepId);
-    console.log("Remove step:", stepId);
-    const store = useRecipeBuilderStore.getState();
-    store.removeStep(stepId);
-  };
-
-  const handleStepSave = (updatedStep: RecipeStep, _isNew: boolean) => {
-    // Example: useRecipeBuilderStore.getState().updateStep(updatedStep);
-    // The store's updateStep handles both new (ID 0) and existing steps.
-    console.log("Save step:", updatedStep, "isNew:", _isNew);
-    const store = useRecipeBuilderStore.getState();
-    store.updateStep(updatedStep);
-  };
-
-  const handleStepDuplicate = (stepToDuplicate: RecipeStep) => {
-    // This logic would ideally be a store action for better state management and ID generation.
-    console.log("Duplicate step:", stepToDuplicate);
-    const store = useRecipeBuilderStore.getState();
-    if (store.recipe) {
-      const newStep: RecipeStep = {
-        ...stepToDuplicate,
-        id: 0, // Mark as new, store action should handle proper temp ID
-        order: store.recipe.steps.length + 1, // Append at the end
-        fields: stepToDuplicate.fields.map(f => ({ ...f, id: 0, recipeStepId: 0 })),
-        ingredients: stepToDuplicate.ingredients.map(i => ({ ...i, id: 0, recipeStepId: 0 })),
-      };
-      store.updateStep(newStep); // Assuming updateStep with ID 0 adds it
-    }
-  };
-
-  const handleRecipeChange = (updatedRecipe: FullRecipe) => {
-    setRecipe(updatedRecipe); // Or call a more specific store.updateRecipeDetails if available
-  };
-
-  const handleStepAdd = () => {
-    // The addStep action in the store should handle creating the empty step structure
-    // It might need access to stepTemplates from the store state.
-    addStep({ stepTemplateId: stepTemplates.length > 0 ? stepTemplates[0].id : 0 }, stepTemplates.find(st => st.id === (stepTemplates.length > 0 ? stepTemplates[0].id : 0)));
-  };
-
-  const handleStepsReorder = (reorderedSteps: RecipeStep[]) => {
-    reorderSteps(reorderedSteps);
-  };
 
   return <RecipeLayout
     recipe={recipe}

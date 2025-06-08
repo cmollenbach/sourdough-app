@@ -2,27 +2,20 @@
 import { useMemo } from "react";
 import { useRecipeBuilderStore } from "../../store/recipeBuilderStore";
 import { IngredientCalculationMode } from "../../types/recipe";
-import type { IngredientCategoryMeta } from "../../types/recipeLayout"; // For category mapping
+// import type { IngredientCategoryMeta } from "../../types/recipeLayout"; // No longer needed here
+// import type { FieldMeta } from "../../types/recipeLayout"; // No longer needed for looking up field IDs here
 
-// Define category names, ensure these match what's used elsewhere (e.g., seed data, StepCard)
-const FLOUR_CATEGORY_NAME = "Flour";
-const LIQUID_CATEGORY_NAME = "Liquid";
-const SALT_CATEGORY_NAME = "Salt";
-const PREFERMENT_CATEGORY_NAME = "Preferment";
-const INCLUSIONS_CATEGORY_NAME = "Inclusions";
-// Add other category names if needed, e.g., ENRICHMENTS_CATEGORY_NAME
+// Constants for preferment calculation logic
+const PREFERMENT_CONTRIB_PARAM_NAME = 'Preferment Contribution %';
+const PREFERMENT_HYDRATION_PARAM_NAME = 'Preferment Hydration %';
+const PREFERMENT_STEP_TYPE_ID = 1; // ID of the StepType designated for preferments (e.g., "Preparation" which has ID 1 in your seed)
 
 export default function RecipeCalculator() {
   const recipe = useRecipeBuilderStore((state) => state.recipe);
   const steps = useRecipeBuilderStore((state) => state.recipe?.steps ?? []);
   const ingredientsMeta = useRecipeBuilderStore((state) => state.ingredientsMeta);
-  // Assumes ingredientCategoriesMeta is fetched and available in the store
-  // Example: const ingredientCategoriesMeta = useRecipeBuilderStore((state) => state.ingredientCategoriesMeta);
-  // For now, let's simulate it if not available, replace with actual store access later.
-  const ingredientCategoriesMeta = useRecipeBuilderStore((state) => state.ingredientCategoriesMeta || [
-    { id: 1, name: "Flour" }, { id: 2, name: "Liquid" }, { id: 3, name: "Salt" },
-    { id: 4, name: "Preferment" }, { id: 5, name: "Inclusions" }, { id: 6, name: "Enrichments" }
-  ] as IngredientCategoryMeta[]);
+  const fieldsMeta = useRecipeBuilderStore((state) => state.fieldsMeta); // For finding field IDs
+  const stepTemplates = useRecipeBuilderStore((state) => state.stepTemplates); // For finding stepTypeId
 
   const calculatedValues = useMemo(() => {
     if (!recipe || !recipe.totalWeight || recipe.totalWeight <= 0 || !ingredientsMeta) {
@@ -33,16 +26,11 @@ export default function RecipeCalculator() {
         targetFormulaFlourGrams: 0,
         targetFormulaLiquidGrams: 0,
         targetFormulaSaltGrams: 0,
-        actualTotalFlourGrams: 0,
-        actualTotalLiquidGrams: 0,
-        actualTotalSaltGrams: 0,
-        actualTotalPrefermentGrams: 0,
-        actualTotalInclusionsGrams: 0,
+        calculatedPrefermentFlour: 0,
+        calculatedPrefermentWater: 0,
+        calculatedPrefermentTotal: 0,
         calculatedTotalDoughWeightFromInputs: 0,
-        effectiveHydrationPct: 0,
-        effectiveSaltPct: 0,
-        effectivePrefermentPct: 0,
-        stepIngredientBreakdown: {}, // Changed to object for grouping by step
+        // stepIngredientBreakdown: {}, // No longer needed
       };
     }
 
@@ -60,6 +48,59 @@ export default function RecipeCalculator() {
       }
     }
     // --- End Target Formula Weights Calculation ---
+
+    // --- Calculate Preferment Components ---
+    let calculatedPrefermentFlour = 0;
+    let calculatedPrefermentWater = 0;
+    let calculatedPrefermentTotal = 0;
+
+    const prefermentContribFieldMeta = fieldsMeta.find(fm => fm.name === PREFERMENT_CONTRIB_PARAM_NAME);
+    const prefermentHydrationFieldMeta = fieldsMeta.find(fm => fm.name === PREFERMENT_HYDRATION_PARAM_NAME);
+
+    if (prefermentContribFieldMeta && prefermentHydrationFieldMeta) {
+      for (const step of steps) {
+        console.log(`[Calculator] Processing Step ID: ${step.id}, Order: ${step.order}, Template ID: ${step.stepTemplateId}`);
+        const currentStepTemplate = stepTemplates.find(st => st.id === step.stepTemplateId);
+        if (currentStepTemplate) {
+          console.log(`[Calculator]   Step Template Name: ${currentStepTemplate.name}, StepTypeID: ${currentStepTemplate.stepTypeId}`);
+        } else {
+          console.log(`[Calculator]   Step Template ID ${step.stepTemplateId} not found in stepTemplates list.`);
+        }
+
+        if (currentStepTemplate && currentStepTemplate.stepTypeId === PREFERMENT_STEP_TYPE_ID) {
+          console.log(`[Calculator]   Identified as Preferment Step (StepTypeID: ${PREFERMENT_STEP_TYPE_ID})`);
+          const contribField = step.fields.find(f => f.fieldId === prefermentContribFieldMeta.id); // Parameter for Contribution %
+          const hydrationField = step.fields.find(f => f.fieldId === prefermentHydrationFieldMeta.id); // Parameter for Hydration %
+
+          console.log(`[Calculator]     Preferment Contrib Param Meta ID: ${prefermentContribFieldMeta.id}, Hydration Param Meta ID: ${prefermentHydrationFieldMeta.id}`);
+          console.log(`[Calculator]     Step Fields:`, step.fields);
+          console.log(`[Calculator]     Found Contrib Field:`, contribField);
+          console.log(`[Calculator]     Found Hydration Field:`, hydrationField);
+
+          if (contribField && hydrationField) {
+            const contribPct = Number(contribField.value);
+            const hydrationPct = Number(hydrationField.value);
+            console.log(`[Calculator]       Contrib Pct: ${contribPct}, Hydration Pct: ${hydrationPct}, TargetFormulaFlourGrams: ${targetFormulaFlourGrams}`);
+            if (!isNaN(contribPct) && !isNaN(hydrationPct) && targetFormulaFlourGrams > 0) {
+              // Calculate preferment components based on the main formula's flour weight
+              const prefermentStepTotalWeight = targetFormulaFlourGrams * (contribPct / 100);
+              const prefermentStepFlour = prefermentStepTotalWeight / (1 + (hydrationPct / 100));
+              const prefermentStepWater = prefermentStepFlour * (hydrationPct / 100);
+              
+              calculatedPrefermentFlour += prefermentStepFlour;
+              calculatedPrefermentWater += prefermentStepWater;
+              calculatedPrefermentTotal += prefermentStepTotalWeight;
+              console.log(`[Calculator]         Calculated - Preferment Step Total: ${prefermentStepTotalWeight.toFixed(2)}, Flour: ${prefermentStepFlour.toFixed(2)}, Water: ${prefermentStepWater.toFixed(2)}`);
+              console.log(`[Calculator]         Cumulative Preferment - Flour: ${calculatedPrefermentFlour.toFixed(2)}, Water: ${calculatedPrefermentWater.toFixed(2)}, Total: ${calculatedPrefermentTotal.toFixed(2)}`);
+            }
+          } else {
+            console.log(`[Calculator]       Missing preferment contribution or hydration fields for this step.`);
+          }
+        }
+      }
+    }
+    // --- End Preferment Components Calculation ---
+
 
     let totalBakerPercentageSum = 0;
     let totalFixedWeightSum = 0;
@@ -91,94 +132,50 @@ export default function RecipeCalculator() {
       // Or, if totalBakerPercentageSum is 0, it implies all flour is fixed weight, which is unusual for this model.
     }
 
-    let actualTotalFlourGrams = 0;
-    let actualTotalLiquidGrams = 0;
-    let actualTotalSaltGrams = 0;
-    let actualTotalPrefermentGrams = 0;
-    let actualTotalInclusionsGrams = 0; // Specifically for "Inclusions" category with fixed weight
+    // These actual totals are no longer displayed directly but are used for effective percentages if needed elsewhere.
+    // For now, the primary sum is calculatedTotalDoughWeightFromInputs.
     let calculatedTotalDoughWeightFromInputs = 0;
 
-    const stepIngredientBreakdown: Record<string, Array<{ stepName: string, ingredientName: string; weight: number; originalAmount: number; calculationMode: IngredientCalculationMode, unit: string }>> = {};
+    // const stepIngredientBreakdown: Record<string, Array<{ stepName: string, ingredientName: string; weight: number; originalAmount: number; calculationMode: IngredientCalculationMode, unit: string }>> = {}; // No longer needed
 
     for (const step of steps) {
-      const stepName = `Step ${step.order}`; // Or use step.description if available and preferred
-      stepIngredientBreakdown[stepName] = [];
+      // const stepName = `Step ${step.order}`; // No longer needed for breakdown
+      // stepIngredientBreakdown[stepName] = []; // No longer needed
 
       if (step.ingredients) { // Ensure ingredients array exists
         for (const ingredient of step.ingredients) {
-          const ingMeta = ingredientsMeta.find(m => m.id === ingredient.ingredientId);
+          // const ingMeta = ingredientsMeta.find(m => m.id === ingredient.ingredientId); // Still needed if we were to sum by category, but not for current display
           
           let ingredientWeight = 0;
-          let unit = "";
+          // let unit = ""; // No longer needed for breakdown display
 
           if (ingredient.calculationMode === IngredientCalculationMode.PERCENTAGE) {
             // Percentage ingredients are relative to the calculated baseFlourGrams
             ingredientWeight = baseFlourGrams > 0 ? baseFlourGrams * (ingredient.amount / 100) : 0;
-            unit = "%"; // Original unit was percentage
+            // unit = "%"; // No longer needed
           } else { // FIXED_WEIGHT
             ingredientWeight = ingredient.amount;
-            unit = "g"; // Original unit was grams
+            // unit = "g"; // No longer needed
           }
 
-          stepIngredientBreakdown[stepName].push({
-            stepName: stepName,
-            ingredientName: ingMeta?.name ?? "Unknown Ingredient",
-            weight: parseFloat(ingredientWeight.toFixed(2)),
-            originalAmount: ingredient.amount,
-            calculationMode: ingredient.calculationMode,
-            unit,
-          });
+          // stepIngredientBreakdown[stepName].push({ // No longer needed
+          //   stepName: stepName,
+          //   ingredientName: ingMeta?.name ?? "Unknown Ingredient",
+          //   weight: parseFloat(ingredientWeight.toFixed(2)),
+          //   originalAmount: ingredient.amount,
+          //   calculationMode: ingredient.calculationMode,
+          //   unit,
+          // });
           calculatedTotalDoughWeightFromInputs += ingredientWeight;
 
-          // Summing by category using ingredientCategoryId
-          if (ingMeta && ingredientCategoriesMeta) {
-            const category = ingredientCategoriesMeta.find((cat: IngredientCategoryMeta) => cat.id === ingMeta.ingredientCategoryId);
-            // DEBUGGING LOGS START
-            console.log(`Processing Ingredient: ${ingMeta.name}, Ing ID: ${ingredient.id}, IngMeta CatID: ${ingMeta.ingredientCategoryId}, CalcMode: ${ingredient.calculationMode}, Amount: ${ingredient.amount}`);
-            console.log(`BaseFlourGrams: ${baseFlourGrams}, IngredientWeight: ${ingredientWeight}`);
-            if (category) console.log(`Matched Category: ${category.name} (ID: ${category.id})`);
-            else console.log(`No category match for CatID: ${ingMeta.ingredientCategoryId}`);
-            // DEBUGGING LOGS END
-            if (category) {
-              switch (category.name) {
-                case FLOUR_CATEGORY_NAME:
-                  actualTotalFlourGrams += ingredientWeight;
-                  break;
-                case LIQUID_CATEGORY_NAME:
-                  actualTotalLiquidGrams += ingredientWeight;
-                  break;
-                case SALT_CATEGORY_NAME:
-                  actualTotalSaltGrams += ingredientWeight;
-                  break;
-                case PREFERMENT_CATEGORY_NAME:
-                  { // Add block scope for lexical declarations
-                    actualTotalPrefermentGrams += ingredientWeight;
-                    // Assuming 100% hydration for preferments for now.
-                    // This means half its weight is flour, half is water.
-                    // These contributions should be added to the overall flour and liquid totals.
-                    const prefermentFlour = ingredientWeight / 2;
-                    const prefermentWater = ingredientWeight / 2;
-                    actualTotalFlourGrams += prefermentFlour;
-                    actualTotalLiquidGrams += prefermentWater;
-                    // DEBUGGING LOGS START
-                    console.log(`PREFERMENT: ${ingMeta.name} - Added Flour: ${prefermentFlour}, Added Water: ${prefermentWater}. Totals now - Flour: ${actualTotalFlourGrams}, Liquid: ${actualTotalLiquidGrams}`);
-                    // DEBUGGING LOGS END
-                  }
-                  break;
-                case INCLUSIONS_CATEGORY_NAME:
-                  actualTotalInclusionsGrams += ingredientWeight;
-                  break;
-                // Add other categories like Enrichments if needed
-              }
-            }
-          }
+          // The summing logic for actualTotalFlourGrams, actualTotalLiquidGrams, etc.,
+          // has been removed as per the request to delete that display section.
+          // If these sums were needed for other calculations (e.g., very precise effective percentages
+          // that consider preferment breakdown), that logic would need to be re-evaluated or kept
+          // separate from the display. For now, we only need calculatedTotalDoughWeightFromInputs.
         }
       }
     }
-
-    const effectiveHydrationPct = actualTotalFlourGrams > 0 ? (actualTotalLiquidGrams / actualTotalFlourGrams) * 100 : 0;
-    const effectiveSaltPct = actualTotalFlourGrams > 0 ? (actualTotalSaltGrams / actualTotalFlourGrams) * 100 : 0;
-    const effectivePrefermentPct = actualTotalFlourGrams > 0 ? (actualTotalPrefermentGrams / actualTotalFlourGrams) * 100 : 0;
 
     return {
       targetTotalDoughWeight: recipe.totalWeight,
@@ -187,18 +184,13 @@ export default function RecipeCalculator() {
       targetFormulaFlourGrams: parseFloat(targetFormulaFlourGrams.toFixed(2)),
       targetFormulaLiquidGrams: parseFloat(targetFormulaLiquidGrams.toFixed(2)),
       targetFormulaSaltGrams: parseFloat(targetFormulaSaltGrams.toFixed(2)),
-      actualTotalFlourGrams: parseFloat(actualTotalFlourGrams.toFixed(2)),
-      actualTotalLiquidGrams: parseFloat(actualTotalLiquidGrams.toFixed(2)),
-      actualTotalSaltGrams: parseFloat(actualTotalSaltGrams.toFixed(2)),
-      actualTotalPrefermentGrams: parseFloat(actualTotalPrefermentGrams.toFixed(2)),
-      actualTotalInclusionsGrams: parseFloat(actualTotalInclusionsGrams.toFixed(2)),
+      calculatedPrefermentFlour: parseFloat(calculatedPrefermentFlour.toFixed(2)),
+      calculatedPrefermentWater: parseFloat(calculatedPrefermentWater.toFixed(2)),
+      calculatedPrefermentTotal: parseFloat(calculatedPrefermentTotal.toFixed(2)),
       calculatedTotalDoughWeightFromInputs: parseFloat(calculatedTotalDoughWeightFromInputs.toFixed(2)),
-      effectiveHydrationPct: parseFloat(effectiveHydrationPct.toFixed(1)),
-      effectiveSaltPct: parseFloat(effectiveSaltPct.toFixed(1)),
-      effectivePrefermentPct: parseFloat(effectivePrefermentPct.toFixed(1)),
-      stepIngredientBreakdown,
+      // stepIngredientBreakdown, // No longer needed
     };
-  }, [recipe, steps, ingredientsMeta, ingredientCategoriesMeta]);
+  }, [recipe, steps, ingredientsMeta, fieldsMeta, stepTemplates]);
 
   if (!recipe) return <div className="p-4 border rounded-lg shadow">Loading recipe data for calculator...</div>;
 
@@ -207,48 +199,38 @@ export default function RecipeCalculator() {
       <h2 className="text-lg font-semibold mb-3 text-gray-700">Recipe Calculator</h2>
       
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-        <div className="font-medium text-gray-600">Target Total Weight:</div>
-        <div className="text-gray-800">{calculatedValues.targetTotalDoughWeight?.toFixed(0) ?? 'N/A'} g</div>
+        {/* Section 1 (Target repetition) - REMOVED */}
 
-        <div className="font-medium text-gray-600">Target Hydration:</div>
-        <div className="text-gray-800">{calculatedValues.targetHydrationPct?.toFixed(1) ?? 'N/A'} %</div>
+        {/* Section 2 (Renamed to "Recipe") */}
+        {/* <div className="col-span-2 font-semibold text-gray-700 mb-1 mt-0">Recipe</div> REMOVED */}
 
-        <div className="font-medium text-gray-600">Target Salt:</div>
-        <div className="text-gray-800">{calculatedValues.targetSaltPct?.toFixed(1) ?? 'N/A'} %</div>
-        
-        <hr className="col-span-2 my-1 border-gray-300"/>
-        
-        <div className="col-span-2 font-semibold text-gray-700 mb-1 mt-2">Target Formula Breakdown (Simple):</div>
-
-        <div className="font-medium text-gray-600">Formula Flour:</div>
+        <div className="font-medium text-gray-600">Flour (Main Mix):</div>
         <div className="text-gray-800">{calculatedValues.targetFormulaFlourGrams.toFixed(1)} g</div>
         
-        <div className="font-medium text-gray-600">Formula Liquid:</div>
+        <div className="font-medium text-gray-600">Liquid (Main Mix):</div>
         <div className="text-gray-800">{calculatedValues.targetFormulaLiquidGrams.toFixed(1)} g</div>
-
-        <div className="font-medium text-gray-600">Formula Salt:</div>
+        
+        <div className="font-medium text-gray-600">Salt (Main Mix):</div>
         <div className="text-gray-800">{calculatedValues.targetFormulaSaltGrams.toFixed(1)} g</div>
 
-        <hr className="col-span-2 my-1 border-gray-300"/>
+        {calculatedValues.calculatedPrefermentTotal > 0 && (
+          <>
+            <div className="font-medium text-gray-600">Preferment Flour:</div>
+            <div className="text-gray-800">{calculatedValues.calculatedPrefermentFlour.toFixed(1)} g</div>
 
-        <div className="font-medium text-gray-600">Actual Total Flour:</div>
-        <div className="text-gray-800">{calculatedValues.actualTotalFlourGrams.toFixed(1)} g</div>
+            <div className="font-medium text-gray-600">Preferment Water:</div>
+            <div className="text-gray-800">{calculatedValues.calculatedPrefermentWater.toFixed(1)} g</div>
+            
+            <div className="font-medium text-gray-600">Preferment Total:</div>
+            <div className="text-gray-800">{calculatedValues.calculatedPrefermentTotal.toFixed(1)} g</div>
+          </>
+        )}
 
-        <div className="font-medium text-gray-600">Actual Total Liquid:</div>
-        <div className="text-gray-800">{calculatedValues.actualTotalLiquidGrams.toFixed(1)} g ({calculatedValues.effectiveHydrationPct.toFixed(1)}%)</div>
+        {/* Section 3 (Actual Totals) - REMOVED */}
 
-        <div className="font-medium text-gray-600">Actual Total Salt:</div>
-        <div className="text-gray-800">{calculatedValues.actualTotalSaltGrams.toFixed(1)} g ({calculatedValues.effectiveSaltPct.toFixed(1)}%)</div>
-        
-        <div className="font-medium text-gray-600">Actual Total Preferment:</div>
-        <div className="text-gray-800">{calculatedValues.actualTotalPrefermentGrams.toFixed(1)} g ({calculatedValues.effectivePrefermentPct.toFixed(1)}%)</div>
-
-        <div className="font-medium text-gray-600">Actual Total Inclusions:</div>
-        <div className="text-gray-800">{calculatedValues.actualTotalInclusionsGrams.toFixed(1)} g</div>
-        
-        <hr className="col-span-2 my-1 border-gray-300"/>
-
-        <div className="font-medium text-gray-600">Calculated Dough Weight:</div>
+        {/* Section 4 (Calculated Dough Weight, moved and renamed to "Total") */}
+        <hr className="col-span-2 my-1 border-gray-300"/> {/* Optional: Keep a divider before the total */}
+        <div className="font-medium text-gray-600">Total (Formula):</div>
         <div className={`text-gray-800 font-semibold ${
             Math.abs((calculatedValues.targetTotalDoughWeight ?? 0) - calculatedValues.calculatedTotalDoughWeightFromInputs) > 1 
             ? 'text-orange-600' 
@@ -256,29 +238,19 @@ export default function RecipeCalculator() {
           }`}>
           {calculatedValues.calculatedTotalDoughWeightFromInputs.toFixed(1)} g
         </div>
+        {/* Displaying the sum of the formula components for clarity */}
+        <div className="font-medium text-gray-600">Total (Calculated Formula):</div>
+        <div className="text-gray-800 font-semibold">
+          {(
+            calculatedValues.targetFormulaFlourGrams +
+            calculatedValues.targetFormulaLiquidGrams +
+            calculatedValues.targetFormulaSaltGrams +
+            calculatedValues.calculatedPrefermentTotal
+          ).toFixed(1)} g
+        </div>
       </div>
 
-      {Object.keys(calculatedValues.stepIngredientBreakdown).length > 0 && (
-        <details className="mt-3 text-xs">
-          <summary className="cursor-pointer text-gray-600 hover:text-gray-800">Show Ingredient Breakdown</summary>
-          {Object.entries(calculatedValues.stepIngredientBreakdown).map(([stepName, ingredients]) => {
-            if (ingredients.length === 0) return null;
-            return (
-              <div key={stepName} className="mt-2">
-                <h4 className="font-semibold text-gray-600">{stepName}</h4>
-                <ul className="list-disc pl-5 text-gray-700">
-                  {ingredients.map((item, index) => (
-                    <li key={index}>
-                      {item.ingredientName}: {item.weight.toFixed(1)}g
-                      {item.calculationMode === IngredientCalculationMode.PERCENTAGE && ` (from ${item.originalAmount}${item.unit})`}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </details>
-      )}
+      {/* "Show Ingredient Breakdown by Step" section REMOVED */}
     </div>
   );
 }

@@ -41,6 +41,7 @@ interface RecipeBuilderState {
   fieldsMeta: FieldMeta[];
   ingredientCategoriesMeta: IngredientCategoryMeta[]; // Added for category metadata
   showAdvanced: boolean;
+  isRecipeDirty: boolean; // Added to track unsaved changes
   isLoading: boolean;
   error: string | null;
 
@@ -50,6 +51,7 @@ interface RecipeBuilderState {
   setFieldsMeta: (fields: FieldMeta[]) => void;
   setIngredientCategoriesMeta: (categories: IngredientCategoryMeta[]) => void; // Added setter
   setShowAdvanced: (show: boolean) => void;
+  setIsRecipeDirty: (isDirty: boolean) => void; // Setter for dirty state
 
   updateRecipeDetails: (details: Partial<Pick<FullRecipe, 'name' | 'notes' | 'totalWeight' | 'hydrationPct' | 'saltPct'>>) => void;
   addStep: (newStepData: Partial<Omit<RecipeStep, 'id' | 'recipeId' | 'order' | 'fields' | 'ingredients'>> & { stepTemplateId: number }, template?: StepTemplate) => void;
@@ -75,15 +77,17 @@ export const useRecipeBuilderStore = create<RecipeBuilderState>((set) => ({
   ingredientsMeta: [],
   fieldsMeta: [],
   ingredientCategoriesMeta: [], // Initialize as empty array
+  isRecipeDirty: false, // Initialize as not dirty
   showAdvanced: false,
   isLoading: false,
   error: null,
 
-  setRecipe: (recipe) => set({ recipe }),
+  setRecipe: (recipe) => set({ recipe, isRecipeDirty: false }), // Reset dirty flag when a new recipe is fully set
   setStepTemplates: (templates) => set({ stepTemplates: templates }),
   setIngredientsMeta: (ingredients) => set({ ingredientsMeta: ingredients }),
   setFieldsMeta: (fields) => set({ fieldsMeta: fields }),
   setIngredientCategoriesMeta: (categories) => set({ ingredientCategoriesMeta: categories }), // Added setter implementation
+  setIsRecipeDirty: (isDirty) => set({ isRecipeDirty: isDirty }),
   setShowAdvanced: (show) => set({ showAdvanced: show }),
 
   updateRecipeDetails: (details) => set(state => {
@@ -92,8 +96,8 @@ export const useRecipeBuilderStore = create<RecipeBuilderState>((set) => ({
     // depending on your FullRecipe type and how you manage them.
     // For this example, we assume they are direct properties on FullRecipe for simplicity in the store.
     // If they are purely from fieldValues, this logic would need to adjust fieldValues array.
-    const updatedRecipe = { ...state.recipe, ...details };
-    return { recipe: updatedRecipe, error: null };
+    const updatedRecipe = { ...state.recipe, ...details } as FullRecipe; // Ensure type
+    return { recipe: updatedRecipe, error: null, isRecipeDirty: true };
   }),
 
   addStep: (newStepData, template) => set(state => {
@@ -115,7 +119,7 @@ export const useRecipeBuilderStore = create<RecipeBuilderState>((set) => ({
         ingredientCategoryId: ir.ingredientCategoryId, preparation: null, notes: null,
       })) || [],
     };
-    return { recipe: { ...state.recipe, steps: [...state.recipe.steps, newStep].sort((a, b) => a.order - b.order) }, error: null };
+    return { recipe: { ...state.recipe, steps: [...state.recipe.steps, newStep].sort((a, b) => a.order - b.order) }, error: null, isRecipeDirty: true };
   }),
 
   updateStep: (updatedStep) => set(state => {
@@ -147,6 +151,7 @@ export const useRecipeBuilderStore = create<RecipeBuilderState>((set) => ({
         ...state.recipe,
         steps: newSteps.sort((a, b) => a.order - b.order), // Ensure steps remain sorted by order
       },
+      isRecipeDirty: true,
     };
   }),
   removeStep: (stepId) => set(state => ({
@@ -157,6 +162,7 @@ export const useRecipeBuilderStore = create<RecipeBuilderState>((set) => ({
                                  .map((step, index) => ({ ...step, order: index + 1 })), // Re-order after removal
         }
       : null,
+    isRecipeDirty: true,
   })),
   reorderSteps: (newStepsArray) =>
     set((state) => {
@@ -164,6 +170,10 @@ export const useRecipeBuilderStore = create<RecipeBuilderState>((set) => ({
         return {
           recipe: { ...state.recipe, steps: newStepsArray },
         };
+        // Note: Reordering itself might not make it "dirty" in terms of content change,
+        // but if order is persisted, then it is a change. For simplicity, mark dirty.
+        // If you want finer control, you might compare old and new order.
+        state.setIsRecipeDirty(true);
       }
       return {};
     }),
@@ -180,8 +190,7 @@ export const useRecipeBuilderStore = create<RecipeBuilderState>((set) => ({
         return { ...step, ingredients: [...step.ingredients, newIngredient] };
       }
       return step;
-    });
-    return { recipe: { ...state.recipe, steps: newSteps }, error: null };
+    });    return { recipe: { ...state.recipe, steps: newSteps }, error: null, isRecipeDirty: true };
   }),
 
   updateIngredientInStep: (stepId, ingredientIdOrTempId, ingredientUpdates) => set(state => {
@@ -194,8 +203,7 @@ export const useRecipeBuilderStore = create<RecipeBuilderState>((set) => ({
         return { ...step, ingredients: newIngredients };
       }
       return step;
-    });
-    return { recipe: { ...state.recipe, steps: newSteps }, error: null };
+    });    return { recipe: { ...state.recipe, steps: newSteps }, error: null, isRecipeDirty: true };
   }),
 
   removeIngredientFromStep: (stepId, ingredientIdOrTempId) => set(state => {
@@ -206,8 +214,7 @@ export const useRecipeBuilderStore = create<RecipeBuilderState>((set) => ({
         return { ...step, ingredients: newIngredients };
       }
       return step;
-    });
-    return { recipe: { ...state.recipe, steps: newSteps }, error: null };
+    });    return { recipe: { ...state.recipe, steps: newSteps }, error: null, isRecipeDirty: true };
   }),
 
   // --- Example Async Actions (implement with your actual API calls) ---
