@@ -25,96 +25,102 @@ function AppRoutes() {
 
   useEffect(() => {
     if (darkMode) {
-      document.body.classList.add("dark");
+      document.documentElement.classList.add("dark"); // Target html tag
     } else {
-      document.body.classList.remove("dark");
+      document.documentElement.classList.remove("dark"); // Target html tag
     }
   }, [darkMode]);
 
   if (loading) {
-    return <div className="p-8 text-center">Loading...</div>;
+    return (
+      <div className="page-bg min-h-screen flex items-center justify-center p-8 text-center text-text-secondary">
+        Loading...
+      </div>
+    );
   }
 
   return (
-    <BrowserRouter>
-      <Navbar />
-      <Switch>
-        <Route path="/" exact component={LandingPage} />
-        <Route
-          path="/login"
-          render={() =>
-            user ? <Redirect to="/recipes" /> : <LoginPage />
-          }
-        />
-        <Route path="/register" component={RegisterPage} />
-        <Route
-          path="/recipes/:id"
-          render={() => (
-            <RequireAuth>
-              <RecipeBuilderPage />
-            </RequireAuth>
-          )}
-        />
-        <Route
-          path="/bakes"
-          render={() => (
-            <RequireAuth>
-              <BakesListPage />
-            </RequireAuth>
-          )}
-        />
-        <Route
-          path="/history"
-          render={() => (
-            <RequireAuth>
-              <BakeHistoryPage />
-            </RequireAuth>
-          )}
-        />
-        <Route
-          path="/settings"
-          exact
-          render={() => (
-            <RequireAuth>
-              <SettingsPage />
-            </RequireAuth>
-          )}
-        />
-        <Route
-          path="/settings/ingredients"
-          render={() => (
-            <RequireAuth>
-              <IngredientsSettingsPage />
-            </RequireAuth>
-          )}
-        />
-        <Route
-          path="/settings/entity-requests"
-          render={() => (
-            <RequireAuth>
-              <EntityRequestsSettingsPage />
-            </RequireAuth>
-          )}
-        />
-        <Route
-          path="/settings/user"
-          render={() => (
-            <RequireAuth>
-              <UserSettingsPage />
-            </RequireAuth>
-          )}
-        />
-        <Route
-          path="/account"
-          render={() => (
-            <RequireAuth>
-              <AccountPage />
-            </RequireAuth>
-          )}
-        />
-        <Route render={() => <NotFound />} />
-      </Switch>
-    </BrowserRouter>
+    <div className="page-bg min-h-screen flex flex-col">
+      <BrowserRouter>
+        <Navbar />
+        <Switch>
+          <Route path="/" exact component={LandingPage} />
+          <Route
+            path="/login"
+            render={() =>
+              user ? <Redirect to="/recipes" /> : <LoginPage />
+            }
+          />
+          <Route path="/register" component={RegisterPage} />
+          <Route
+            path="/recipes/:id"
+            render={() => (
+              <RequireAuth>
+                <RecipeBuilderPage />
+              </RequireAuth>
+            )}
+          />
+          <Route
+            path="/bakes"
+            render={() => (
+              <RequireAuth>
+                <BakesListPage />
+              </RequireAuth>
+            )}
+          />
+          <Route
+            path="/history"
+            render={() => (
+              <RequireAuth>
+                <BakeHistoryPage />
+              </RequireAuth>
+            )}
+          />
+          <Route
+            path="/settings"
+            exact
+            render={() => (
+              <RequireAuth>
+                <SettingsPage />
+              </RequireAuth>
+            )}
+          />
+          <Route
+            path="/settings/ingredients"
+            render={() => (
+              <RequireAuth>
+                <IngredientsSettingsPage />
+              </RequireAuth>
+            )}
+          />
+          <Route
+            path="/settings/entity-requests"
+            render={() => (
+              <RequireAuth>
+                <EntityRequestsSettingsPage />
+              </RequireAuth>
+            )}
+          />
+          <Route
+            path="/settings/user"
+            render={() => (
+              <RequireAuth>
+                <UserSettingsPage />
+              </RequireAuth>
+            )}
+          />
+          <Route
+            path="/account"
+            render={() => (
+              <RequireAuth>
+                <AccountPage />
+              </RequireAuth>
+            )}
+          />
+          <Route render={() => <NotFound />} />
+        </Switch>
+      </BrowserRouter>
+    </div>
   );
 }
 

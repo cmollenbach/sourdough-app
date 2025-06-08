@@ -27,23 +27,39 @@ export default function Login({ onLogin }: Props) {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <input
-        value={email}
-        onChange={e => setEmail(e.target.value)}
-        placeholder="Email"
-        type="email"
-        required
-      />
-      <input
-        value={password}
-        onChange={e => setPassword(e.target.value)}
-        placeholder="Password"
-        type="password"
-        required
-      />
-      <button type="submit">Login</button>
-      {error && <div style={{ color: "red" }}>{error}</div>}
-    </form>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-surface-subtle p-4">
+      <form 
+        onSubmit={handleSubmit} 
+        className="p-6 bg-surface-elevated rounded-xl shadow-card border border-border w-full max-w-sm flex flex-col gap-4"
+      >
+        <h2 className="text-2xl font-bold text-text-primary text-center mb-4">Login</h2>
+        <div>
+          <label htmlFor="email" className="form-label sr-only">Email</label>
+          <input
+            id="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="Email"
+            type="email"
+            required
+            className="form-input w-full rounded"
+          />
+        </div>
+        <div>
+          <label htmlFor="password" className="form-label sr-only">Password</label>
+          <input
+            id="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="Password"
+            type="password"
+            required
+            className="form-input w-full rounded"
+          />
+        </div>
+        <button type="submit" className="btn-primary px-4 py-2 rounded w-full transition-colors">Login</button>
+        {error && <div className="text-danger-600 text-sm text-center">{error}</div>}
+      </form>
+    </div>
   );
 }

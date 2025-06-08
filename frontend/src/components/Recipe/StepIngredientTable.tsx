@@ -125,8 +125,7 @@ export function StepIngredientTable({
                             setValue(`ingredients.${ingredientFieldData.idx}.calculationMode`, IngredientCalculationMode.PERCENTAGE);
                             setValue(`ingredients.${ingredientFieldData.idx}.amount`, 0);
                           }
-                        }}
-                        className="border rounded px-2 py-1 min-w-[120px]"
+                        }}                        className="border border-border rounded px-2 py-1 min-w-[120px] bg-surface text-text-primary focus:border-primary-300 focus:ring-1 focus:ring-primary-100"
                       >
                         <option value={0}>Select ingredient</option>
                         {categoryIngredients.length === 0 && (
@@ -204,8 +203,7 @@ export function StepIngredientTable({
                                 });
                               }
                             }
-                          }}
-                          className={`border rounded px-2 py-1 w-24 text-center ${inputDisabled ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                          }}                          className={`border border-border rounded px-2 py-1 w-24 text-center bg-surface text-text-primary focus:border-primary-300 focus:ring-1 focus:ring-primary-100 transition-colors ${inputDisabled ? 'bg-secondary-50 text-text-tertiary cursor-not-allowed dark:bg-secondary-900' : ''}`}
                           placeholder={currentCalcMode === IngredientCalculationMode.PERCENTAGE ? "Percentage" : "Grams"}
                           disabled={inputDisabled}
                         />
@@ -219,7 +217,7 @@ export function StepIngredientTable({
                     type="button"
                     onClick={() => remove(ingredientFieldData.idx)}
                     aria-label="Remove ingredient"
-                    className="px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="btn-danger"
                   >
                     🗑️
                   </button>
@@ -244,7 +242,7 @@ export function StepIngredientTable({
                   recipeStepId: recipeStepId,
                 })
               }
-              className="mt-2 px-3 py-1 bg-blue-100 rounded text-blue-700 self-center"
+              className="btn-primary"
             >
               + Add {rule.ingredientCategory.name}
             </button>

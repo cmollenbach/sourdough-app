@@ -14,29 +14,29 @@ export default function RecipeTargets({ recipe, fieldsMeta }: RecipeTargetsProps
   );
 
   return (
-    <div>
-      <h2 className="text-xl font-bold mb-2">Targets</h2>
+    <div className="p-4 border border-border rounded-lg shadow-card bg-surface-elevated mb-6">
+      <h2 className="text-xl font-bold mb-3 text-text-primary">Targets</h2>
       <div>
         <div>
-          <strong>{recipe.name ?? "Unnamed Recipe"}</strong>
+          <strong className="text-text-primary">{recipe.name ?? "Unnamed Recipe"}</strong>
         </div>
         {/* Display core targets directly */}
-        <div className="mt-1"><label className="font-medium text-sm text-gray-700">Total Dough Weight:</label> <div className="text-gray-900">{recipe.totalWeight ?? 'N/A'} g</div></div>
-        <div className="mt-1"><label className="font-medium text-sm text-gray-700">Hydration:</label> <div className="text-gray-900">{recipe.hydrationPct ?? 'N/A'} %</div></div>
-        <div className="mt-1"><label className="font-medium text-sm text-gray-700">Salt:</label> <div className="text-gray-900">{recipe.saltPct ?? 'N/A'} %</div></div>
+        <div className="mt-1"><label className="font-medium text-sm text-text-secondary">Total Dough Weight:</label> <div className="text-text-primary">{recipe.totalWeight ?? 'N/A'} g</div></div>
+        <div className="mt-1"><label className="font-medium text-sm text-text-secondary">Hydration:</label> <div className="text-text-primary">{recipe.hydrationPct ?? 'N/A'} %</div></div>
+        <div className="mt-1"><label className="font-medium text-sm text-text-secondary">Salt:</label> <div className="text-text-primary">{recipe.saltPct ?? 'N/A'} %</div></div>
 
         {otherNumericTargetFields.map(field => (
           <div key={field.id} className="mt-1">
-            <label className="font-medium text-sm text-gray-700">{field.label || field.name}:</label>
-            <div className="text-gray-900">
+            <label className="font-medium text-sm text-text-secondary">{field.label || field.name}:</label>
+            <div className="text-text-primary">
               {recipe.fieldValues?.find(fv => fv.fieldId === field.id)?.value || "N/A"}
             </div>
           </div>
         ))}
         {recipe.notes && (
           <div className="mt-2">
-            <label className="font-medium text-sm text-gray-700">Notes:</label>
-            <div className="text-gray-900 whitespace-pre-wrap">{recipe.notes}</div>
+            <label className="font-medium text-sm text-text-secondary">Notes:</label>
+            <div className="text-text-primary whitespace-pre-wrap">{recipe.notes}</div>
           </div>
         )}
       </div>

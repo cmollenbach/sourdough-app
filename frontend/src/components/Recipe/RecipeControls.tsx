@@ -355,13 +355,13 @@ export default function RecipeControls() {
   const canPerformActions = !isLoading && currentRecipe;
 
   return (
-    <div className="p-4 border rounded-lg shadow bg-white mb-6">
-      <h2 className="text-xl font-bold mb-3">Recipe Controls</h2>
-      {isLoading && <div className="text-blue-500">Loading...</div>}
-      {error && <div className="text-red-500 p-2 my-2 border border-red-300 rounded bg-red-50">{error}</div>}
+    <div className="p-4 border border-border rounded-lg shadow-card bg-surface-elevated mb-6">
+      <h2 className="text-xl font-bold mb-3 text-text-primary">Recipe Controls</h2>
+      {isLoading && <div className="text-accent-500">Loading...</div>}
+      {error && <div className="text-danger-700 p-2 my-2 border border-danger-200 rounded bg-danger-50">{error}</div>}
 
       <div className="mb-3">
-        <label htmlFor="recipe-select" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="recipe-select" className="block text-sm font-medium text-text-secondary mb-1">
           Load Recipe:
         </label>
         <select
@@ -369,7 +369,7 @@ export default function RecipeControls() {
           value={selectedRecipeId}
           onChange={handleRecipeSelect}
           disabled={isLoading}
-          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300 transition-colors"
         >
           <option value="">-- Select a Recipe --</option>
           {groupedRecipes.userRecipes.length > 0 && (
@@ -404,21 +404,21 @@ export default function RecipeControls() {
         <button
           onClick={handleUpdateOrSave}
           disabled={!canPerformActions}
-          className="px-4 py-2 flex-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-60 disabled:cursor-not-allowed text-center"
+          className="btn-primary"
         >
           Update / Save
         </button>
         <button
           onClick={handleNewFromBase}
           disabled={isLoading} // Disable if any operation is in progress
-          className="px-4 py-2 flex-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-60 disabled:cursor-not-allowed text-center"
+          className="btn-secondary"
         >
           New
         </button>
         <button
           onClick={handleDelete}
           disabled={!canPerformActions || currentRecipe?.isPredefined || currentRecipe?.id === 0}
-          className="px-4 py-2 flex-1 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-60 disabled:cursor-not-allowed text-center"
+          className="btn-danger"
         >
           Delete
         </button>

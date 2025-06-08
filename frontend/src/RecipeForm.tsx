@@ -62,16 +62,16 @@ export default function RecipeForm({ token, onCreated }: Props) {
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ marginTop: 24 }}>
-      <h2>Create Recipe</h2>
+    <form onSubmit={handleSubmit} className="mt-6 p-4 border border-border rounded-lg shadow-card bg-surface-elevated flex flex-col gap-4">
+      <h2 className="text-xl font-bold text-text-primary">Create Recipe</h2>
       {fields.map(field => (
-        <div key={field.name} style={{ marginBottom: 12 }}>
-          <label htmlFor={field.name} style={{ display: "block", marginBottom: 4 }}>
+        <div key={field.name}>
+          <label htmlFor={field.name} className="block text-sm font-medium text-text-secondary mb-1">
             {field.label}
           </label>
           <input
             id={field.name}
-            value={form[field.name as keyof RecipeFormData] ?? ""}
+            value={form[field.name as keyof RecipeFormData]?.toString() ?? ""}
             onChange={e =>
               handleChange(
                 field.name as keyof RecipeFormData,
@@ -81,12 +81,18 @@ export default function RecipeForm({ token, onCreated }: Props) {
             placeholder={field.label}
             type={field.type === "number" ? "number" : "text"}
             required={field.required}
+            className="form-input w-full rounded" // Using the .form-input class from index.css
           />
         </div>
       ))}
-      <button type="submit">Create</button>
-      {success && <div style={{ color: "green" }}>Recipe created!</div>}
-      {error && <div style={{ color: "red" }}>{error}</div>}
+      <button 
+        type="submit" 
+        className="btn-primary px-4 py-2 rounded w-full transition-colors" // Using .btn-primary
+      >
+        Create
+      </button>
+      {success && <div className="text-success-600">Recipe created!</div>}
+      {error && <div className="text-danger-600">{error}</div>}
     </form>
   );
 }

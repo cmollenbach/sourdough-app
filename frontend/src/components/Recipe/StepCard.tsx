@@ -147,28 +147,46 @@ export default function StepCard({
     }
   }, [
     step.id, // Important: if the step ID changes, it's a new step, always reset.
+    step.stepTemplateId, // Added: Explicit dependency
+    step.fields,         // Added: Explicit dependency
+    step.ingredients,    // Added: Explicit dependency
     stringifiedStepContentFromProps, // The primary trigger for content-based resets.
     reset,
     memoizedStepTemplates,
-    safeIngredientsMeta
+    safeIngredientsMeta,
   ]);
 
 
-  const debouncedOnChange = useMemo(() =>
+const debouncedOnChange = useMemo(() =>
     debounce((dataToSubmit: RecipeStep) => {
-      onChange(dataToSubmit); // Propagate the change upwards
-      // After successfully sending the update, update the ref
-      // to reflect the content of what was just submitted.
-      // This helps the prop-sync effect above to ignore the "echo" of this update.
+      onChange(dataToSubmit); // Propagate the change upwards first
+
+      // After propagating the change, reset the form with this new data.
+      // This makes the form "clean" against this new state and should set formState.isDirty to false.
+      const formValuesForReset: StepFormValues = {
+        templateId: dataToSubmit.stepTemplateId,
+        fields: Object.fromEntries(dataToSubmit.fields.map(f => [f.fieldId, f.value])),
+        ingredients: dataToSubmit.ingredients.map(ing => {
+          // Ensure ingredientCategoryId is correctly populated, similar to defaultValues/prop-sync logic
+          const meta = safeIngredientsMeta.find((m: IngredientMeta) => m.id === ing.ingredientId);
+          return {
+            ...ing,
+            ingredientCategoryId: meta ? meta.ingredientCategoryId : ing.ingredientCategoryId || 0,
+          };
+        }),
+      };
+      reset(formValuesForReset, { keepDirty: false });
+
+      // Update prevStringifiedStepRef to reflect the state the form was just reset to.
+      // This helps the prop-sync effect correctly identify external vs. internal updates.
       prevStringifiedStepRef.current = JSON.stringify({
         templateId: dataToSubmit.stepTemplateId,
-        fields: dataToSubmit.fields,       // Use fields from dataToSubmit
-        ingredients: dataToSubmit.ingredients, // Use ingredients from dataToSubmit
+        fields: dataToSubmit.fields,
+        ingredients: dataToSubmit.ingredients,
       });
     }, 100),
-    [onChange] // onChange is a prop, prevStringifiedStepRef is a ref (doesn't need to be dependency of useMemo)
+    [onChange, reset, safeIngredientsMeta]
   );
-
   // Effect to call debouncedOnChange when form is dirty
   useEffect(() => {
     if (formState.isDirty) {
@@ -240,7 +258,7 @@ export default function StepCard({
   return (
     <FormProvider {...formMethods}>
       <form
-        className="bg-white rounded-2xl shadow-lg p-4 mb-6 flex flex-col gap-4 border border-gray-100 max-w-3xl mx-auto"
+        className="bg-surface-elevated rounded-2xl shadow-card p-4 mb-6 flex flex-col gap-4 border border-border max-w-3xl mx-auto"
         tabIndex={0}
         aria-label={`Step ${step.order}`}
       >
@@ -280,7 +298,7 @@ export default function StepCard({
                       setValue("ingredients", newDefaultIngredients, {shouldDirty: true}); // Mark dirty
                     }
                   }}
-                  className="px-3 py-2 text-base border border-gray-300 rounded-md min-w-[180px] bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="px-3 py-2 text-base border border-border rounded-md min-w-[180px] bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300 transition-colors"
                 >
                   {memoizedStepTemplates.map((t) => (
                     <option key={t.id} value={t.id}>{t.name}</option>
@@ -295,12 +313,12 @@ export default function StepCard({
               type="button"
               onClick={() => onDuplicate(step)}
               aria-label="Duplicate"
-              className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="btn-primary"
             >Duplicate</button>
             <button type="button"
               onClick={() => onRemove(step.id)}
               aria-label="Delete"
-              className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="btn-danger"
             >Delete</button>
           </div>
         </div>
@@ -328,13 +346,13 @@ export default function StepCard({
                         id={inputId}
                         value={typeof field.value === "string" || typeof field.value === "number" ? field.value : ""}
                         type={meta.field.type === "number" ? "number" : "text"}
-                        className={`border rounded px-3 py-2 w-full bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition ${
+                        className={`border border-border rounded px-3 py-2 w-full bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300 transition ${
                           fieldState.invalid ? "border-red-500" : ""
                         } ${meta.field.type.toUpperCase() === "NUMBER" ? "text-center" : ""}`}
                         aria-label={meta.field.label || meta.field.name}
                       />
                       {(meta.helpText || meta.field.helpText) && (
-                        <div className="text-xs text-gray-500 mt-1">{meta.helpText || meta.field.helpText}</div>
+                        <div className="text-xs text-text-tertiary mt-1">{meta.helpText || meta.field.helpText}</div>
                       )}
                       {fieldState.error && (
                         <div className="text-xs text-red-500 mt-1">{fieldState.error.message}</div>

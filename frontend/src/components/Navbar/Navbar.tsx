@@ -23,7 +23,7 @@ export default function Navbar() {
   }, []);
 
   return (
-    <nav className={`bg-white shadow ${darkMode ? "dark bg-gray-900 text-white" : ""}`}>
+    <nav className={`bg-surface-elevated shadow ${darkMode ? "dark bg-surface text-white" : ""}`}>
       <div className="flex items-center justify-between px-4 py-2">
         <div className="flex items-center gap-4">
           <Link to="/" className="font-bold text-xl">SourdoughApp</Link>
@@ -39,7 +39,7 @@ export default function Navbar() {
           {/* Profile dropdown */}
           <div className="ml-4 relative" ref={dropdownRef}>
             <button
-              className="flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100"
+              className="flex items-center gap-1 px-2 py-1 rounded hover:bg-secondary-50"
               onClick={() => setOpen((v) => !v)}
               aria-haspopup="true"
               aria-expanded={open}
@@ -50,11 +50,11 @@ export default function Navbar() {
               <span>▼</span>
             </button>
             {open && (
-              <div className="absolute right-0 mt-2 w-40 bg-white border rounded shadow-lg z-10">
-                <Link to="/account" className="block px-4 py-2 hover:bg-gray-100">Account</Link>
-                <Link to="/settings" className="block px-4 py-2 hover:bg-gray-100">Settings</Link>
+              <div className="absolute right-0 mt-2 w-40 bg-surface-elevated border rounded shadow-card z-10">
+                <Link to="/account" className="block px-4 py-2 hover:bg-secondary-50">Account</Link>
+                <Link to="/settings" className="block px-4 py-2 hover:bg-secondary-50">Settings</Link>
                 <button
-                  className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                  className="block w-full text-left px-4 py-2 hover:bg-secondary-50"
                   onClick={logout}
                 >
                   Log out
@@ -91,7 +91,7 @@ export default function Navbar() {
             {/* Profile dropdown for mobile */}
             <div className="relative" ref={dropdownRef}>
               <button
-                className="flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100"
+                className="flex items-center gap-1 px-2 py-1 rounded hover:bg-secondary-50"
                 onClick={() => setOpen((v) => !v)}
                 aria-haspopup="true"
                 aria-expanded={open}
@@ -102,11 +102,11 @@ export default function Navbar() {
                 <span>▼</span>
               </button>
               {open && (
-                <div className="absolute right-0 mt-2 w-40 bg-white border rounded shadow-lg z-10">
-                  <Link to="/account" className="block px-4 py-2 hover:bg-gray-100">Account</Link>
-                  <Link to="/settings" className="block px-4 py-2 hover:bg-gray-100">Settings</Link>
+                <div className="absolute right-0 mt-2 w-40 bg-surface-elevated border rounded shadow-card z-10">
+                  <Link to="/account" className="block px-4 py-2 hover:bg-secondary-50">Account</Link>
+                  <Link to="/settings" className="block px-4 py-2 hover:bg-secondary-50">Settings</Link>
                   <button
-                    className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                    className="block w-full text-left px-4 py-2 hover:bg-secondary-50"
                     onClick={logout}
                   >
                     Log out

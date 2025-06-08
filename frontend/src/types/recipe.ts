@@ -1,9 +1,14 @@
 // --- Recipe Field Value (for dynamic recipe fields) ---
 
-export const enum IngredientCalculationMode { // Changed to const enum
-  PERCENTAGE = 'PERCENTAGE',
-  FIXED_WEIGHT = 'FIXED_WEIGHT',
-}
+// When 'erasableSyntaxOnly' is enabled, regular enums are not allowed
+// because they have a runtime representation.
+// We replace it with a const object and a derived type.
+export const IngredientCalculationMode = {
+  PERCENTAGE: 'PERCENTAGE',
+  FIXED_WEIGHT: 'FIXED_WEIGHT',
+} as const;
+
+export type IngredientCalculationMode = typeof IngredientCalculationMode[keyof typeof IngredientCalculationMode];
 
 export interface RecipeFieldValue {
   fieldId: number;

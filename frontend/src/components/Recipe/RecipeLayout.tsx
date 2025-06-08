@@ -50,7 +50,7 @@ export default function RecipeLayout({
   }, [steps, recipe, onStepsReorderHandler]);
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col page-bg"> {/* Applied .page-bg for themed background */}
       <div>
         <IonGrid>
           <IonRow>

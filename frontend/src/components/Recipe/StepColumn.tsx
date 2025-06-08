@@ -53,7 +53,7 @@ export default function StepColumn({
   const getDndId = (stepId: number) => `step-${stepId}`;
 
   return (
-    <div className="mb-6 p-4 bg-white rounded-xl shadow border border-gray-100">
+    <div className="mb-6 p-4 bg-surface-elevated rounded-xl shadow-card border border-border">
       <h2 className="font-bold text-lg mb-4">Recipe Steps</h2>
       <DndContext
         sensors={sensors}
@@ -83,7 +83,7 @@ export default function StepColumn({
       </DndContext>
       <button
         onClick={onStepAdd}
-        className="mt-4 px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-60 disabled:cursor-not-allowed w-full"
+        className="btn-primary"
       >
         + Add Step
       </button>

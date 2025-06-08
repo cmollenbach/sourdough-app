@@ -14,7 +14,7 @@ export function TargetEditor({
   onChange,
 }: TargetEditorProps) {
   return (
-    <div className="mb-6 p-4 bg-white rounded-xl shadow border border-gray-100">
+    <div className="mb-6 p-4 bg-surface-elevated rounded-xl shadow-card border border-border">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-bold text-lg">Recipe Info</h2>
         <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -30,10 +30,10 @@ export function TargetEditor({
       {/* Core target inputs in one line */}
       <div className="flex flex-col md:flex-row gap-4 mb-3">
         <div className="flex-1 min-w-0">
-          <label htmlFor="totalWeight" className="block font-medium text-sm mb-1">Total Weight (g)</label>
+          <label htmlFor="totalWeight" className="block font-medium text-sm mb-1 text-text-secondary">Total Weight (g)</label>
           <input
             id="totalWeight"
-            className="border rounded px-3 py-2 w-full text-center"
+            className="border border-border rounded px-3 py-2 w-full text-center bg-surface text-text-primary focus:border-primary-300 focus:ring-1 focus:ring-primary-100 transition-colors"
             type="number"
             value={recipe.totalWeight ?? ""}
             onChange={(e) =>
@@ -43,10 +43,10 @@ export function TargetEditor({
           />
         </div>
         <div className="flex-1 min-w-0">
-          <label htmlFor="hydrationPct" className="block font-medium text-sm mb-1">Hydration (%)</label>
+          <label htmlFor="hydrationPct" className="block font-medium text-sm mb-1 text-text-secondary">Hydration (%)</label>
           <input
             id="hydrationPct"
-            className="border rounded px-3 py-2 w-full text-center"
+            className="border border-border rounded px-3 py-2 w-full text-center bg-surface text-text-primary focus:border-primary-300 focus:ring-1 focus:ring-primary-100 transition-colors"
             type="number"
             value={recipe.hydrationPct ?? ""}
             onChange={(e) =>
@@ -56,10 +56,10 @@ export function TargetEditor({
           />
         </div>
         <div className="flex-1 min-w-0">
-          <label htmlFor="saltPct" className="block font-medium text-sm mb-1">Salt (%)</label>
+          <label htmlFor="saltPct" className="block font-medium text-sm mb-1 text-text-secondary">Salt (%)</label>
           <input
             id="saltPct"
-            className="border rounded px-3 py-2 w-full text-center"
+            className="border border-border rounded px-3 py-2 w-full text-center bg-surface text-text-primary focus:border-primary-300 focus:ring-1 focus:ring-primary-100 transition-colors"
             type="number"
             value={recipe.saltPct ?? ""}
             onChange={(e) =>
@@ -75,7 +75,7 @@ export function TargetEditor({
         <div>
         <label className="block font-medium">Notes</label>
         <textarea
-          className="border rounded px-3 py-2 w-full"
+          className="form-input w-full rounded"
           value={recipe.notes ?? ""}
           onChange={(e) => onChange({ ...recipe, notes: e.target.value })}
           placeholder="Any special notes about this recipe..."
