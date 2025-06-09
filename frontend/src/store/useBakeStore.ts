@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { Bake, BakeStep, BakeStepParameterValue, StepExecutionStatus } from '../types/bake';
+import type { Bake, BakeStep, BakeStepParameterValue } from '../types/bake';
 import api from '../utils/api'; // Your existing Axios instance
 
 interface BakeState {

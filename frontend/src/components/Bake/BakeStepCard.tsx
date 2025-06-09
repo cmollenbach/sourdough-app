@@ -1,6 +1,6 @@
 import { useState } from 'react';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { BakeStep, BakeStepParameterValue, StepParameter } from '../../types/bake'; 
+import type { BakeStep, BakeStepParameterValue } from '../../types/bake'; 
 import { useBakeStore } from '../../store/useBakeStore';
 import { useToast } from '../../context/ToastContext'; // Assuming this is the correct path
 
