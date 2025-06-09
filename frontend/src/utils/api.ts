@@ -2,9 +2,8 @@ import axios from "axios";
 import type { StepTemplate } from "../types/recipeLayout"; // Changed to recipeLayout
 import type { RecipeStub } from "../types/recipe"; // Added for recipe list
 
-// ... existing api setup ...
 const api = axios.create({
-  baseURL: "/api",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "/api", // Use environment variable
   withCredentials: true,
 });
 
