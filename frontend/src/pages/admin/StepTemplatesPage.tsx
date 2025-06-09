@@ -13,12 +13,10 @@ interface ApiError {
 }
 
 export default function StepTemplatesPage() {
-  const { stepTemplates, fetchAllMetaData, loading, error } = useRecipeBuilderStore((state) => ({
-    stepTemplates: state.stepTemplates,
-    fetchAllMetaData: state.fetchAllMetaData,
-    loading: state.loading,
-    error: state.error,
-  }));
+  const stepTemplates = useRecipeBuilderStore((state) => state.stepTemplates);
+  const fetchAllMetaData = useRecipeBuilderStore((state) => state.fetchAllMetaData);
+  const loading = useRecipeBuilderStore((state) => state.loading);
+  const error = useRecipeBuilderStore((state) => state.error);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -27,8 +25,9 @@ export default function StepTemplatesPage() {
   const { addToast } = useToast();
 
   useEffect(() => {
-    fetchAllMetaData(); // Fetch data when component mounts
-  }, [fetchAllMetaData]);
+    fetchAllMetaData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleEditClick = (template: StepTemplate) => {
     setSelectedTemplate(template);

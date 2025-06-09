@@ -9,9 +9,11 @@ export default function RegisterPage() {
   const { login } = useAuth();
   const { addToast } = useToast();
   const history = useHistory();
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
@@ -26,22 +28,23 @@ export default function RegisterPage() {
       await login(email, password);
       history.replace("/recipes");
     } catch (err: unknown) {
+      let msg = "Registration failed";
       if (err instanceof Error) {
-        addToast({ message: err.message || "Registration failed", type: "error" });
-      } else {
-        addToast({ message: "Registration failed", type: "error" });
+        msg = err.message || msg;
       }
+      setError(msg);
+      addToast({ message: msg, type: "error" });
     }
   }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen">
       <h1 className="text-2xl font-bold mb-4">Register</h1>
-      <form className="flex flex-col gap-2 w-64" onSubmit={handleSubmit}>
+      <form className="flex flex-col gap-3 w-64" onSubmit={handleSubmit}>
         <input
           type="email"
           placeholder="Email"
-          className="border rounded px-2 py-1"
+          className="form-input w-full"
           value={email}
           onChange={e => setEmail(e.target.value)}
           required
@@ -49,15 +52,20 @@ export default function RegisterPage() {
         <input
           type="password"
           placeholder="Password"
-          className="border rounded px-2 py-1"
+          className="form-input w-full"
           value={password}
           onChange={e => setPassword(e.target.value)}
           required
         />
-        <button type="submit" className="bg-blue-600 text-white rounded px-4 py-2">
+        {error && <div className="text-red-500 text-sm mb-2">{error}</div>}
+        <button type="submit" className="btn-primary w-full">
           Register
         </button>
       </form>
+      <div className="mt-4">
+        <span>Already have an account? </span>
+        <a href="/login" className="text-blue-600 underline">Login</a>
+      </div>
     </div>
   );
 }

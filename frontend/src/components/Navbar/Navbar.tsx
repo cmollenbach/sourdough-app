@@ -10,6 +10,8 @@ export default function Navbar() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
   const { darkMode, toggleDarkMode } = useSettings();
+  
+  console.log('Navbar user:', user); // <-- Add this line
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
