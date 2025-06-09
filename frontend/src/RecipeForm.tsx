@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { createRecipe, getRecipeFields } from "./api";
+import { createRecipe, getRecipeFields } from "./utils/api";
 
 type Props = {
-  token: string;
+  // token: string; // Token is no longer needed here, handled by Axios interceptor
   onCreated?: () => void;
 };
 
@@ -21,7 +21,7 @@ type RecipeFormData = {
   notes?: string;
 };
 
-export default function RecipeForm({ token, onCreated }: Props) {
+export default function RecipeForm({ onCreated }: Props) {
   const [fields, setFields] = useState<FieldMeta[]>([]);
   const [form, setForm] = useState<RecipeFormData>({
     name: "",
@@ -46,7 +46,7 @@ export default function RecipeForm({ token, onCreated }: Props) {
     setError("");
     setSuccess(false);
     try {
-      await createRecipe(token, form);
+      await createRecipe(form); // Token is handled by the Axios interceptor in api.ts
       setSuccess(true);
       setForm({
         name: "",
