@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from '../hooks/useAuthHook';
 import { useHistory } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
 
@@ -27,9 +27,9 @@ export default function RegisterPage() {
       history.replace("/recipes");
     } catch (err: unknown) {
       if (err instanceof Error) {
-        addToast(err.message || "Registration failed", "error");
+        addToast({ message: err.message || "Registration failed", type: "error" });
       } else {
-        addToast("Registration failed", "error");
+        addToast({ message: "Registration failed", type: "error" });
       }
     }
   }

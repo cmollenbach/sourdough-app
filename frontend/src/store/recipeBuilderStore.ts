@@ -1,14 +1,17 @@
 import { create } from 'zustand';
+import { apiGet } from '../utils/api';
+import {
+  type FullRecipe, // from recipe.ts
+  type FieldMeta as RecipeFieldMeta,    // from recipe.ts, aliasing to avoid conflict
+  type IngredientMeta as RecipeIngredientMeta, // from recipe.ts, aliasing to avoid conflict
+  type StepType, // Now defined in recipe.ts
+  type IngredientCategory as RecipeIngredientCategory, // from recipe.ts, aliasing to avoid conflict
+  type RecipeStep, // from recipe.ts
+  type RecipeStepIngredient // from recipe.ts
+} from '../types/recipe'; // Assuming all these types are centralized
 
-import type { FullRecipe, RecipeStep, RecipeStepIngredient } from '../types/recipe'; // Removed unused RecipeFieldValue
-// If IngredientCalculationMode is defined in your schema.prisma and you've run `npx prisma generate`,
-// it's better to import it from the generated client for consistency with the backend.
-// import { IngredientCalculationMode } from '@prisma/client';
-// If IngredientCalculationMode is defined in your frontend types (e.g., src/types/recipe.ts):
-import { IngredientCalculationMode } from '../types/recipe';
-import type { StepTemplate, IngredientMeta, FieldMeta } from '../types/recipeLayout';
-import type { IngredientCategoryMeta } from '../types/recipeLayout'; // Import IngredientCategoryMeta
-// import { apiGet, apiPost, apiPut, apiDelete } from '../utils/api';
+// If StepType and IngredientCategory are not in recipe.ts, adjust imports accordingly.
+// For now, this reflects the centralization of the main types.
 
 // interface BackendRecipeStepIngredientPayload { // Commented out as it's currently unused
 //   ingredientId: number;
@@ -34,69 +37,136 @@ import type { IngredientCategoryMeta } from '../types/recipeLayout'; // Import I
 //   steps?: BackendRecipeStepPayload[];
 // }
 
+// Import StepTemplate from recipeLayout.ts as RecipeLayout expects this structure
+import type { 
+  StepTemplate, 
+  IngredientCategoryMeta,
+  IngredientMeta as RecipeLayoutIngredientMeta, // Use this for the store state
+  FieldMeta as RecipeLayoutFieldMeta         // Use this for the store state
+} from '../types/recipeLayout';
+
+
 interface RecipeBuilderState {
   recipe: FullRecipe | null;
+  ingredientsMeta: RecipeLayoutIngredientMeta[];      // Changed to RecipeLayoutIngredientMeta
+  ingredientCategoriesMeta: IngredientCategoryMeta[]; // Changed to IngredientCategoryMeta from recipeLayout
+  fieldsMeta: RecipeLayoutFieldMeta[];              // Changed to RecipeLayoutFieldMeta
   stepTemplates: StepTemplate[];
-  ingredientsMeta: IngredientMeta[];
-  fieldsMeta: FieldMeta[];
-  ingredientCategoriesMeta: IngredientCategoryMeta[]; // Added for category metadata
+  stepTypes: StepType[]; // Kept for type consistency, but fetching will be commented out
   showAdvanced: boolean;
-  isRecipeDirty: boolean; // Added to track unsaved changes
-  isLoading: boolean;
+  isRecipeDirty: boolean;
+  loading: boolean;
   error: string | null;
 
+  // Data fetching
+  fetchRecipe: (id: number) => Promise<void>;
+  fetchAllMetaData: () => Promise<void>;
+
+  // Client-side state setters & actions
   setRecipe: (recipe: FullRecipe) => void;
   setStepTemplates: (templates: StepTemplate[]) => void;
-  setIngredientsMeta: (ingredients: IngredientMeta[]) => void;
-  setFieldsMeta: (fields: FieldMeta[]) => void;
-  setIngredientCategoriesMeta: (categories: IngredientCategoryMeta[]) => void; // Added setter
+  setIngredientsMeta: (ingredients: RecipeLayoutIngredientMeta[]) => void; // Expect RecipeLayoutIngredientMeta
+  setFieldsMeta: (fields: RecipeLayoutFieldMeta[]) => void;             // Expect RecipeLayoutFieldMeta
+  setIngredientCategoriesMeta: (categories: IngredientCategoryMeta[]) => void;
   setShowAdvanced: (show: boolean) => void;
-  setIsRecipeDirty: (isDirty: boolean) => void; // Setter for dirty state
-
+  setIsRecipeDirty: (isDirty: boolean) => void;
   updateRecipeDetails: (details: Partial<Pick<FullRecipe, 'name' | 'notes' | 'totalWeight' | 'hydrationPct' | 'saltPct'>>) => void;
   addStep: (newStepData: Partial<Omit<RecipeStep, 'id' | 'recipeId' | 'order' | 'fields' | 'ingredients'>> & { stepTemplateId: number }, template?: StepTemplate) => void;
   updateStep: (step: RecipeStep) => void;
   removeStep: (stepId: number) => void;
-  reorderSteps: (newStepsArray: RecipeStep[]) => void; // Added for reordering
-
-  addIngredientToStep: (stepId: number, newIngredientData: Omit<RecipeStepIngredient, 'id' | 'recipeStepId'>) => void;
-  updateIngredientInStep: (stepId: number, ingredientIdOrTempId: number, ingredientUpdates: Partial<RecipeStepIngredient>) => void;
-  removeIngredientFromStep: (stepId: number, ingredientIdOrTempId: number) => void;
-
-  // Async actions (examples, implement with your API calls)
-  // loadRecipeList: () => Promise<void>;
-  // loadFullRecipe: (id: number) => Promise<void>;
-  // saveCurrentRecipe: () => Promise<void>;
-  // cloneRecipeFromTemplate: (templateId: number) => Promise<void>;
-  // Add more actions as needed
+  reorderSteps: (newStepsArray: RecipeStep[]) => void;
 }
 
 export const useRecipeBuilderStore = create<RecipeBuilderState>((set) => ({
   recipe: null,
-  stepTemplates: [],
   ingredientsMeta: [],
+  ingredientCategoriesMeta: [],
   fieldsMeta: [],
-  ingredientCategoriesMeta: [], // Initialize as empty array
-  isRecipeDirty: false, // Initialize as not dirty
+  stepTemplates: [],
+  stepTypes: [], // Initialize as empty
   showAdvanced: false,
-  isLoading: false,
+  isRecipeDirty: false,
+  loading: false,
   error: null,
+  fetchRecipe: async (id) => {
+    set({ loading: true, error: null });
+    try {
+      const recipeData = await apiGet<FullRecipe>(`/recipes/${id}`); // Assumes /recipes/:id returns FullRecipe
+      set({ recipe: recipeData, loading: false });
+    } catch (_err) {
+      console.error("Failed to fetch recipe:", _err);
+      set({ error: 'Failed to fetch recipe', loading: false }); // Consider logging _err
+    }
+  },
+  fetchAllMetaData: async () => {
+    set({ loading: true, error: null });
+    try {
+      const [
+        ingredientsResponse, // Changed to avoid conflict with state key
+        ingredientCategoriesResponse,
+        fieldsResponse,
+        stepTemplatesResponse,
+        // stepTypesResponse, // This was causing the tuple error, removed from destructuring
+      ] = await Promise.all([
+        apiGet<{ingredients: RecipeIngredientMeta[]}>('/meta/ingredients'), // Fetches richer recipe.ts#IngredientMeta
+        apiGet<{categories: RecipeIngredientCategory[]}>('/meta/ingredient-categories'), // Fetches richer recipe.ts#IngredientCategory
+        apiGet<{fields: RecipeFieldMeta[]}>('/meta/fields'), // Fetches richer recipe.ts#FieldMeta
+        apiGet<{templates: StepTemplate[]}>('/meta/step-templates'), // Backend returns { templates: StepTemplate[] }
+        // apiGet<StepType[]>('/meta/step-types'), // This endpoint is not defined in backend context - COMMENTED OUT
+      ]);
+      // For stepTypes, if the endpoint doesn't exist, provide a default or handle gracefully
+      const fetchedStepTypes: StepType[] = []; // Default to empty array if not fetching
 
-  setRecipe: (recipe) => set({ recipe, isRecipeDirty: false }), // Reset dirty flag when a new recipe is fully set
+      // Transform fetched data (recipe.ts types) to RecipeLayout types for the store
+      const layoutIngredients: RecipeLayoutIngredientMeta[] = ingredientsResponse.ingredients.map(ing => ({
+        id: ing.id,
+        name: ing.name,
+        ingredientCategoryId: ing.ingredientCategoryId,
+        // description is omitted as it's not in RecipeLayoutIngredientMeta
+      }));
+
+      const layoutIngredientCategories: IngredientCategoryMeta[] = ingredientCategoriesResponse.categories.map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        // description is omitted if not in IngredientCategoryMeta, or map if it is
+        // Assuming IngredientCategoryMeta from recipeLayout.ts might be simpler
+      }));
+
+      const layoutFields: RecipeLayoutFieldMeta[] = fieldsResponse.fields.map(field => ({
+        id: field.id,
+        name: field.name,
+        description: field.description,
+        type: field.type,
+        // stepTypeId and isMandatory are omitted as they are not in RecipeLayoutFieldMeta
+      }));
+
+      set({
+        ingredientsMeta: layoutIngredients,
+        ingredientCategoriesMeta: layoutIngredientCategories,
+        fieldsMeta: layoutFields,
+        stepTemplates: stepTemplatesResponse.templates,
+        stepTypes: fetchedStepTypes, 
+        loading: false,
+        error: null, // Clear error on successful fetch
+      });
+    } catch (_err) {
+      console.error("Failed to fetch metadata:", _err);
+      set({ error: 'Failed to fetch metadata', loading: false }); // Consider logging _err
+    }
+  },
+
+  // Client-side setters and actions
+  setRecipe: (recipe) => set({ recipe, isRecipeDirty: false }),
   setStepTemplates: (templates) => set({ stepTemplates: templates }),
   setIngredientsMeta: (ingredients) => set({ ingredientsMeta: ingredients }),
   setFieldsMeta: (fields) => set({ fieldsMeta: fields }),
-  setIngredientCategoriesMeta: (categories) => set({ ingredientCategoriesMeta: categories }), // Added setter implementation
-  setIsRecipeDirty: (isDirty) => set({ isRecipeDirty: isDirty }),
+  setIngredientCategoriesMeta: (categories) => set({ ingredientCategoriesMeta: categories }),
   setShowAdvanced: (show) => set({ showAdvanced: show }),
+  setIsRecipeDirty: (isDirty) => set({ isRecipeDirty: isDirty }),
 
   updateRecipeDetails: (details) => set(state => {
     if (!state.recipe) return { error: "No active recipe to update details." };
-    // Handle name and notes which might be in fieldValues or direct properties
-    // depending on your FullRecipe type and how you manage them.
-    // For this example, we assume they are direct properties on FullRecipe for simplicity in the store.
-    // If they are purely from fieldValues, this logic would need to adjust fieldValues array.
-    const updatedRecipe = { ...state.recipe, ...details } as FullRecipe; // Ensure type
+    const updatedRecipe = { ...state.recipe, ...details } as FullRecipe;
     return { recipe: updatedRecipe, error: null, isRecipeDirty: true };
   }),
 
@@ -104,155 +174,60 @@ export const useRecipeBuilderStore = create<RecipeBuilderState>((set) => ({
     if (!state.recipe) return { error: "No active recipe to add a step to." };
     const newStep: RecipeStep = {
       id: -(state.recipe.steps.length + 1 + Date.now()), // Unique temporary ID
-      recipeId: state.recipe.id, // Or 0 if it's a new recipe not yet saved
+      recipeId: state.recipe.id || 0, 
       order: state.recipe.steps.length + 1,
       stepTemplateId: newStepData.stepTemplateId,
       notes: newStepData.notes ?? null,
-      description: newStepData.description ?? null,
-      fields: template?.fields.map(f => ({ id: -(Date.now() + f.fieldId), recipeStepId: 0, fieldId: f.fieldId, value: f.defaultValue ?? (f.field?.type === 'number' ? 0 : ''), notes: null })) || [],
-      ingredients: template?.ingredientRules.map(ir => ({
-        id: -(Date.now() + ir.ingredientCategoryId), recipeStepId: 0, ingredientId: 0, // Default to "select ingredient"
-        amount: 0,
-        // Access ingredientsMeta from the store's state
-        // Assuming IngredientMeta has a defaultCalculationMode property
-        calculationMode: (state.ingredientsMeta.find((im: IngredientMeta) => im.ingredientCategoryId === ir.ingredientCategoryId)?.defaultCalculationMode || IngredientCalculationMode.PERCENTAGE),
-        ingredientCategoryId: ir.ingredientCategoryId, preparation: null, notes: null,
+      description: newStepData.description ?? template?.description ?? null, // Use template description if available
+      fields: template?.fields.map(f => ({ 
+        id: -(Date.now() + f.id + Math.random()), // Ensure unique temp ID for field
+        recipeStepId: 0, // Will be set upon saving the step to a real recipe step
+        fieldId: f.id, 
+        value: f.defaultValue ?? (f.field.type === 'number' ? 0 : ''), // Corrected: Access type from f.field.type
+        notes: null 
       })) || [],
+      ingredients: template?.ingredientRules?.map(ir => ({ // Use ingredientRules from recipeLayout.StepTemplate
+        id: -(Date.now() + ir.ingredientCategoryId + Math.random()), // Ensure unique temp ID for ingredient
+        recipeStepId: 0, // Will be set upon saving
+        ingredientId: 0, // Default to "select ingredient" or handle based on ir
+        amount: 0,
+        calculationMode: ir.defaultCalculationMode || 'PERCENTAGE', // Corrected: Property will be added to StepTemplateIngredientRuleMeta
+        ingredientCategoryId: ir.ingredientCategoryId, 
+        preparation: null, 
+        notes: null,
+      } as RecipeStepIngredient)) || [],
     };
-    return { recipe: { ...state.recipe, steps: [...state.recipe.steps, newStep].sort((a, b) => a.order - b.order) }, error: null, isRecipeDirty: true };
+    return { 
+      recipe: { ...state.recipe, steps: [...state.recipe.steps, newStep].sort((a, b) => a.order - b.order) }, 
+      error: null, 
+      isRecipeDirty: true 
+    };
   }),
 
   updateStep: (updatedStep) => set(state => {
     if (!state.recipe) return {};
-    // If the step has an ID of 0, it's a new step, so add it.
-    // Otherwise, update the existing step.
-    const stepExists = updatedStep.id !== 0 && state.recipe.steps.some(s => s.id === updatedStep.id);
-
+    const stepExists = state.recipe.steps.some(s => s.id === updatedStep.id);
     let newSteps: RecipeStep[];
     if (stepExists) {
-      newSteps = state.recipe.steps.map(s =>
-        s.id === updatedStep.id ? updatedStep : s
-      );
+      newSteps = state.recipe.steps.map(s => s.id === updatedStep.id ? updatedStep : s);
     } else {
-      // For a new step, assign a temporary negative ID if it's 0 to ensure unique keys before saving,
-      // or handle ID generation as per your backend strategy.
-      // For now, we'll assume new steps might come with ID 0 and need to be added.
-      // If your backend assigns IDs, this logic might differ slightly.
-      // A more robust way for new steps is to have a dedicated `addStep` action.
-      // This `updateStep` is now more like `addOrUpdateStep`.
-      const tempNewStep = updatedStep.id === 0
-        ? { ...updatedStep, id: -(state.recipe.steps.length + 1) } // Example: temp negative ID
-        : updatedStep;
-      newSteps = [...state.recipe.steps, tempNewStep];
+      // This assumes new steps might come with a temp ID or 0, and adds them.
+      // If ID is 0, assign a temporary negative ID.
+      const stepToAdd = updatedStep.id === 0 ? { ...updatedStep, id: -(Date.now() + Math.random()) } : updatedStep;
+      newSteps = [...state.recipe.steps, stepToAdd];
     }
-
-    return {
-      recipe: {
-        ...state.recipe,
-        steps: newSteps.sort((a, b) => a.order - b.order), // Ensure steps remain sorted by order
-      },
-      isRecipeDirty: true,
-    };
+    return { recipe: { ...state.recipe, steps: newSteps.sort((a, b) => a.order - b.order) }, isRecipeDirty: true };
   }),
+
   removeStep: (stepId) => set(state => ({
-    recipe: state.recipe
-      ? {
-          ...state.recipe,
-          steps: state.recipe.steps.filter(s => s.id !== stepId)
-                                 .map((step, index) => ({ ...step, order: index + 1 })), // Re-order after removal
-        }
-      : null,
+    recipe: state.recipe ? { ...state.recipe, steps: state.recipe.steps.filter(s => s.id !== stepId).map((step, index) => ({ ...step, order: index + 1 })) } : null,
     isRecipeDirty: true,
   })),
-  reorderSteps: (newStepsArray) =>
-    set((state) => {
-      if (state.recipe) {
-        return {
-          recipe: { ...state.recipe, steps: newStepsArray },
-        };
-        // Note: Reordering itself might not make it "dirty" in terms of content change,
-        // but if order is persisted, then it is a change. For simplicity, mark dirty.
-        // If you want finer control, you might compare old and new order.
-        state.setIsRecipeDirty(true);
-      }
-      return {};
-    }),
 
-  addIngredientToStep: (stepId, newIngredientData) => set(state => {
-    if (!state.recipe) return { error: "No active recipe." };
-    const newSteps = state.recipe.steps.map(step => {
-      if (step.id === stepId) {
-        const newIngredient: RecipeStepIngredient = {
-          ...newIngredientData,
-          id: -(step.ingredients.length + 1 + Date.now()), // Unique temp ID
-          recipeStepId: step.id, // This will be 0 or a real ID if step is saved
-        };
-        return { ...step, ingredients: [...step.ingredients, newIngredient] };
-      }
-      return step;
-    });    return { recipe: { ...state.recipe, steps: newSteps }, error: null, isRecipeDirty: true };
+  reorderSteps: (newStepsArray) => set((state) => {
+    if (state.recipe) {
+      return { recipe: { ...state.recipe, steps: newStepsArray }, isRecipeDirty: true };
+    }
+    return {};
   }),
-
-  updateIngredientInStep: (stepId, ingredientIdOrTempId, ingredientUpdates) => set(state => {
-    if (!state.recipe) return { error: "No active recipe." };
-    const newSteps = state.recipe.steps.map(step => {
-      if (step.id === stepId) {
-        const newIngredients = step.ingredients.map(ing =>
-          ing.id === ingredientIdOrTempId ? { ...ing, ...ingredientUpdates } : ing
-        );
-        return { ...step, ingredients: newIngredients };
-      }
-      return step;
-    });    return { recipe: { ...state.recipe, steps: newSteps }, error: null, isRecipeDirty: true };
-  }),
-
-  removeIngredientFromStep: (stepId, ingredientIdOrTempId) => set(state => {
-    if (!state.recipe) return { error: "No active recipe." };
-    const newSteps = state.recipe.steps.map(step => {
-      if (step.id === stepId) {
-        const newIngredients = step.ingredients.filter(ing => ing.id !== ingredientIdOrTempId);
-        return { ...step, ingredients: newIngredients };
-      }
-      return step;
-    });    return { recipe: { ...state.recipe, steps: newSteps }, error: null, isRecipeDirty: true };
-  }),
-
-  // --- Example Async Actions (implement with your actual API calls) ---
-  // loadFullRecipe: async (id: number) => {
-  //   set({ isLoading: true, error: null });
-  //   try {
-  //     const recipe = await apiGet<FullRecipe>(`/recipes/${id}/full`); // Replace with actual API call
-  //     if (recipe) {
-  //       set({ recipe, isLoading: false });
-  //     } else {
-  //       set({ isLoading: false, error: `Recipe with ID ${id} not found.` });
-  //     }
-  //   } catch (err) {
-  //     console.error("Failed to load recipe:", err);
-  //     set({ isLoading: false, error: 'Failed to load recipe.' });
-  //   }
-  // },
-
-  // saveCurrentRecipe: async () => {
-  //   const currentRecipe = get().recipe;
-  //   if (!currentRecipe) {
-  //     set({ error: "No recipe to save." });
-  //     return;
-  //   }
-  //   set({ isLoading: true, error: null });
-  //   try {
-  //     // const payload = transformRecipeToBackendPayload(currentRecipe); // You'll need this transformation
-  //     let savedRecipe: FullRecipe;
-  //     // if (currentRecipe.id === 0) { // Assuming 0 means new
-  //     //   savedRecipe = await apiPost<FullRecipe>('/recipes', payload);
-  //     // } else {
-  //     //   savedRecipe = await apiPut<FullRecipe>(`/recipes/${currentRecipe.id}`, payload);
-  //     // }
-  //     // set({ recipe: savedRecipe, isLoading: false });
-  //     // alert('Recipe saved successfully!'); // Or use a toast notification
-  //   } catch (err) {
-  //     console.error("Failed to save recipe:", err);
-  //     set({ isLoading: false, error: 'Failed to save recipe.' });
-  //   }
-  // },
 }));

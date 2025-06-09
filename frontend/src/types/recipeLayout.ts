@@ -26,6 +26,7 @@ export interface RecipeLayoutProps {
   recipe: FullRecipe;
   steps: RecipeStep[];
   ingredientsMeta: IngredientMeta[];
+  fieldsMeta: FieldMeta[];         // <-- Add this line
   stepTemplates: StepTemplate[]; // <-- Add this
   showAdvanced: boolean;         // <-- Add this
   setShowAdvanced: (show: boolean) => void; // <-- Add this
@@ -69,6 +70,7 @@ export interface StepTemplateIngredientRuleMeta {
   description?: string;
   helpText?: string;
   defaultValue?: string;
+  defaultCalculationMode?: IngredientCalculationMode; // Ensure this property exists
   // Add more as needed
   ingredientCategory: IngredientCategoryMeta;
 }

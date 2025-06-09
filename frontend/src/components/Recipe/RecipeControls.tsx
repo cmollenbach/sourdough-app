@@ -419,8 +419,10 @@ export default function RecipeControls() {
           onClick={handleDelete}
           disabled={!canPerformActions || currentRecipe?.isPredefined || currentRecipe?.id === 0}
           className="btn-danger"
+          aria-label="Delete"
+          title="Delete"
         >
-          Delete
+          🗑️
         </button>
       </div>
     </div>

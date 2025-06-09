@@ -1,8 +1,45 @@
-// --- Recipe Field Value (for dynamic recipe fields) ---
+export interface FieldMeta {
+  id: number;
+  name: string;
+  description: string;
+  type: string;
+  stepTypeId: number;
+  isMandatory: boolean;
+}
 
-// When 'erasableSyntaxOnly' is enabled, regular enums are not allowed
-// because they have a runtime representation.
-// We replace it with a const object and a derived type.
+export interface IngredientMeta {
+  id: number;
+  name: string;
+  description: string;
+  ingredientCategoryId: number;
+}
+
+export interface StepTemplate {
+  id: number;
+  name: string;
+  description: string;
+  stepTypeId: number;
+  isDefault: boolean;
+  fields: FieldMeta[];
+  ingredients: IngredientMeta[];
+}
+
+// Added: Basic definition for IngredientCategory.
+// You may need to expand this based on your actual data structure.
+export interface IngredientCategory {
+  id: number;
+  name: string;
+  description?: string | null;
+}
+
+// Added: Basic definition for StepType.
+// You may need to expand this based on your actual data structure.
+export interface StepType {
+  id: number;
+  name: string;
+  description?: string | null;
+}
+
 export const IngredientCalculationMode = {
   PERCENTAGE: 'PERCENTAGE',
   FIXED_WEIGHT: 'FIXED_WEIGHT',
@@ -15,7 +52,6 @@ export interface RecipeFieldValue {
   value: string;
 }
 
-// --- Recipe Meta Table (minimal static fields) ---
 export interface Recipe {
   id: number;
   name: string;
@@ -25,10 +61,8 @@ export interface Recipe {
   totalWeight?: number | null;
   hydrationPct?: number | null;
   saltPct?: number | null;
-  // [key: string]: unknown; // Keep if you have other truly dynamic string-keyed properties not covered by fieldValues
 }
 
-// --- Step Field Value (for dynamic step fields) ---
 export interface RecipeStepField {
   id: number;
   recipeStepId: number;
@@ -37,10 +71,9 @@ export interface RecipeStepField {
   notes?: string | null;
 }
 
-// --- Step Ingredient Value (matches Prisma schema, but optional for form) ---
 export interface RecipeStepIngredient {
   id: number;
-  recipeStepId: number; // Added: An ingredient in a step should know its step's ID
+  recipeStepId: number;
   ingredientId: number;
   ingredientCategoryId: number;
   amount: number;
@@ -49,7 +82,6 @@ export interface RecipeStepIngredient {
   notes?: string | null;
 }
 
-// --- Step (with dynamic fields and ingredients) ---
 export interface RecipeStep {
   id: number;
   recipeId: number;
@@ -61,8 +93,13 @@ export interface RecipeStep {
   ingredients: RecipeStepIngredient[];
 }
 
-// --- FullRecipe: Meta + Dynamic Content ---
 export interface FullRecipe extends Recipe {
-  fieldValues: RecipeFieldValue[]; // Dynamic recipe fields
+  fieldValues: RecipeFieldValue[];
   steps: RecipeStep[];
+}
+
+export interface RecipeStub {
+  id: number;
+  name: string;
+  // You could add other useful info like createdAt, or a short description if available
 }

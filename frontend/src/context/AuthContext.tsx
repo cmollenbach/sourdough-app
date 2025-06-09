@@ -1,40 +1,46 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { apiPost } from '../utils/api';
+import { AuthContext, type User } from './authContextDefinition'; // Import context and types
 
-interface AuthContextType {
-  user: string | null;
-  login: (email: string, password?: string) => Promise<{ token: string; user: { id: number; email: string } }>;
-  logout: () => void;
-  loading: boolean;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// The User interface is now imported from authContextDefinition.ts
+// The AuthContextType interface is now imported from authContextDefinition.ts
+// The AuthContext (createContext call) is now imported from authContextDefinition.ts
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate loading user from storage or API
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) setUser(storedUser);
+    // Load user from storage
+    const storedUserString = localStorage.getItem('user');
+    if (storedUserString) {
+      try {
+        const storedUser = JSON.parse(storedUserString) as User;
+        setUser(storedUser);
+      } catch (e) {
+        console.error("Failed to parse stored user:", e);
+        localStorage.removeItem('user'); // Clear invalid stored user
+      }
+    }
     setLoading(false);
   }, []);
 
-  const login = async (email: string, password?: string) => {
-    const result = await apiPost<{ token: string; user: { id: number; email: string } }>(
+  const login = async (email: string, password?: string): Promise<{ token: string; user: User }> => {
+    // Assuming the backend login returns id, email, and role for the user
+    const result = await apiPost<{ token: string; user: User }>(
       '/auth/login',
       { email, password }
     );
-    setUser(result.user.email);
-    localStorage.setItem('user', result.user.email);
+    setUser(result.user);
+    localStorage.setItem('user', JSON.stringify(result.user)); // Store the whole user object
     localStorage.setItem('token', result.token);
     return result;
   };
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('token'); // Also remove token on logout
   };
 
   return (
@@ -42,10 +48,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within an AuthProvider');
-  return context;
 }

@@ -1,15 +1,27 @@
-import { useAuth } from "../../context/AuthContext";
-import { Redirect, useLocation } from "react-router-dom";
-import type { ReactNode } from "react";
+import React from 'react'; // Add this import
+import { useLocation, Redirect } from "react-router-dom"; // Reverted to Redirect for RRDv5
+import { useAuth } from "../../hooks/useAuthHook"; // Updated import path
 
-export default function RequireAuth({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+interface RequireAuthProps {
+  children: React.ReactNode;
+  adminOnly?: boolean;
+}
+
+export default function RequireAuth({ children, adminOnly = false }: RequireAuthProps) {
+  const { user, loading } = useAuth();
   const location = useLocation();
 
+  if (loading) {
+    return <div>Loading session...</div>;
+  }
+
   if (!user) {
-    // In React Router v5, you can pass state like this:
     return <Redirect to={{ pathname: "/login", state: { from: location } }} />;
   }
 
-  return <>{children}</>;
+  if (adminOnly && user.role !== 'ADMIN') {
+  return <Redirect to="/unauthorized" />; // Or your dedicated "forbidden" page
+  }
+
+  return children;
 }

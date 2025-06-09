@@ -318,8 +318,11 @@ const debouncedOnChange = useMemo(() =>
             <button type="button"
               onClick={() => onRemove(step.id)}
               aria-label="Delete"
+              title="Delete"
               className="btn-danger"
-            >Delete</button>
+            >
+              🗑️
+            </button>
           </div>
         </div>
 
