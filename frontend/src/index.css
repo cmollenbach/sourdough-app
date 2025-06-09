@@ -117,6 +117,15 @@
 .btn-danger {
   @apply bg-danger-50 text-primary-700 hover:bg-danger-100 border border-danger-100 px-3 py-2 rounded-lg shadow shadow-primary-100/30 transition;
 }
+/* New button styles for bake step actions */
+.btn-success {
+  /* Using success-500 for background and white text for contrast */
+  @apply bg-success-500 text-white hover:bg-success-600 border border-success-600 px-3 py-1 rounded-md shadow-sm transition-colors disabled:opacity-50;
+}
+.btn-skip {
+  /* Using secondary palette for a more neutral "skip" action */
+  @apply bg-secondary-200 text-secondary-700 hover:bg-secondary-300 border border-secondary-300 px-3 py-1 rounded-md shadow-sm transition-colors disabled:opacity-50;
+}
 
 .form-input {
   @apply bg-surface border border-border text-text-primary placeholder:text-text-tertiary 

@@ -1,6 +1,8 @@
 // RecipeControls.tsx
 import React, { useState, useEffect, useMemo } from 'react';
+import { useHistory } from 'react-router-dom'; // For react-router-dom v5
 import { useRecipeBuilderStore } from '../../store/recipeBuilderStore';
+import { useBakeStore } from '../../store/useBakeStore'; // Import useBakeStore
 import type { FullRecipe, RecipeFieldValue, RecipeStep, RecipeStepField, RecipeStepIngredient, IngredientCalculationMode } from '../../types/recipe';
 import { apiGet, apiPost, apiPut, apiDelete } from '../../utils/api'; // Import all needed API utils
 
@@ -72,12 +74,14 @@ export default function RecipeControls() {
   const currentRecipe = useRecipeBuilderStore(state => state.recipe);
   const setRecipe = useRecipeBuilderStore(state => state.setRecipe);
   const fieldsMeta = useRecipeBuilderStore(state => state.fieldsMeta); // Access fieldsMeta from the store
-  const isRecipeDirty = useRecipeBuilderStore(state => state.isRecipeDirty); // Get the dirty flag
+  const isRecipeDirty = useRecipeBuilderStore(state => state.isRecipeDirty);
+  const { startBake: initiateBake, isLoading: isBakeLoading, error: bakeError, clearError: clearBakeError } = useBakeStore(); // Destructure from useBakeStore
 
   const [recipeList, setRecipeList] = useState<RecipeStub[]>([]);
   const [selectedRecipeId, setSelectedRecipeId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const history = useHistory(); // For react-router-dom v5
 
   const fetchRecipeList = async () => {
     // setIsLoading(true); // Optionally set loading for list refresh, but might be too quick
@@ -352,13 +356,39 @@ export default function RecipeControls() {
     }
   };
 
-  const canPerformActions = !isLoading && currentRecipe;
+  const handleStartBake = async () => {
+    if (!currentRecipe || currentRecipe.id === 0) {
+      alert("Please save or load a recipe before starting a bake.");
+      return;
+    }
+    if (isRecipeDirty) {
+      if (!window.confirm("You have unsaved changes to the current recipe. It's recommended to save them before starting a bake. Continue to start bake with last saved version?")) {
+        return;
+      }
+    }
+
+    clearBakeError(); // Clear any previous bake errors
+    const newBake = await initiateBake(currentRecipe.id, `Bake of ${currentRecipe.name}`);
+
+    if (newBake) {
+      // Navigate to the bakes list page or directly to the new bake's detail page
+      history.push(`/bakes`); // For react-router-dom v5. Or history.push(`/bakes/${newBake.id}`);
+    } else {
+      // bakeError will be set in the store, you could display it here or rely on a global error display
+      alert(`Failed to start bake: ${bakeError || 'Unknown error'}`);
+    }
+  };
+
+  const canPerformActions = !isLoading && currentRecipe && !isBakeLoading;
+  const canStartBake = currentRecipe && currentRecipe.id !== 0 && !isBakeLoading;
 
   return (
     <div className="p-4 border border-border rounded-lg shadow-card bg-surface-elevated mb-6">
       <h2 className="text-xl font-bold mb-3 text-text-primary">Recipe Controls</h2>
       {isLoading && <div className="text-accent-500">Loading...</div>}
       {error && <div className="text-danger-700 p-2 my-2 border border-danger-200 rounded bg-danger-50">{error}</div>}
+      {isBakeLoading && <div className="text-accent-500">Starting bake...</div>}
+      {bakeError && <div className="text-danger-700 p-2 my-2 border border-danger-200 rounded bg-danger-50">Bake Error: {bakeError}</div>}
 
       <div className="mb-3">
         <label htmlFor="recipe-select" className="block text-sm font-medium text-text-secondary mb-1">
@@ -368,7 +398,7 @@ export default function RecipeControls() {
           id="recipe-select"
           value={selectedRecipeId}
           onChange={handleRecipeSelect}
-          disabled={isLoading}
+          disabled={isLoading || isBakeLoading}
           className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300 transition-colors"
         >
           <option value="">-- Select a Recipe --</option>
@@ -403,18 +433,27 @@ export default function RecipeControls() {
       <div className="flex flex-col sm:flex-row gap-2">
         <button
           onClick={handleUpdateOrSave}
-          disabled={!canPerformActions}
+          disabled={!canPerformActions || isBakeLoading}
           className="btn-primary"
         >
           Update / Save
         </button>
         <button
           onClick={handleNewFromBase}
-          disabled={isLoading} // Disable if any operation is in progress
+          disabled={isLoading || isBakeLoading} // Disable if any operation is in progress
           className="btn-secondary"
         >
           New
         </button>
+        {/* START: New Button Added Here */}
+        <button
+          onClick={handleStartBake}
+          disabled={!canStartBake}
+          className="btn-secondary" // Or any other appropriate class
+        >
+          Start Bake
+        </button>
+        {/* END: New Button Added Here */}
         <button
           onClick={handleDelete}
           disabled={!canPerformActions || currentRecipe?.isPredefined || currentRecipe?.id === 0}

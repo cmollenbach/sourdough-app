@@ -265,9 +265,11 @@ model Bake {
   ownerId         Int
   startTimestamp  DateTime             @default(now())
   finishTimestamp DateTime?
+  updatedAt       DateTime?            @default(now()) // Temporarily optional with default
   active          Boolean              @default(true)
   parentBakeId    Int?
   notes           String?
+  rating          Int?                 // New field for 1-5 star rating, optional
   recipe          Recipe               @relation(fields: [recipeId], references: [id])
   owner           User                 @relation(fields: [ownerId], references: [id])
   parentBake      Bake?                @relation("BakeVersion", fields: [parentBakeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -283,6 +285,7 @@ model BakeStep {
   status          StepExecutionStatus @default(PENDING)
   startTimestamp  DateTime?
   finishTimestamp DateTime?
+  updatedAt       DateTime?            @default(now()) // Temporarily optional with default
   deviations      Json?
   notes           String?
   bake            Bake                     @relation(fields: [bakeId], references: [id])

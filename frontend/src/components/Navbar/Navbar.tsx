@@ -1,8 +1,9 @@
 import { Link, NavLink } from 'react-router-dom';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react'; // Added useMemo here
 import ActiveBakeIndicator from './ActiveBakeIndicator'; // Assuming this component exists
 import { useAuth } from '../../hooks/useAuthHook'; // Updated import path
 import { useSettings } from '../../context/SettingsContext';
+import { useBakeStore } from '../../store/useBakeStore';
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
@@ -10,8 +11,20 @@ export default function Navbar() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
   const { darkMode, toggleDarkMode } = useSettings();
-  
-  console.log('Navbar user:', user); // <-- Add this line
+  const { activeBakes } = useBakeStore();
+
+  // Determine the bake to display in the navbar indicator
+  // For now, let's pick the most recent active bake if multiple exist.
+  // Or, if you have a concept of a "current focused bake" in your store, you could use that.
+  const displayBake = useMemo(() => {
+    if (activeBakes.length > 0) {
+      // Sort by startTimestamp descending to get the most recent
+      const sortedBakes = [...activeBakes].sort((a, b) => new Date(b.startTimestamp).getTime() - new Date(a.startTimestamp).getTime());
+      return sortedBakes[0];
+    }
+    return null;
+  }, [activeBakes]);
+
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -43,7 +56,10 @@ export default function Navbar() {
             </div>
           </div>
           <div className="hidden md:flex items-center space-x-4">
-            <ActiveBakeIndicator time="00:40:13" isActive={true} /> {/* Placeholder time */}
+            <ActiveBakeIndicator 
+              isActive={!!displayBake && displayBake.active} 
+              startTimestamp={displayBake?.startTimestamp || null} 
+            />
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setOpen(o => !o)}

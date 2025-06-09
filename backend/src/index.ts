@@ -5,6 +5,7 @@ import authRoutes from "./routes/auth";
 import recipesRouter from "./routes/recipes";
 import stepRoutes from "./routes/steps";
 import metaRouter from "./routes/meta"; // <-- Add this line
+import bakesRoutes from './routes/bakes'; // <-- Add this line
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api", recipesRouter);
 app.use("/api/steps", stepRoutes);
 app.use("/api/meta", metaRouter); // <-- Add this line
+app.use('/api/bakes', bakesRoutes); // <-- Add this line
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
