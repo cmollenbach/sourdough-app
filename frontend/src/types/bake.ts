@@ -74,6 +74,9 @@ export interface Bake {
   parentBakeId?: number | null;
   notes?: string | null; // Used for bake name/description
   rating?: number | null; // New field for rating
+  recipeTotalWeightSnapshot?: number | null;
+  recipeHydrationPctSnapshot?: number | null;
+  recipeSaltPctSnapshot?: number | null;
   steps?: BakeStep[]; // 'steps' field in your Bake schema - make optional for list views
   recipe?: { name: string }; // Optional: if recipe name is included
   owner?: { // 'owner' field in your Bake schema

@@ -157,6 +157,10 @@ router.post('/', async (req: AuthRequest, res: Response) => { // Corrected type 
           notes: bakeNotes || `Bake of ${recipe.name}`,
           active: true,
           startTimestamp: new Date(),
+          // Snapshot recipe targets
+          recipeTotalWeightSnapshot: recipe.totalWeight,
+          recipeHydrationPctSnapshot: recipe.hydrationPct,
+          recipeSaltPctSnapshot: recipe.saltPct,
         },
       });
 

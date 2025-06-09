@@ -270,6 +270,9 @@ model Bake {
   parentBakeId    Int?
   notes           String?
   rating          Int?                 // New field for 1-5 star rating, optional
+  recipeTotalWeightSnapshot Float? // Snapshot of recipe's totalWeight at bake creation
+  recipeHydrationPctSnapshot Float? // Snapshot of recipe's hydrationPct
+  recipeSaltPctSnapshot      Float? // Snapshot of recipe's saltPct
   recipe          Recipe               @relation(fields: [recipeId], references: [id])
   owner           User                 @relation(fields: [ownerId], references: [id])
   parentBake      Bake?                @relation("BakeVersion", fields: [parentBakeId], references: [id], onDelete: NoAction, onUpdate: NoAction)

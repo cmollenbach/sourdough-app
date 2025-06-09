@@ -3,6 +3,7 @@ import { useParams, Link, useHistory } from 'react-router-dom';
 import { useBakeStore } from '../../store/useBakeStore';
 import BakeStepCard from '../../components/Bake/BakeStepCard.tsx'; // Ensure this path is correct
 import { useToast } from '../../context/ToastContext'; // Ensure this path is correct
+import BakeTargetsDisplay from '../../components/Bake/BakeTargetsDisplay'; // Import the new component
 
 export default function BakeDetailPage() {
   const { bakeId } = useParams<{ bakeId: string }>();
@@ -185,6 +186,9 @@ export default function BakeDetailPage() {
           <span className="ml-2 text-text-tertiary">(Ended: {new Date(currentBake.finishTimestamp).toLocaleString()})</span>
         )}
       </p>
+
+      {/* Display Snapshotted Bake Targets */}
+      <BakeTargetsDisplay bake={currentBake} />
 
       {!currentBake.active && ( // Show rating section only for inactive bakes
         <div className="mb-4 p-3 bg-surface-elevated rounded-md border border-border">
