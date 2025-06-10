@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useAuth } from '../hooks/useAuthHook';
-import { useHistory } from "react-router-dom";
+import { useHistory, Link } from "react-router-dom"; // Import Link
 import { useToast } from "../context/ToastContext";
+import { apiPost } from "../utils/api"; // Import the shared API utility
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false); // Add loading state
   const { login } = useAuth();
   const { addToast } = useToast();
   const history = useHistory();
@@ -14,26 +16,26 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setLoading(true); // Set loading to true
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Registration failed");
-      }
+      // Use apiPost for the registration request
+      await apiPost("/auth/register", { email, password });
+
+      addToast({ message: "Registration successful! Logging you in...", type: "success" });
+
       // Auto-login after registration
       await login(email, password);
       history.replace("/recipes");
     } catch (err: unknown) {
       let msg = "Registration failed";
       if (err instanceof Error) {
-        msg = err.message || msg;
+        // Use the error message from apiPost or login, or fallback
+        msg = err.message || "An unexpected error occurred during registration.";
       }
       setError(msg);
       addToast({ message: msg, type: "error" });
+    } finally {
+      setLoading(false); // Set loading to false
     }
   }
 
@@ -58,13 +60,13 @@ export default function RegisterPage() {
           required
         />
         {error && <div className="text-red-500 text-sm mb-2">{error}</div>}
-        <button type="submit" className="btn-primary w-full">
-          Register
+        <button type="submit" className="btn-primary w-full" disabled={loading}>
+          {loading ? "Registering..." : "Register"}
         </button>
       </form>
       <div className="mt-4">
         <span>Already have an account? </span>
-        <a href="/login" className="text-blue-600 underline">Login</a>
+        <Link to="/login" className="text-blue-600 underline">Login</Link>
       </div>
     </div>
   );

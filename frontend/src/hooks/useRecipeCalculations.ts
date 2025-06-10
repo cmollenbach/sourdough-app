@@ -1,19 +1,17 @@
-// useRecipeCalculations.ts
 import { useMemo } from "react";
 import { useRecipeBuilderStore } from "../store/recipeBuilderStore";
 import { IngredientCalculationMode, type FullRecipe, type RecipeStep } from "../types/recipe";
 
-// --- CONSTANTS ---
-const PREFERMENT_CONTRIB_PARAM_NAME = 'Contribution (pct)'; 
+const PREFERMENT_CONTRIB_PARAM_NAME = 'Contribution (pct)';
 const PREFERMENT_HYDRATION_PARAM_NAME = 'Hydration';
-const PREFERMENT_STEP_TYPE_ID = 6;
-// const MIX_STEP_TEMPLATE_NAME = "Final Mix"; // No longer auto-calculating a mix step
 
-const FLOUR_CATEGORY_NAME = "Flour"; // Ensure this matches your category name
-const WATER_CATEGORY_NAME = "Liquid";  // Ensure this matches your category name (e.g., "Water" or "Liquid")
-const SALT_CATEGORY_NAME = "Salt";    // Ensure this matches your category name
+const FLOUR_CATEGORY_NAME = "Flour";
+const WATER_CATEGORY_NAME = "Liquid";
+const SALT_CATEGORY_NAME = "Salt";
 
-// --- INTERFACES ---
+const PREFERMENT_ROLE = 'PREFERMENT';
+const MIX_ROLE = 'MIX';
+
 export interface FlourComponent {
   ingredientId: number;
   name: string;
@@ -25,19 +23,19 @@ export interface CalculatedStepColumn {
   order: number;
   name: string;
   isPreferment: boolean;
-  prefermentContributionPct?: number | null; // From step fields
-  prefermentHydrationPct?: number | null;    // From step fields
+  prefermentContributionPct?: number | null;
+  prefermentHydrationPct?: number | null;
   flourComponents: FlourComponent[];
-  genericFlourWeight: number; // Weight of generic flour if no specific components
+  genericFlourWeight: number;
   waterWeight: number;
   saltWeight: number;
-  totalWeight: number; // Sum of all ingredient weights in this step
+  totalWeight: number;
 }
 
 export interface CalculatedTableData {
   columns: CalculatedStepColumn[];
   totals: {
-    totalFlour: number; // Sum of all flour types
+    totalFlour: number;
     flourDetails: Array<{ ingredientId: number; name: string; totalWeight: number }>;
     water: number;
     salt: number;
@@ -58,12 +56,12 @@ export function useRecipeCalculations(
   return useMemo((): CalculatedTableData => {
     const emptyData: CalculatedTableData = {
       columns: [],
-      totals: { totalFlour: 0, flourDetails: [], water: 0, salt: 0, grandTotal: 0},
+      totals: { totalFlour: 0, flourDetails: [], water: 0, salt: 0, grandTotal: 0 },
       targetTotalDoughWeight: recipe?.totalWeight ?? 0,
     };
 
-    if (!recipe || !recipe.totalWeight || recipe.totalWeight <= 0 || !steps.length || 
-        !ingredientsMeta || !ingredientCategoriesMeta || !fieldsMeta || !stepTemplates) {
+    if (!recipe || !recipe.totalWeight || recipe.totalWeight <= 0 || !steps.length ||
+      !ingredientsMeta || !ingredientCategoriesMeta || !fieldsMeta || !stepTemplates) {
       return emptyData;
     }
 
@@ -79,8 +77,7 @@ export function useRecipeCalculations(
     const WATER_CATEGORY_ID = waterCategory.id;
     const SALT_CATEGORY_ID = saltCategory.id;
 
-    // Calculate total formula flour (used if ingredients are percentage-based)
-    // And overall targets for water and salt based on percentages
+    // Calculate total formula flour and targets
     let overallTargetFlour = 0;
     let overallTargetWater = 0;
     let overallTargetSalt = 0;
@@ -94,49 +91,55 @@ export function useRecipeCalculations(
       }
     }
 
-    let pendingOverallFlour = overallTargetFlour;
-    let pendingOverallWater = overallTargetWater;
-    let pendingOverallSalt = overallTargetSalt;
-
-    const tempStepDetails: Array<{
-      step: RecipeStep;
-      template: NonNullable<typeof stepTemplates[0]>;
-      explicitFlourComponents: FlourComponent[];
-      explicitWaterWeight: number;
-      explicitSaltWeight: number;
-      isParamDrivenPreferment: boolean;
-      prefermentParams?: { contrib: number | null, hydr: number | null };
-      calculatedFlourForStep: number; // Can be from explicit or generic param-driven preferment
-      calculatedWaterForStep: number; // Can be from explicit or generic param-driven preferment
-      calculatedSaltForStep: number;  // From explicit
-    }> = [];
-
+    // Pass 1: Calculate each step's explicit and param-driven contributions
     const prefermentContribFieldId = fieldsMeta.find(f => f.name === PREFERMENT_CONTRIB_PARAM_NAME)?.id;
     const prefermentHydrationFieldId = fieldsMeta.find(f => f.name === PREFERMENT_HYDRATION_PARAM_NAME)?.id;
 
-    // Pass 1: Process explicit ingredients and parameter-driven preferments
+    type StepTotals = {
+      step: RecipeStep;
+      template: NonNullable<typeof stepTemplates[0]>;
+      isPreferment: boolean;
+      isMix: boolean;
+      prefermentParams?: { contrib: number | null, hydr: number | null };
+      explicitFlourComponents: FlourComponent[];
+      explicitWaterWeight: number;
+      explicitSaltWeight: number;
+      genericFlourWeight: number;
+      waterWeight: number;
+      saltWeight: number;
+    };
+
+    const stepTotals: StepTotals[] = [];
+
+    // First pass: calculate all steps (no step absorbs pending except MIX)
     for (const step of steps) {
       const template = stepTemplates.find(t => t.id === step.stepTemplateId);
       if (!template) continue;
 
+      const isPreferment = template.role === PREFERMENT_ROLE;
+      const isMix = template.role === MIX_ROLE;
+
       const explicitFlourComponents: FlourComponent[] = [];
       let explicitWaterWeight = 0;
       let explicitSaltWeight = 0;
-      let stepCalculatedFlour = 0;
-      let stepCalculatedWater = 0;
+      let genericFlourWeight = 0;
+      let waterWeight = 0;
+      let saltWeight = 0;
+      let prefermentParams: { contrib: number | null, hydr: number | null } | undefined;
 
       let isParamDrivenPreferment = false;
       let pContrib: number | null = null;
       let pHydr: number | null = null;
 
-      if (template.stepTypeId === PREFERMENT_STEP_TYPE_ID && prefermentContribFieldId && prefermentHydrationFieldId) {
-          const contribField = step.fields.find(f => f.fieldId === prefermentContribFieldId);
-          const hydField = step.fields.find(f => f.fieldId === prefermentHydrationFieldId);
-          if (contribField?.value != null && hydField?.value != null) {
-            isParamDrivenPreferment = true;
-            pContrib = Number(contribField.value);
-            pHydr = Number(hydField.value);
-          }
+      if (isPreferment && prefermentContribFieldId && prefermentHydrationFieldId) {
+        const contribField = step.fields.find(f => f.fieldId === prefermentContribFieldId);
+        const hydField = step.fields.find(f => f.fieldId === prefermentHydrationFieldId);
+        if (contribField?.value != null && hydField?.value != null) {
+          isParamDrivenPreferment = true;
+          pContrib = Number(contribField.value);
+          pHydr = Number(hydField.value);
+          prefermentParams = { contrib: pContrib, hydr: pHydr };
+        }
       }
 
       for (const ing of step.ingredients) {
@@ -144,14 +147,10 @@ export function useRecipeCalculations(
         if (!ingMeta) continue;
         let weight = 0;
         if (ing.calculationMode === IngredientCalculationMode.PERCENTAGE) {
-          // If this is a param-driven preferment, and the ingredient is flour,
-          // the percentage should be of the flour allocated to THIS preferment step.
           if (isParamDrivenPreferment && pContrib != null && ingMeta.ingredientCategoryId === FLOUR_CATEGORY_ID) {
-            // Calculate flour for this preferment step first based on its contribution %
             const prefermentStepTargetFlour = overallTargetFlour * (pContrib / 100);
             weight = (ing.amount / 100) * prefermentStepTargetFlour;
           } else {
-            // Otherwise, percentage is of the overall target flour (e.g., for ingredients in a main mix step)
             weight = (ing.amount / 100) * overallTargetFlour;
           }
         } else if (ing.calculationMode === IngredientCalculationMode.FIXED_WEIGHT) {
@@ -159,7 +158,6 @@ export function useRecipeCalculations(
         }
 
         if (ingMeta.ingredientCategoryId === FLOUR_CATEGORY_ID) {
-          // This component's weight is already calculated correctly above
           explicitFlourComponents.push({
             ingredientId: ing.ingredientId,
             name: ingMeta.name,
@@ -172,111 +170,121 @@ export function useRecipeCalculations(
         }
       }
 
-      stepCalculatedFlour = explicitFlourComponents.reduce((sum, fc) => sum + fc.weight, 0);
-      stepCalculatedWater = explicitWaterWeight;
-
+      // Only parameter-driven preferment gets generic flour/water
       if (isParamDrivenPreferment && pContrib != null && pHydr != null) {
-        // If explicit flour components were added, stepCalculatedFlour is their sum.
-        // If NO explicit flour components were added, then the flour for this preferment is generic,
-        // calculated from its contribution percentage.
-        if (explicitFlourComponents.length === 0) { 
-          stepCalculatedFlour = overallTargetFlour * (pContrib / 100);
+        if (explicitFlourComponents.length === 0) {
+          genericFlourWeight = overallTargetFlour * (pContrib / 100);
         }
-        if (explicitWaterWeight === 0) { // If no explicit water, calculate water based on preferment's flour and its hydration param
-          stepCalculatedWater = stepCalculatedFlour * (pHydr / 100);
+        if (explicitWaterWeight === 0) {
+          waterWeight = (explicitFlourComponents.reduce((sum, fc) => sum + fc.weight, 0) + genericFlourWeight) * (pHydr / 100);
+        } else {
+          waterWeight = explicitWaterWeight;
         }
+      } else {
+        genericFlourWeight = 0;
+        waterWeight = explicitWaterWeight;
       }
-      
-      pendingOverallFlour -= stepCalculatedFlour;
-      pendingOverallWater -= stepCalculatedWater;
-      pendingOverallSalt -= explicitSaltWeight; // Salt is only from explicit ingredients
+      saltWeight = explicitSaltWeight;
 
-      tempStepDetails.push({
-        step, template, explicitFlourComponents, explicitWaterWeight, explicitSaltWeight,
-        isParamDrivenPreferment, 
-        prefermentParams: isParamDrivenPreferment ? { contrib: pContrib, hydr: pHydr } : undefined,
-        calculatedFlourForStep: stepCalculatedFlour,
-        calculatedWaterForStep: stepCalculatedWater,
-        calculatedSaltForStep: explicitSaltWeight,
+      stepTotals.push({
+        step,
+        template,
+        isPreferment,
+        isMix,
+        prefermentParams,
+        explicitFlourComponents,
+        explicitWaterWeight,
+        explicitSaltWeight,
+        genericFlourWeight,
+        waterWeight,
+        saltWeight,
       });
     }
 
-    // Pass 2: Build final table columns, distributing pending amounts
-    const tableColumns: CalculatedStepColumn[] = tempStepDetails.map(tsd => {
-      const colFlourComponents = tsd.explicitFlourComponents;
-      let colGenericFlourWeight = 0;
-      let colWaterWeight = tsd.calculatedWaterForStep;
-      let colSaltWeight = tsd.calculatedSaltForStep;
+    // Sum all non-mix steps' flour, water, salt (including AUTOLYSE, PREFERMENT, etc.)
+    let sumFlourOtherSteps = 0;
+    let sumWaterOtherSteps = 0;
+    let sumSaltOtherSteps = 0;
+    stepTotals.forEach(st => {
+      if (!st.isMix) {
+        sumFlourOtherSteps += st.explicitFlourComponents.reduce((sum, fc) => sum + fc.weight, 0) + st.genericFlourWeight;
+        sumWaterOtherSteps += st.waterWeight;
+        sumSaltOtherSteps += st.saltWeight;
+      }
+    });
 
-      if (tsd.explicitFlourComponents.length === 0 && !tsd.isParamDrivenPreferment) {
-        // This step has no explicit flour and is not a param-driven preferment
-        // It's a candidate to absorb pending flour
-        if (pendingOverallFlour > 0.001) { // Use a small threshold for floating point
-          colGenericFlourWeight = Math.max(0, pendingOverallFlour);
-          pendingOverallFlour = 0; // Absorbed
-        }
-        if (tsd.explicitWaterWeight === 0 && pendingOverallWater > 0.001) {
-          colWaterWeight = Math.max(0, pendingOverallWater);
-          pendingOverallWater = 0; // Absorbed
-        }
-        if (tsd.explicitSaltWeight === 0 && pendingOverallSalt > 0.001) {
-          colSaltWeight = Math.max(0, pendingOverallSalt);
-          pendingOverallSalt = 0; // Absorbed
-        }
-      } else if (tsd.explicitFlourComponents.length === 0 && tsd.isParamDrivenPreferment) {
-        // Param-driven preferment with no explicit flour items; its flour is generic
-        colGenericFlourWeight = tsd.calculatedFlourForStep;
+    // Second pass: set MIX step to absorb the remainder
+    const columns: CalculatedStepColumn[] = stepTotals.map(st => {
+      let genericFlourWeight = st.genericFlourWeight;
+      let waterWeight = st.waterWeight;
+      let saltWeight = st.saltWeight;
+
+      if (st.isMix) {
+        genericFlourWeight = Math.max(0, overallTargetFlour - sumFlourOtherSteps);
+        waterWeight = Math.max(0, overallTargetWater - sumWaterOtherSteps);
+        saltWeight = Math.max(0, overallTargetSalt - sumSaltOtherSteps);
       }
 
-      const totalFlourInCol = colFlourComponents.reduce((sum, fc) => sum + fc.weight, 0) + colGenericFlourWeight;
-      // For totalWeight, sum all ingredients including 'others' if they were tracked.
-      // For simplicity here, we'll sum knowns. A more robust sum would require tracking all ingredient weights.
-      const stepTotalWeight = totalFlourInCol + colWaterWeight + colSaltWeight; // Simplified
+      // Clamp all to zero if negative
+      const totalFlourInCol = Math.max(0, st.explicitFlourComponents.reduce((sum, fc) => sum + fc.weight, 0) + genericFlourWeight);
+      const stepWater = Math.max(0, waterWeight);
+      const stepSalt = Math.max(0, saltWeight);
+      const stepTotalWeight = totalFlourInCol + stepWater + stepSalt;
 
       return {
-        stepId: tsd.step.id,
-        order: tsd.step.order,
-        name: tsd.template.name,
-        isPreferment: tsd.template.stepTypeId === PREFERMENT_STEP_TYPE_ID, // General preferment type
-        prefermentContributionPct: tsd.prefermentParams?.contrib,
-        prefermentHydrationPct: tsd.prefermentParams?.hydr,
-        flourComponents: colFlourComponents,
-        genericFlourWeight: parseFloat(colGenericFlourWeight.toFixed(2)),
-        waterWeight: parseFloat(colWaterWeight.toFixed(2)),
-        saltWeight: parseFloat(colSaltWeight.toFixed(2)),
-        totalWeight: parseFloat(stepTotalWeight.toFixed(2)), // This needs to be more accurate if 'other' ingredients exist
+        stepId: st.step.id,
+        order: st.step.order,
+        name: st.template.name,
+        isPreferment: st.isPreferment,
+        prefermentContributionPct: st.prefermentParams?.contrib,
+        prefermentHydrationPct: st.prefermentParams?.hydr,
+        flourComponents: st.explicitFlourComponents,
+        genericFlourWeight: parseFloat(genericFlourWeight.toFixed(2)),
+        waterWeight: parseFloat(stepWater.toFixed(2)),
+        saltWeight: parseFloat(stepSalt.toFixed(2)),
+        totalWeight: parseFloat(stepTotalWeight.toFixed(2)),
       };
     }).sort((a, b) => a.order - b.order);
 
     // Calculate final totals
-    const finalTotals = tableColumns.reduce((acc, col) => {
-        acc.totalFlour += col.genericFlourWeight;
-        col.flourComponents.forEach(fc => { // Specific flours
-            acc.totalFlour += fc.weight;
-            const existingFlourDetail = acc.flourDetails.find(fd => fd.ingredientId === fc.ingredientId);
-            if (existingFlourDetail) {
-                existingFlourDetail.totalWeight += fc.weight;
-            } else {
-                acc.flourDetails.push({ ingredientId: fc.ingredientId, name: fc.name, totalWeight: fc.weight });
-            }
-        });
-        acc.water += col.waterWeight;
-        acc.salt += col.saltWeight;
-        acc.grandTotal += col.totalWeight;
-        return acc;
-    }, { totalFlour: 0, flourDetails: [] as Array<{ ingredientId: number; name: string; totalWeight: number }>, water: 0, salt: 0, grandTotal: 0});
-    
+    const finalTotals = columns.reduce((acc, col) => {
+      acc.totalFlour += col.genericFlourWeight;
+      col.flourComponents.forEach(fc => {
+        acc.totalFlour += fc.weight;
+        const existingFlourDetail = acc.flourDetails.find(fd => fd.ingredientId === fc.ingredientId);
+        if (existingFlourDetail) {
+          existingFlourDetail.totalWeight += fc.weight;
+        } else {
+          acc.flourDetails.push({ ingredientId: fc.ingredientId, name: fc.name, totalWeight: fc.weight });
+        }
+      });
+      acc.water += col.waterWeight;
+      acc.salt += col.saltWeight;
+      acc.grandTotal += col.totalWeight;
+      return acc;
+    }, { totalFlour: 0, flourDetails: [] as Array<{ ingredientId: number; name: string; totalWeight: number }>, water: 0, salt: 0, grandTotal: 0 });
+
+    // After calculating all columns and before returning:
+    const roundingError = recipe.totalWeight - finalTotals.grandTotal;
+    if (Math.abs(roundingError) > 0.01) {
+      // Add the rounding error to the Mix step's totalWeight
+      const mixCol = columns.find(col => col.name.toLowerCase().includes("mix"));
+      if (mixCol) {
+        mixCol.totalWeight += roundingError;
+        finalTotals.grandTotal += roundingError;
+      }
+    }
+
     return {
-      columns: tableColumns,
+      columns,
       totals: {
         totalFlour: parseFloat(finalTotals.totalFlour.toFixed(2)),
-        flourDetails: finalTotals.flourDetails.map(fd => ({...fd, totalWeight: parseFloat(fd.totalWeight.toFixed(2))})).sort((a,b) => a.name.localeCompare(b.name)),
+        flourDetails: finalTotals.flourDetails.map(fd => ({ ...fd, totalWeight: parseFloat(fd.totalWeight.toFixed(2)) })).sort((a, b) => a.name.localeCompare(b.name)),
         water: parseFloat(finalTotals.water.toFixed(2)),
         salt: parseFloat(finalTotals.salt.toFixed(2)),
         grandTotal: parseFloat(finalTotals.grandTotal.toFixed(2)),
       },
       targetTotalDoughWeight: recipe.totalWeight,
     };
-
   }, [recipe, steps, ingredientsMeta, ingredientCategoriesMeta, fieldsMeta, stepTemplates]);
 }

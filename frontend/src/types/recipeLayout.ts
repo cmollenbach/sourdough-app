@@ -92,4 +92,5 @@ export interface StepTemplate {
   order?: number;
   fields: StepTemplateFieldMeta[];
   ingredientRules: StepTemplateIngredientRuleMeta[];
+  role: string; // <-- Add this line
 }

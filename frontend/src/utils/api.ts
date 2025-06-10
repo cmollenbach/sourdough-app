@@ -39,6 +39,29 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Helper function to extract a meaningful error message
+function extractErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    if (error.response?.data) {
+      const { data } = error.response;
+      // Check for common error message structures from backend
+      if (typeof data.message === 'string' && data.message.trim() !== '') {
+        return data.message;
+      }
+      if (typeof data.error === 'string' && data.error.trim() !== '') {
+        return data.error;
+      }
+      // If backend sends a plain string error
+      if (typeof data === 'string' && data.trim() !== '') {
+        return data;
+      }
+    }
+    // Fallback to Axios's error message or a generic one
+    return error.message || 'An API request failed. Please try again.';
+  }
+  return error instanceof Error ? error.message : 'An unknown error occurred.';
+}
+
 // --- NEW --- API function to delete a step template
 export async function deleteStepTemplate(id: number): Promise<void> {
   await apiDelete(`/steps/templates/${id}`);
@@ -80,20 +103,36 @@ export async function updateStepTemplate(
 
 // ... existing generic functions ...
 export async function apiGet<T>(url: string): Promise<T> {
-  const response = await api.get<T>(url);
-  return response.data;
+  try {
+    const response = await api.get<T>(url);
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
 }
 export async function apiPost<T>(url: string, data: unknown): Promise<T> {
-  const response = await api.post<T>(url, data);
-  return response.data;
+  try {
+    const response = await api.post<T>(url, data);
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
 }
 export async function apiPut<T>(url: string, data: unknown): Promise<T> {
-  const response = await api.put<T>(url, data);
-  return response.data;
+  try {
+    const response = await api.put<T>(url, data);
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
 }
 export async function apiDelete<T>(url: string): Promise<T> {
-  const response = await api.delete<T>(url);
-  return response.data;
+  try {
+    const response = await api.delete<T>(url);
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
 }
 
 export default api;

@@ -22,6 +22,7 @@ export interface StepTemplate {
   isDefault: boolean;
   fields: FieldMeta[];
   ingredients: IngredientMeta[];
+  role: string; // <-- Add this line
 }
 
 // Added: Basic definition for IngredientCategory.
