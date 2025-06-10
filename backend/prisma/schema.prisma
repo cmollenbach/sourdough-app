@@ -54,6 +54,20 @@ enum EntityRequestStatus {
   CLOSED
 }
 
+enum StepRole {
+  PREFERMENT
+  AUTOLYSE
+  MIX
+  ENRICH
+  INCLUSION
+  BULK
+  SHAPE
+  PROOF
+  BAKE
+  REST
+  OTHER
+}
+
 model User {
   id                Int             @id @default(autoincrement())
   email             String?         @unique
@@ -167,6 +181,7 @@ model StepTemplate {
   description     String?
   active          Boolean                      @default(true)
   order           Int?
+  role            StepRole                     // <-- Add this line
   stepType        StepType                     @relation(fields: [stepTypeId], references: [id])
   parameters      StepTemplateParameter[]
   ingredientRules StepTemplateIngredientRule[]
@@ -205,7 +220,7 @@ model StepTemplateIngredientRule {
 
 model Recipe {
   id              Int                    @id @default(autoincrement())
-  name            String                 // Added: Direct field for recipe name
+  name            String                 @unique // Added: Direct field for recipe name, marked as unique
   ownerId         Int
   active          Boolean                @default(true)
   parentRecipeId  Int?

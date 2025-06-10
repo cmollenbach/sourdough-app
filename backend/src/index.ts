@@ -10,7 +10,7 @@ import helmet from 'helmet'; // <-- Import helmet
 
 dotenv.config();
 
-const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
 
 const app = express();
 
@@ -18,10 +18,16 @@ app.use(helmet()); // <-- Use helmet for security headers
 // CORS Configuration
 // This needs to be configured before your routes and before express.json()
 // if you want pre-flight requests for all routes to be handled correctly.
+const allowedOrigins = [
+  'http://localhost:5173', // Vite default
+  'http://localhost:5174', // Your current .env default
+  'https://sdprocess.netlify.app', // <-- Replace with your actual Netlify URL
+];
+
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests) or from the whitelisted frontend URL
-    if (!origin || origin === frontendUrl) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
