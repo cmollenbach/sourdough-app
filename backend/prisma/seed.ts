@@ -6,7 +6,7 @@ import {
   IngredientCalculationMode,
   // StepExecutionStatus, // Not used in seed, but good to have if needed
 } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
