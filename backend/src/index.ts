@@ -14,17 +14,24 @@ const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
 
 const app = express();
 
-app.use(helmet()); // <-- Use helmet for security headers
 // CORS Configuration
 // This needs to be configured before your routes and before express.json()
 // if you want pre-flight requests for all routes to be handled correctly.
-const allowedOrigins = [
+
+// Default allowed origins
+let allowedOrigins = [
   'http://localhost:5173', // Vite default
   'http://localhost:5174', // Your current .env default
   'https://loafly.app',          // Your primary Netlify frontend
   'https://sdprocess.netlify.app' // Another allowed Netlify frontend
 ];
 
+// Override with CORS_ORIGINS environment variable if set
+if (process.env.CORS_ORIGINS) {
+  allowedOrigins = process.env.CORS_ORIGINS.split(',').map(origin => origin.trim());
+}
+
+app.use(helmet()); // <-- Use helmet for security headers
 app.use(cors({
   origin: function (origin, callback) {
     // Log the received origin and the list of allowed origins for every CORS check
