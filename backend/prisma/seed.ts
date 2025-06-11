@@ -33,14 +33,21 @@ async function main() {
 
   // Level 3: Bakes and Recipes
   // These must be deleted before Users they belong to.
+  // Delete Bakes first, ensuring all bakes linked to recipes we intend to delete are removed.
   await prisma.bake.deleteMany({
     where: {
-      owner: {
-        email: { in: userEmailsToDelete }
+      // Target bakes whose associated recipe is either predefined
+      // or owned by one of the users being cleaned up.
+      recipe: {
+        OR: [
+          { isPredefined: true },
+          { owner: { email: { in: userEmailsToDelete } } }
+        ]
       }
-      // If you want to delete ALL bakes regardless of owner for a full reset:
-      // await prisma.bake.deleteMany({});
     }
+    // If you also need to delete bakes owned by `userEmailsToDelete` that might be
+    // linked to recipes NOT covered above, you could expand the OR condition.
+    // However, the primary FK violation is Recipe -> Bake, so this targets that.
   });
 
   await prisma.recipe.deleteMany({
