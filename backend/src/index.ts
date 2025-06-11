@@ -22,7 +22,7 @@ const allowedOrigins = [
   'http://localhost:5173', // Vite default
   'http://localhost:5174', // Your current .env default
   'https://loafly.app',          // Your primary Netlify frontend
-  'https://sdprnpm ocess.netlify.app' // Another allowed Netlify frontend
+  'https://sdprocess.netlify.app' // Another allowed Netlify frontend
 ];
 
 app.use(cors({
