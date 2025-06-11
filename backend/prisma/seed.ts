@@ -15,32 +15,62 @@ async function main() {
 
   // --- 1. CLEANUP ---
   console.log('Cleaning up existing data...');
-  // Delete in reverse order of dependency
+
+  // Define users to be deleted to target their specific dependent data
+  const userEmailsToDelete = ['system@sourdough.app', 'christoffer@mollenbach.com'];
+
+  // Level 1: Deepest dependencies (values/ingredients within steps)
   await prisma.recipeStepParameterValue.deleteMany({});
   await prisma.recipeStepIngredient.deleteMany({});
-  await prisma.recipeStep.deleteMany({});
-  await prisma.recipe.deleteMany({ where: { isPredefined: true } }); // Only predefined recipes
+  await prisma.bakeStepParameterValue.deleteMany({});
+  await prisma.bakeStepIngredient.deleteMany({});
 
-  // Template related cleanup
+  // Level 2: Steps themselves
+  // BakeStep depends on Bake and RecipeStep. RecipeStep depends on Recipe.
+  // Delete BakeStep first as it might reference RecipeStep.
+  await prisma.bakeStep.deleteMany({});
+  await prisma.recipeStep.deleteMany({});
+
+  // Level 3: Bakes and Recipes
+  // These must be deleted before Users they belong to.
+  await prisma.bake.deleteMany({
+    where: {
+      owner: {
+        email: { in: userEmailsToDelete }
+      }
+      // If you want to delete ALL bakes regardless of owner for a full reset:
+      // await prisma.bake.deleteMany({});
+    }
+  });
+
+  await prisma.recipe.deleteMany({
+    where: {
+      OR: [
+        { owner: { email: { in: userEmailsToDelete } } }, // Recipes owned by the users
+        { isPredefined: true } // All predefined recipes
+      ]
+    }
+  });
+
+  // Level 4: Template related cleanup
+  // StepTemplate is referenced by RecipeStep (deleted above)
   await prisma.stepTemplateParameter.deleteMany({});
   await prisma.stepTemplateIngredientRule.deleteMany({});
   await prisma.stepTemplate.deleteMany({});
   await prisma.stepType.deleteMany({});
   await prisma.stepParameter.deleteMany({});
 
-  // System user (if it's safe to delete and recreate, otherwise adjust where clause)
-  await prisma.user.deleteMany({ where: { email: 'system@sourdough.app' } });
-  await prisma.user.deleteMany({ where: { email: 'christoffer@mollenbach.com' } }); // Cleanup for the new user
+  // Level 5: Other User-related data
+  // These tables have direct foreign keys to User.
+  await prisma.account.deleteMany({ where: { user: { email: { in: userEmailsToDelete } } } });
+  await prisma.session.deleteMany({ where: { user: { email: { in: userEmailsToDelete } } } });
+  await prisma.userProfile.deleteMany({ where: { user: { email: { in: userEmailsToDelete } } } });
+  await prisma.entityRequest.deleteMany({
+    where: { OR: [ { user: { email: { in: userEmailsToDelete } } }, { reviewer: { email: { in: userEmailsToDelete } } } ] },
+  });
 
-  // Ingredient related cleanup (be cautious if ingredients are shared beyond predefined recipes)
-  // If ingredients should persist, you might not want to delete them or use a more specific filter.
-  // For this seed script, assuming we are resetting the "system" ingredients.
-  // await prisma.ingredient.deleteMany({}); // Consider if this is too broad
-  // await prisma.ingredientCategory.deleteMany({}); // Consider if this is too broad
-  // For now, we'll rely on upserts for categories and ingredients to avoid deleting user-added ones
-  // if they were to exist and not be cleaned up by other means.
-  // If an ingredient/category was used by a non-predefined recipe, deleting it would cause issues.
-  // The current script uses upsert for IngredientCategory and Ingredient, which is safer.
+  // Level 6: Users
+  await prisma.user.deleteMany({ where: { email: { in: userEmailsToDelete } } });
 
   console.log('Cleanup complete.');
 
