@@ -32,7 +32,7 @@
   },
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "build": "npx prisma migrate deploy && tsc && npx prisma db seed",
+    "build": "npx prisma migrate deploy && npx prisma generate && tsc && npx prisma db seed",
     "start": "node dist/index.js"
   }
 }
