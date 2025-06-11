@@ -2,7 +2,7 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -25,14 +25,16 @@
   "devDependencies": {
     "@types/node": "^22.15.29",
     "prisma": "^6.9.0",
+    "rimraf": "^5.0.0",
     "ts-node-dev": "^2.0.0"
   },
   "prisma": {
     "seed": "ts-node --transpile-only prisma/seed.ts"
   },
   "scripts": {
+    "clean": "rimraf dist",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "build": "npx prisma migrate deploy && npx prisma generate && tsc && npx prisma db seed",
-    "start": "node dist/index.js"
+    "build": "npm run clean && npx prisma migrate deploy && npx prisma generate && tsc && npx prisma db seed",
+    "start": "node dist/src/index.js"
   }
 }
