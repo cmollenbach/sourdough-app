@@ -21,7 +21,8 @@ app.use(helmet()); // <-- Use helmet for security headers
 const allowedOrigins = [
   'http://localhost:5173', // Vite default
   'http://localhost:5174', // Your current .env default
-  'https://sdprocess.netlify.app', // <-- Replace with your actual Netlify URL
+  'https://loafly.app',          // Your primary Netlify frontend
+  'https://sdprnpm ocess.netlify.app' // Another allowed Netlify frontend
 ];
 
 app.use(cors({

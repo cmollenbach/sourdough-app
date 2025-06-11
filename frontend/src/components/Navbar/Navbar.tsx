@@ -41,8 +41,12 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-4">
-            <Link to={user ? "/recipes" : "/"} className="font-bold text-xl text-primary-500">
-              Sourdough
+            <Link to={user ? "/recipes" : "/"} className="flex items-center space-x-3">
+              <img src="/favicon-96x96.png" alt="Loafly icon" className="w-8 h-8" />
+              <div className="flex flex-col leading-tight">
+                <span className="font-bold text-xl text-primary-500">Loafly</span>
+                <span className="text-xs text-text-secondary">Sourdough app</span>
+              </div>
             </Link>
             <div className="hidden md:flex items-baseline space-x-4">
               <NavLink to="/recipes" className="px-3 py-2 rounded-md text-sm font-medium" activeClassName="bg-primary-50 text-primary-600">Recipes</NavLink>
