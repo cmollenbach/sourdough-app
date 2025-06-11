@@ -14,18 +14,15 @@ export default function RecipeCalculator() {
 
   const calculatedValues = useRecipeCalculations(recipe, steps);
 
-  // Only show columns for steps that actually add ingredients
   const columnsWithIngredients = useMemo(() => (
     calculatedValues.columns.filter(
       col =>
-        col.genericFlourWeight > 0 ||
-        col.flourComponents.length > 0 ||
-        col.waterWeight > 0 ||
-        col.saltWeight > 0
+        col.flourComponents.some(fc => fc.weight > 0) ||
+        col.waterWeight > 0 || // Check if waterWeight is greater than 0
+        col.saltWeight > 0    // Check if saltWeight is greater than 0
     )
   ), [calculatedValues.columns]);
-
-  // Get a unique sorted list of all *specific* flour types present in the recipe
+  
   const allFlourTypesInRecipe = useMemo(() => {
     const specificFlours = new Map<number, string>();
     columnsWithIngredients.forEach(col => {
@@ -34,6 +31,55 @@ export default function RecipeCalculator() {
     return Array.from(specificFlours.entries()).map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [columnsWithIngredients]);
+
+  const formatWeight = (weight: number) => formatNumberWithCommas(parseFloat(weight.toFixed(0)));
+  
+  // --- Refactored Data Transformation for Table Rendering ---
+  interface TableRowData {
+    isHeader?: boolean;
+    isTotal?: boolean;
+    isSubTotal?: boolean;
+    isIndented?: boolean;
+    label: string;
+    stepValues: (string | number)[];
+    totalValue: string | number;
+  }
+
+  const tableDisplayData = useMemo((): TableRowData[] => {
+    if (!calculatedValues) return [];
+
+    const rows: TableRowData[] = [];
+
+    // Flour Rows
+    rows.push({
+      label: "Total Flour",
+      isSubTotal: true,
+      stepValues: columnsWithIngredients.map(col => 
+        formatWeight(col.flourComponents.reduce((sum, fc) => sum + fc.weight, 0) + col.genericFlourWeight)
+      ),
+      totalValue: formatWeight(calculatedValues.totals.totalFlour),
+    });
+
+    allFlourTypesInRecipe.forEach(flourType => {
+      rows.push({
+        label: flourType.name,
+        isIndented: true,
+        stepValues: columnsWithIngredients.map(col => {
+          const flourInStep = col.flourComponents.find(fc => fc.ingredientId === flourType.id);
+          return formatWeight(flourInStep ? flourInStep.weight : 0);
+        }),
+        totalValue: formatWeight(calculatedValues.totals.flourDetails.find(fd => fd.ingredientId === flourType.id)?.totalWeight || 0),
+      });
+    });
+
+    // Water Row
+    rows.push({ label: "Water", stepValues: columnsWithIngredients.map(col => formatWeight(col.waterWeight)), totalValue: formatWeight(calculatedValues.totals.water) });
+    // Salt Row
+    rows.push({ label: "Salt", stepValues: columnsWithIngredients.map(col => formatWeight(col.saltWeight)), totalValue: formatWeight(calculatedValues.totals.salt) });
+
+    return rows;
+  }, [calculatedValues, columnsWithIngredients, allFlourTypesInRecipe, formatWeight]);
+  // --- End of Refactored Data Transformation ---
 
   if (!recipe) return (
     <div className="p-4 border border-border rounded-lg shadow-card bg-surface-elevated text-text-secondary">
@@ -66,48 +112,24 @@ export default function RecipeCalculator() {
             <div className="font-semibold text-center ">Totals</div>
 
             {/* Ingredient Rows */}
-            {allFlourTypesInRecipe.length > 0 ? (
-              <>
-                {allFlourTypesInRecipe.map(flourType => (
-                  <React.Fragment key={`flour-type-${flourType.id}`}>
-                    <div className="sticky left-0 bg-surface-elevated z-10 pr-2 text-left">{flourType.name}</div>
-                    {columnsWithIngredients.map(col => {
-                      const flourInStep = col.flourComponents.find(fc => fc.ingredientId === flourType.id);
-                      const weight = flourInStep ? flourInStep.weight : 0;
-                      return <div key={`${col.stepId}-flour-${flourType.id}`} className="text-center">{formatNumberWithCommas(parseFloat(weight.toFixed(0)))}</div>;
-                    })}
-                    <div className="text-center font-semibold">
-                      {formatNumberWithCommas(parseFloat(calculatedValues.totals.flourDetails.find(fd => fd.ingredientId === flourType.id)?.totalWeight.toFixed(0) || "0"))}
-                    </div>
-                  </React.Fragment>
+            {tableDisplayData.map((row, rowIndex) => (
+              <React.Fragment key={`row-${rowIndex}-${row.label}`}>
+                <div className={`sticky left-0 bg-surface-elevated z-10 pr-2 text-left ${row.isSubTotal ? 'font-semibold border-t border-border pt-1' : ''} ${row.isIndented ? 'pl-4' : ''}`}>
+                  {row.label}
+                </div>
+                {row.stepValues.map((value, colIndex) => (
+                  <div 
+                    key={`row-${rowIndex}-col-${colIndex}`} 
+                    className={`text-center ${row.isSubTotal ? 'font-medium border-t border-border pt-1' : ''}`}
+                  >
+                    {value}
+                  </div>
                 ))}
-                <div className="font-semibold sticky left-0 bg-surface-elevated z-10 pr-2 text-left border-t border-border pt-1">Total Flour</div>
-                {columnsWithIngredients.map(col => {
-                  const totalStepFlour = col.flourComponents.reduce((sum, fc) => sum + fc.weight, 0) + col.genericFlourWeight;
-                  return <div key={`${col.stepId}-totalflour`} className="text-center font-medium border-t border-border pt-1">{formatNumberWithCommas(parseFloat(totalStepFlour.toFixed(0)))}</div>
-                })}
-                <div className="text-center font-bold border-t border-border pt-1">{formatNumberWithCommas(parseFloat(calculatedValues.totals.totalFlour.toFixed(0)))}</div>
-              </>
-            ) : (
-              // Render single "Flour" row if no specific flours are used anywhere
-              <>
-                <div className="sticky left-0 bg-surface-elevated z-10 pr-2 text-left">Flour</div>
-                {columnsWithIngredients.map(col => {
-                  // If no specific flours, all flour is generic for the step
-                  const stepFlour = col.genericFlourWeight + col.flourComponents.reduce((s, c) => s + c.weight, 0);
-                  return <div key={`${col.stepId}-generic-flour`} className="text-center">{formatNumberWithCommas(parseFloat(stepFlour.toFixed(0)))}</div>;
-                })}
-                <div className="text-center font-semibold">{formatNumberWithCommas(parseFloat(calculatedValues.totals.totalFlour.toFixed(0)))}</div>
-              </>
-            )}
-
-            <div className="sticky left-0 bg-surface-elevated z-10 pr-2 text-left">Water</div>
-            {columnsWithIngredients.map(col => <div key={`${col.stepId}-water`} className="text-center">{formatNumberWithCommas(parseFloat(col.waterWeight.toFixed(0)))}</div>)}
-            <div className="text-center font-semibold">{formatNumberWithCommas(parseFloat(calculatedValues.totals.water.toFixed(0)))}</div>
-
-            <div className="sticky left-0 bg-surface-elevated z-10 pr-2 text-left">Salt</div>
-            {columnsWithIngredients.map(col => <div key={`${col.stepId}-salt`} className="text-center">{formatNumberWithCommas(parseFloat(col.saltWeight.toFixed(0)))}</div>)}
-            <div className="text-center font-semibold">{formatNumberWithCommas(parseFloat(calculatedValues.totals.salt.toFixed(0)))}</div>
+                <div className={`text-center font-semibold ${row.isSubTotal ? 'font-bold border-t border-border pt-1' : ''}`}>
+                  {row.totalValue}
+                </div>
+              </React.Fragment>
+            ))}
 
             {/* Total Row */}
             <div className="font-semibold sticky left-0 bg-surface-elevated z-10 pr-2 text-left">Step Total</div>
