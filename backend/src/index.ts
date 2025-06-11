@@ -27,10 +27,16 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
+    // Log the received origin and the list of allowed origins for every CORS check
+    console.log('[CORS Check] Received Origin:', origin);
+    console.log('[CORS Check] Allowed Origins:', allowedOrigins);
+
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin || allowedOrigins.includes(origin)) {
+      console.log('[CORS Check] Origin allowed.');
       callback(null, true);
     } else {
+      console.error('[CORS Check] Origin NOT allowed:', origin); // This will show the problematic origin
       callback(new Error('Not allowed by CORS'));
     }
   },
