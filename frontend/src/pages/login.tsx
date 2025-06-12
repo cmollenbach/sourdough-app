@@ -12,7 +12,7 @@ interface LoginFormInputs {
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, setAuthenticatedUser } = useAuth(); // Destructure setAuthenticatedUser
   const { addToast } = useToast();
   const location = useLocation();
   const history = useHistory();
@@ -45,25 +45,38 @@ export default function LoginPage() {
     let endpoint = '';
     if (provider === 'google') endpoint = '/auth/oauth/google';
     // if (provider === 'apple') endpoint = '/auth/oauth/apple';
+    setLoading(true);
 
     try {
-      const res = await fetch(process.env.REACT_APP_API_URL + endpoint, {
+      // Use Vite's way of accessing environment variables
+      const apiUrl = import.meta.env.VITE_API_BASE_URL;
+      if (!apiUrl) {
+        addToast({ message: "API URL not configured. Please contact support.", type: "error" });
+        setLoading(false); // Ensure loading is set to false if API URL is missing
+        return;
+      }
+
+      const res = await fetch(apiUrl + endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken: token }),
       });
+
       if (res.ok) {
         const { token: jwt, user } = await res.json();
-        // Save JWT and call login logic
-        localStorage.setItem('token', jwt);
-        await login(user.email); // Adjust if your login expects more
+        // Use setAuthenticatedUser for social login
+        setAuthenticatedUser(user, jwt);
         history.replace(from);
-        addToast({ message: `Welcome back, ${user.email}!`, type: "success" });
+        addToast({ message: `Welcome back, ${user.displayName || user.email}!`, type: "success" });
       } else {
-        addToast({ message: "Social login failed.", type: "error" });
+        const errorData = await res.json().catch(() => ({ message: "Social login failed. Please try again." }));
+        addToast({ message: errorData.error || errorData.message || "Social login failed.", type: "error" });
       }
-    } catch {
-      addToast({ message: "Social login failed. Please try again.", type: "error" });
+    } catch (err) {
+      console.error("Social login fetch error:", err); // Log the actual error for debugging
+      addToast({ message: "An unexpected error occurred during social login.", type: "error" });
+    } finally {
+      setLoading(false);
     }
   };
 
