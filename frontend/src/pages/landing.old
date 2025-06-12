@@ -1,0 +1,29 @@
+import { Link, useHistory } from "react-router-dom";
+import { SocialLoginButtons } from "../components/Auth/SocialLoginButtons";
+
+export default function LandingPage() {
+  const history = useHistory();
+
+  function handleSocialLoginSuccess() {
+    history.replace("/recipes");
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen">
+      <img src="/logo.png" alt="Loafly Logo" className="w-20 h-20 mb-4" />
+      <h1 className="text-3xl font-bold mb-2">Loafly: Bake with Confidence and Joy.</h1>
+      <p className="mb-6 text-gray-600">Sign up in seconds with Google or Apple—or use your email to get started.</p>
+      <SocialLoginButtons onLoginSuccess={handleSocialLoginSuccess} />
+      <div className="my-4 flex items-center w-72">
+        <div className="flex-grow border-t border-gray-300"></div>
+        <span className="mx-2 text-gray-400 text-sm">or</span>
+        <div className="flex-grow border-t border-gray-300"></div>
+      </div>
+      <div className="flex flex-col gap-2 w-72">
+        <Link to="/register" className="btn-primary w-full">Sign up with Email</Link>
+        <Link to="/login" className="btn-secondary w-full">Log in</Link>
+        <Link to="/features" className="text-blue-600 underline text-center mt-2">Discover Features</Link>
+      </div>
+    </div>
+  );
+}

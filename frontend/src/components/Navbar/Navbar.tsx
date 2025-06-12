@@ -42,7 +42,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-4">
             <Link to={user ? "/recipes" : "/"} className="flex items-center space-x-3">
-              <img src="/favicon-96x96.png" alt="Loafly icon" className="w-8 h-8" />
+              <img src="/favicon.svg" alt="Loafly icon" className="w-12 h-8" />
               <div className="flex flex-col leading-tight">
                 <span className="font-bold text-xl text-primary-500">Loafly</span>
                 <span className="text-xs text-text-secondary">Sourdough app</span>

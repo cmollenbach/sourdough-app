@@ -18,13 +18,12 @@ import UserSettingsPage from "./pages/settings/user";
 import RequireAuth from "./components/Auth/RequireAuth";
 import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
-import LandingPage from "./pages/landing";
 import RegisterPage from "./pages/register";
 import StepTemplatesPage from "./pages/admin/StepTemplatesPage";
 import UserProfilePage from "./pages/user";
 
 function AppRoutes() {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const { darkMode } = useSettings();
 
   useEffect(() => {
@@ -35,21 +34,14 @@ function AppRoutes() {
     }
   }, [darkMode]);
 
-  if (loading) {
-    return (
-      <div className="page-bg min-h-screen flex items-center justify-center p-8 text-center text-text-secondary">
-        Loading...
-      </div>
-    );
-  }
+  // Remove loading check since 'loading' is not available
 
   return (
     <div className="page-bg min-h-screen flex flex-col">
       <Navbar />
       <main className="flex-grow">
         <Switch>
-          <Route path="/" exact render={() => user ? <Redirect to="/recipes" /> : <LandingPage />} />
-          <Route path="/login" render={() => user ? <Redirect to="/recipes" /> : <LoginPage />} />
+          <Route path="/" exact render={() => user ? <Redirect to="/recipes" /> : <LoginPage />} />
           <Route path="/register" render={() => user ? <Redirect to="/recipes" /> : <RegisterPage />} />
           
           <Route path="/admin/step-templates" render={() => <RequireAuth adminOnly><StepTemplatesPage /></RequireAuth>} />

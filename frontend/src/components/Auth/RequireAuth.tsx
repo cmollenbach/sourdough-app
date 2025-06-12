@@ -8,15 +8,11 @@ interface RequireAuthProps {
 }
 
 export default function RequireAuth({ children, adminOnly = false }: RequireAuthProps) {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const location = useLocation();
 
-  if (loading) {
-    return <div>Loading session...</div>;
-  }
-
   if (!user) {
-    return <Redirect to={{ pathname: "/login", state: { from: location } }} />;
+    return <Redirect to={{ pathname: "/", state: { from: location } }} />;
   }
 
   if (adminOnly && user.role !== 'ADMIN') {

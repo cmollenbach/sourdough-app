@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuthHook';
 import { useHistory, Link } from "react-router-dom"; // Import Link
 import { useToast } from "../context/ToastContext";
 import { apiPost } from "../utils/api"; // Import the shared API utility
+import { SocialLoginButtons } from "../components/Auth/SocialLoginButtons";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -39,9 +40,20 @@ export default function RegisterPage() {
     }
   }
 
+  function handleSocialLoginSuccess() {
+    history.replace("/recipes");
+  }
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen">
-      <h1 className="text-2xl font-bold mb-4">Register</h1>
+      <h1 className="text-2xl font-bold mb-2">Welcome to Loafly!</h1>
+      <p className="mb-4 text-gray-600">Sign up in seconds with Google or your email to start baking.</p>
+      <SocialLoginButtons onLoginSuccess={handleSocialLoginSuccess} />
+      <div className="my-4 flex items-center w-64">
+        <div className="flex-grow border-t border-gray-300"></div>
+        <span className="mx-2 text-gray-400 text-sm">or</span>
+        <div className="flex-grow border-t border-gray-300"></div>
+      </div>
       <form className="flex flex-col gap-3 w-64" onSubmit={handleSubmit}>
         <input
           type="email"
@@ -66,7 +78,7 @@ export default function RegisterPage() {
       </form>
       <div className="mt-4">
         <span>Already have an account? </span>
-        <Link to="/login" className="text-blue-600 underline">Login</Link>
+        <Link to="/" className="text-blue-600 underline">Login</Link>
       </div>
     </div>
   );

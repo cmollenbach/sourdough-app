@@ -82,8 +82,9 @@ export default function LoginPage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen">
-      <h1 className="text-2xl font-bold mb-2">Welcome to Loafly!</h1>
-      <p className="mb-4 text-gray-600">Sign in with Google or your email to start baking.</p>
+      <img src="/favicon.svg" alt="Loafly Logo" className="w-50 h-50 mb-4" />
+      <h1 className="text-3xl font-bold mb-2">Loafly: Bake with Confidence and Joy.</h1>
+      <p className="mb-6 text-gray-600">Sign up in seconds with Google or your email to start baking.</p>
       <SocialLoginButtons onLoginSuccess={handleSocialLogin} />
       <div className="my-4 flex items-center w-72">
         <div className="flex-grow border-t border-gray-300"></div>
@@ -121,9 +122,13 @@ export default function LoginPage() {
           {loading ? "Logging in..." : "Login"}
         </button>
       </form>
+      <div className="flex flex-col gap-2 w-72 mt-4">
+        <Link to="/register" className="btn-primary w-full">Sign up with Email</Link>
+        <Link to="/features" className="text-blue-600 underline text-center mt-2">Discover Features</Link>
+      </div>
       <div className="mt-4">
-        <span>Don't have an account? </span>
-        <Link to="/register" className="text-blue-600 underline">Register</Link>
+        <span>Already have an account? </span>
+        <Link to="/" className="text-blue-600 underline">Login</Link>
       </div>
     </div>
   );
