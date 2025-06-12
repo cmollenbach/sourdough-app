@@ -3,6 +3,7 @@ import { useForm, type SubmitHandler } from "react-hook-form";
 import { useAuth } from "../hooks/useAuthHook";
 import { useToast } from "../context/ToastContext";
 import { useLocation, useHistory, Link } from "react-router-dom";
+import { SocialLoginButtons } from '../components/Auth/SocialLoginButtons';
 
 interface LoginFormInputs {
   email: string;
@@ -40,9 +41,42 @@ export default function LoginPage() {
     }
   };
 
+  const handleSocialLogin = async (token: string, provider: string) => {
+    let endpoint = '';
+    if (provider === 'google') endpoint = '/auth/oauth/google';
+    // if (provider === 'apple') endpoint = '/auth/oauth/apple';
+
+    try {
+      const res = await fetch(process.env.REACT_APP_API_URL + endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: token }),
+      });
+      if (res.ok) {
+        const { token: jwt, user } = await res.json();
+        // Save JWT and call login logic
+        localStorage.setItem('token', jwt);
+        await login(user.email); // Adjust if your login expects more
+        history.replace(from);
+        addToast({ message: `Welcome back, ${user.email}!`, type: "success" });
+      } else {
+        addToast({ message: "Social login failed.", type: "error" });
+      }
+    } catch {
+      addToast({ message: "Social login failed. Please try again.", type: "error" });
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen">
-      <h1 className="text-2xl font-bold mb-4">Login</h1>
+      <h1 className="text-2xl font-bold mb-2">Welcome to Loafly!</h1>
+      <p className="mb-4 text-gray-600">Sign in with Google or your email to start baking.</p>
+      <SocialLoginButtons onLoginSuccess={handleSocialLogin} />
+      <div className="my-4 flex items-center w-72">
+        <div className="flex-grow border-t border-gray-300"></div>
+        <span className="mx-2 text-gray-400 text-sm">or</span>
+        <div className="flex-grow border-t border-gray-300"></div>
+      </div>
       <form className="flex flex-col gap-3 w-72" onSubmit={handleSubmit(onSubmit)}>
         <div>
           <input

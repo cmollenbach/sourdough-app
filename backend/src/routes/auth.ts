@@ -2,6 +2,7 @@ import express, { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { PrismaClient } from "@prisma/client";
+import axios from "axios";
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -46,6 +47,54 @@ router.post("/login", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Add this type above your router.post('/oauth/google', ...)
+type GoogleTokenInfo = {
+  sub: string;
+  email: string;
+  name?: string;
+  picture?: string;
+};
+
+// Google OAuth
+router.post('/oauth/google', async (req, res) => {
+  const { idToken } = req.body;
+  if (!idToken) return res.status(400).json({ error: "Missing idToken" });
+
+  try {
+    const googleRes = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
+    const { sub: googleId, email, name, picture } = googleRes.data as GoogleTokenInfo;
+
+    let account = await prisma.account.findFirst({
+      where: { provider: 'google', providerAccountId: googleId },
+      include: { user: true }
+    });
+    let user = account?.user;
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email,
+          emailVerified: true,
+          isActive: true,
+          accounts: {
+            create: {
+              provider: 'google',
+              providerAccountId: googleId,
+              accessToken: idToken
+            }
+          },
+          userProfile: { create: { displayName: name || email, avatarUrl: picture } }
+        }
+      });
+    }
+
+    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
+    res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
+  } catch (err) {
+    console.error("Google OAuth error:", err);
+    res.status(401).json({ error: "Invalid Google credentials" });
   }
 });
 
