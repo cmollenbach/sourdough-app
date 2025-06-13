@@ -2,9 +2,9 @@ import { useAuth } from '../hooks/useAuthHook';
 import { Link } from 'react-router-dom';
 
 export default function UserProfilePage() {
-  const { user, loading } = useAuth();
+  const { user, isLoading } = useAuth();
 
-  if (loading) {
+  if (isLoading) {
     return <div className="p-4 text-center">Loading user data...</div>;
   }
 
