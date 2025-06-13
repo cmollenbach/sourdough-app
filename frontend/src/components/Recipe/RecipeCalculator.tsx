@@ -1,5 +1,5 @@
 // RecipeCalculator.tsx
-import React, { useMemo } from "react";
+import React, { useMemo, useCallback } from "react"; // Added useCallback
 import { useRecipeBuilderStore } from "../../store/recipeBuilderStore";
 import { useRecipeCalculations } from "../../hooks/useRecipeCalculations";
 
@@ -11,19 +11,32 @@ function formatNumberWithCommas(num: number): string {
 export default function RecipeCalculator() {
   const recipe = useRecipeBuilderStore((state) => state.recipe);
   const steps = useRecipeBuilderStore((state) => state.recipe?.steps ?? []);
+  const ingredientsMeta = useRecipeBuilderStore((state) => state.ingredientsMeta);
+  const ingredientCategoriesMeta = useRecipeBuilderStore((state) => state.ingredientCategoriesMeta);
+  const fieldsMeta = useRecipeBuilderStore((state) => state.fieldsMeta);
+  const stepTemplates = useRecipeBuilderStore((state) => state.stepTemplates);
 
-  const calculatedValues = useRecipeCalculations(recipe, steps);
+  // Call hooks unconditionally at the top of the component.
+  // useRecipeCalculations should be robust enough to handle potentially null/empty recipe or steps
+  // and return a default structure.
+  // It should also accept ingredientsMeta as an argument.
+  const calculatedValues = useRecipeCalculations(recipe, steps, ingredientsMeta, ingredientCategoriesMeta, fieldsMeta, stepTemplates);
 
-  const columnsWithIngredients = useMemo(() => (
-    calculatedValues.columns.filter(
+  const columnsWithIngredients = useMemo(() => {
+    // Guard against calculatedValues or calculatedValues.columns being undefined
+    if (!calculatedValues?.columns) {
+      return [];
+    }
+    return calculatedValues.columns.filter(
       col =>
         col.flourComponents.some(fc => fc.weight > 0) ||
         col.waterWeight > 0 || // Check if waterWeight is greater than 0
         col.saltWeight > 0    // Check if saltWeight is greater than 0
-    )
-  ), [calculatedValues.columns]);
+    );
+  }, [calculatedValues]); // Dependency is calculatedValues itself or calculatedValues.columns
   
   const allFlourTypesInRecipe = useMemo(() => {
+    if (!columnsWithIngredients) return []; // Guard
     const specificFlours = new Map<number, string>();
     columnsWithIngredients.forEach(col => {
       col.flourComponents.forEach(fc => specificFlours.set(fc.ingredientId, fc.name));
@@ -32,7 +45,12 @@ export default function RecipeCalculator() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [columnsWithIngredients]);
 
-  const formatWeight = (weight: number) => formatNumberWithCommas(parseFloat(weight.toFixed(0)));
+  const formatWeight = useCallback((weight: number) => {
+    if (typeof weight !== 'number' || isNaN(weight)) {
+      return '0'; // Or some other placeholder for invalid input
+    }
+    return formatNumberWithCommas(parseFloat(weight.toFixed(0)));
+  }, []); // Empty dependency array as formatNumberWithCommas is stable
   
   // --- Refactored Data Transformation for Table Rendering ---
   interface TableRowData {
@@ -46,7 +64,10 @@ export default function RecipeCalculator() {
   }
 
   const tableDisplayData = useMemo((): TableRowData[] => {
-    if (!calculatedValues) return [];
+    // Add guards for all dependencies
+    if (!calculatedValues || !calculatedValues.totals || !columnsWithIngredients || !allFlourTypesInRecipe) {
+      return [];
+    }
 
     const rows: TableRowData[] = [];
 
@@ -81,12 +102,14 @@ export default function RecipeCalculator() {
   }, [calculatedValues, columnsWithIngredients, allFlourTypesInRecipe, formatWeight]);
   // --- End of Refactored Data Transformation ---
 
-  if (!recipe) return (
-    <div className="p-4 border border-border rounded-lg shadow-card bg-surface-elevated text-text-secondary">
-      Loading recipe data for calculator...
-    </div>
-  );
-
+  // Conditional rendering moved after all hook calls
+  if (!recipe || !recipe.steps || steps.length === 0 || !calculatedValues || !ingredientsMeta || ingredientsMeta.length === 0 || !ingredientCategoriesMeta || !fieldsMeta || !stepTemplates) {
+    return (
+      <div className="p-4 border border-border rounded-lg shadow-card bg-surface-elevated text-text-secondary mt-4">
+        Preparing calculator, waiting for recipe data, steps, or ingredient metadata...
+      </div>
+    );
+  }
   return (
     <div className="p-4 border border-border rounded-lg shadow-card bg-surface-elevated mt-4">
       <h2 className="text-lg font-semibold mb-3 text-text-primary">Recipe Calculator (grams)</h2>

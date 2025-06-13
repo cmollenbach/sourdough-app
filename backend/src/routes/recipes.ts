@@ -199,6 +199,59 @@ router.get("/recipes/:id/full", authenticateJWT, async (req: AuthRequest, res) =
   }
 });
 
+// --- Get a predefined recipe template by name ---
+router.get("/recipes/predefined/by-name", authenticateJWT, async (req: AuthRequest, res) => {
+  const { name } = req.query;
+
+  if (!name || typeof name !== 'string') {
+    return res.status(400).json({ error: "Recipe name query parameter is required and must be a string." });
+  }
+
+  try {
+    const recipe = await prisma.recipe.findFirst({
+      where: {
+        name: name,
+        isPredefined: true,
+        active: true,
+      },
+      include: { // Ensure this include matches the one in GET /recipes/:id/full for consistency
+        steps: {
+          orderBy: { order: "asc" },
+          include: {
+            parameterValues: { include: { parameter: true } },
+            ingredients: { include: { ingredient: true } },
+          }
+        }
+      },
+    });
+
+    if (!recipe) {
+      return res.status(404).json({ error: `Predefined recipe template named "${name}" not found.` });
+    }
+
+    // Transform the recipe to the FullRecipe structure (similar to GET /recipes/:id/full)
+    // Consider refactoring this transformation logic into a shared function if it's used in multiple places.
+    const { steps, ...recipeBaseProperties } = recipe;
+    const transformedRecipe = {
+      ...recipeBaseProperties,
+      totalWeight: recipe.totalWeight,
+      hydrationPct: recipe.hydrationPct,
+      saltPct: recipe.saltPct,
+      name: recipe.name,
+      notes: recipe.notes,
+      fieldValues: [], // Assuming recipe-level fieldValues are not directly on templates this way
+      steps: steps.map(step => {
+        const { parameterValues: stepPVs, ingredients: stepIngs, ...restStep } = step;
+        return { ...restStep, fields: stepPVs.map(spv => ({ id: spv.id, recipeStepId: spv.recipeStepId, fieldId: spv.parameterId, value: spv.value, notes: spv.notes, name: spv.parameter.name, })), ingredients: stepIngs.map(ing => ({ ...ing, ingredientName: ing.ingredient.name, ingredientCategoryId: ing.ingredient.ingredientCategoryId, })), };
+      })
+    };
+    res.json(transformedRecipe);
+  } catch (err) {
+    console.error(`Error in GET /api/recipes/predefined/by-name for name "${name}":`, err);
+    res.status(500).json({ error: "Failed to fetch predefined recipe by name" });
+  }
+});
+
 // --- Update a recipe ---
 router.put("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => {
   const id = Number(req.params.id);

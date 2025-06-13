@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useMemo, useEffect, useRef } from "react";
+import { useMemo, useEffect, useRef, useState } from "react"; // Added useState
 import debounce from 'lodash.debounce';
 import { useForm, Controller, useFieldArray, type UseFormSetValue, FormProvider } from "react-hook-form";
 import type { RecipeStep, RecipeStepIngredient, RecipeStepField } from "../../types/recipe";
@@ -59,6 +59,8 @@ export default function StepCard({
   type StepFormValues = {
     templateId: number;
     fields: Record<number, string | number>;
+    notes?: string | null; // Added notes
+    description?: string | null; // Added description (optional for now, but good to have)
     ingredients: RecipeStepIngredient[];
   };
 
@@ -81,6 +83,8 @@ export default function StepCard({
       return {
         templateId: step.stepTemplateId,
         fields: initialFields,
+        notes: step.notes,
+        description: step.description,
         ingredients: initialIngredients,
       };
     }, [step.stepTemplateId, step.fields, step.ingredients, memoizedStepTemplates, safeIngredientsMeta]),
@@ -104,7 +108,9 @@ export default function StepCard({
   const stringifiedStepContentFromProps = useMemo(() => JSON.stringify({
     templateId: step.stepTemplateId,
     fields: step.fields,
+    notes: step.notes,
     ingredients: step.ingredients,
+    description: step.description,
   }), [step.stepTemplateId, step.fields, step.ingredients]);
 
   const prevStringifiedStepRef = useRef<string | null>(null);
@@ -128,6 +134,8 @@ export default function StepCard({
           ...defaultStepFields,
           ...(step.fields ? Object.fromEntries(step.fields.map(f => [f.fieldId, f.value])) : {})
         },
+        notes: step.notes,
+        description: step.description,
         ingredients: step.ingredients.map(ing => {
           const meta = ing.ingredientId && ing.ingredientId !== 0
             ? safeIngredientsMeta.find((m: IngredientMeta) => m.id === ing.ingredientId)
@@ -166,6 +174,8 @@ const debouncedOnChange = useMemo(() =>
       const formValuesForReset: StepFormValues = {
         templateId: dataToSubmit.stepTemplateId,
         fields: Object.fromEntries(dataToSubmit.fields.map(f => [f.fieldId, f.value])),
+        notes: dataToSubmit.notes,
+        description: dataToSubmit.description,
         ingredients: dataToSubmit.ingredients.map(ing => {
           // Ensure ingredientCategoryId is correctly populated, similar to defaultValues/prop-sync logic
           const meta = safeIngredientsMeta.find((m: IngredientMeta) => m.id === ing.ingredientId);
@@ -183,6 +193,8 @@ const debouncedOnChange = useMemo(() =>
         templateId: dataToSubmit.stepTemplateId,
         fields: dataToSubmit.fields,
         ingredients: dataToSubmit.ingredients,
+        notes: dataToSubmit.notes,
+        description: dataToSubmit.description,
       });
     }, 100),
     [onChange, reset, safeIngredientsMeta]
@@ -196,8 +208,6 @@ const debouncedOnChange = useMemo(() =>
       const stepId = step.id;
       const stepOrder = step.order;
       const stepRecipeId = step.recipeId;
-      const originalStepNotes = step.notes; // If notes/desc are not in StepFormValues
-      const originalStepDescription = step.description;
 
       // Rebuild fields array, preserving existing DB IDs and notes where possible
       // It uses step.fields from props to get original DB IDs/notes.
@@ -228,8 +238,8 @@ const debouncedOnChange = useMemo(() =>
           ...ing,
           recipeStepId: stepId,
         })),
-        notes: originalStepNotes, // Or from currentFormData if editable in this form
-        description: originalStepDescription, // Or from currentFormData
+        notes: currentFormData.notes, 
+        description: currentFormData.description, 
       };
       debouncedOnChange(updatedStepData);
     }
@@ -240,8 +250,6 @@ const debouncedOnChange = useMemo(() =>
     step.id, 
     step.order, 
     step.recipeId, 
-    step.notes,
-    step.description,
     step.fields, // Dependency because originalFieldsMap uses it to merge IDs/notes
     // selectedTemplateId and watchedIngredients are implicitly handled by formState.isDirty
     // if they are part of the form and their change dirties the form.
@@ -250,6 +258,9 @@ const debouncedOnChange = useMemo(() =>
   const visibleFields = (template?.fields || []).filter(
     (f) => showAdvanced || !f.advanced
   );
+
+  // State to manage the visibility of help popovers for each field
+  const [visibleHelpFieldId, setVisibleHelpFieldId] = useState<number | null>(null);
 
   if (!template) {
     return <div className="text-red-500 p-4">Step template (ID: {selectedTemplateId}) not found.</div>;
@@ -268,7 +279,6 @@ const debouncedOnChange = useMemo(() =>
             <span {...dragHandleProps} className="cursor-grab text-gray-400 hover:text-gray-600 text-2xl" aria-label="Reorder step">
               ☰
             </span>
-            <span className="font-bold text-xl">{step.order}.</span>
             <Controller
               name="templateId"
               control={control}
@@ -337,13 +347,42 @@ const debouncedOnChange = useMemo(() =>
                 control={control}
                 render={({ field, fieldState }) => (
                   <div className="flex flex-col sm:flex-row sm:items-center w-full gap-1 sm:gap-2">
-                    <label
-                      htmlFor={inputId}
-                      className="block font-medium text-sm sm:min-w-[160px] sm:mb-0 mb-1 pr-2"
-                    >
-                      {meta.field.label || meta.field.name}
-                    </label>
-                    <div className="flex-1">
+                    {/* Label and Help Icon Container */}
+                    <div className="flex items-center sm:min-w-[160px] sm:mb-0 mb-1 pr-2">
+                      <label
+                        htmlFor={inputId}
+                        className="block font-medium text-sm"
+                      >
+                        {meta.field.label || meta.field.name}
+                      </label>
+                      {(meta.helpText || meta.field.helpText) && (
+                        <div className="relative inline-block ml-1.5"> {/* Wrapper for icon and popover */}
+                          <button
+                            type="button"
+                            onClick={() => setVisibleHelpFieldId(visibleHelpFieldId === meta.fieldId ? null : meta.fieldId)}
+                            className="text-primary-500 hover:text-primary-600 focus:outline-none flex items-center justify-center"
+                            aria-label={`Help for ${meta.field.label || meta.field.name}`}
+                            aria-expanded={visibleHelpFieldId === meta.fieldId}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                          {visibleHelpFieldId === meta.fieldId && (
+                            <div
+                              className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 p-2.5 bg-gray-700 text-white text-xs rounded-md shadow-lg z-20 w-max max-w-[280px]"
+                              role="tooltip"
+                            >
+                              {meta.helpText || meta.field.helpText}
+                              {/* Arrow pointing down to the icon */}
+                              <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-[6px] border-x-transparent border-t-[6px] border-t-gray-700"></div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {/* Input and Error Container */}
+                    <div className="flex-1 min-w-0"> {/* Added min-w-0 for proper flex behavior */}
                       <input
                         {...field}
                         id={inputId}
@@ -354,9 +393,7 @@ const debouncedOnChange = useMemo(() =>
                         } ${meta.field.type.toUpperCase() === "NUMBER" ? "text-center" : ""}`}
                         aria-label={meta.field.label || meta.field.name}
                       />
-                      {(meta.helpText || meta.field.helpText) && (
-                        <div className="text-xs text-text-tertiary mt-1">{meta.helpText || meta.field.helpText}</div>
-                      )}
+                      {/* Error message remains below the input */}
                       {fieldState.error && (
                         <div className="text-xs text-red-500 mt-1">{fieldState.error.message}</div>
                       )}
@@ -405,6 +442,28 @@ const debouncedOnChange = useMemo(() =>
             recipeStepId={step.id}
           />
         )}
+
+        {/* Step Notes */}
+        <div className="flex flex-col gap-1">
+          <label htmlFor={`step-${step.id}-notes`} className="block font-medium text-sm">
+            Step Notes
+          </label>
+          <Controller
+            name="notes"
+            control={control}
+            render={({ field }) => (
+              <textarea
+                {...field}
+                id={`step-${step.id}-notes`}
+                value={field.value || ""}
+                rows={3}
+                className="border border-border rounded px-3 py-2 w-full bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300 transition-colors"
+                placeholder="Optional notes for this step..."
+              />
+            )}
+          />
+        </div>
+
       </form>
     </FormProvider>
   );

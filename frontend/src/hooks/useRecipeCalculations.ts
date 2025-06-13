@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { useRecipeBuilderStore } from "../store/recipeBuilderStore";
 import { IngredientCalculationMode, type FullRecipe, type RecipeStep } from "../types/recipe";
+import type { IngredientMeta, IngredientCategoryMeta, FieldMeta, StepTemplate } from "../types/recipeLayout"; // Corrected IngredientCategory to IngredientCategoryMeta
 
 const PREFERMENT_CONTRIB_PARAM_NAME = 'Contribution (pct)';
 const PREFERMENT_HYDRATION_PARAM_NAME = 'Hydration';
@@ -47,13 +47,12 @@ export interface CalculatedTableData {
 
 export function useRecipeCalculations(
   recipe: FullRecipe | null | undefined,
-  steps: RecipeStep[]
+  steps: RecipeStep[],
+  ingredientsMeta: IngredientMeta[] | undefined,
+  ingredientCategoriesMeta: IngredientCategoryMeta[] | undefined, // Corrected type here
+  fieldsMeta: FieldMeta[] | undefined,
+  stepTemplates: StepTemplate[] | undefined
 ): CalculatedTableData {
-  const ingredientsMeta = useRecipeBuilderStore((state) => state.ingredientsMeta);
-  const ingredientCategoriesMeta = useRecipeBuilderStore((state) => state.ingredientCategoriesMeta);
-  const fieldsMeta = useRecipeBuilderStore((state) => state.fieldsMeta);
-  const stepTemplates = useRecipeBuilderStore((state) => state.stepTemplates);
-
   return useMemo((): CalculatedTableData => {
     const emptyData: CalculatedTableData = {
       columns: [],
@@ -65,11 +64,11 @@ export function useRecipeCalculations(
       !recipe ||
       !recipe.totalWeight ||
       recipe.totalWeight <= 0 ||
-      !steps.length ||
-      !ingredientsMeta ||
-      !ingredientCategoriesMeta ||
-      !fieldsMeta ||
-      !stepTemplates
+      !steps || !steps.length || // Added check for steps itself being defined
+      !ingredientsMeta || ingredientsMeta.length === 0 || // Check length
+      !ingredientCategoriesMeta || ingredientCategoriesMeta.length === 0 || // Check length
+      !fieldsMeta || fieldsMeta.length === 0 || // Check length
+      !stepTemplates || stepTemplates.length === 0 // Check length
     ) {
       return emptyData;
     }
@@ -143,8 +142,8 @@ export function useRecipeCalculations(
       let prefermentParams: { contrib: number | null, hydr: number | null } | undefined;
 
       if (prefermentContribFieldId && prefermentHydrationFieldId) {
-        const contribField = step.fields.find(f => f.fieldId === prefermentContribFieldId);
-        const hydField = step.fields.find(f => f.fieldId === prefermentHydrationFieldId);
+        const contribField = (step.fields || []).find(f => f.fieldId === prefermentContribFieldId);
+        const hydField = (step.fields || []).find(f => f.fieldId === prefermentHydrationFieldId);
         if (contribField?.value != null && hydField?.value != null) {
           const pContrib = Number(contribField.value);
           const pHydr = Number(hydField.value);
@@ -246,8 +245,6 @@ export function useRecipeCalculations(
     // Phase 2, Stage B: Determine MIX step's explicit contributions and then total allocated amounts
     const mixStepData = steps.find(s => stepTemplates.find(t => t.id === s.stepTemplateId)?.role === MIX_ROLE);
     const mixStepExplicitFlourComponents: FlourComponent[] = [];
-    // let mixStepExplicitWater = 0; // Declared but not used
-    // let mixStepExplicitSalt = 0;  // Declared but not used
 
     if (mixStepData) {
       const mixTemplate = stepTemplates.find(t => t.id === mixStepData.stepTemplateId);
@@ -429,5 +426,5 @@ export function useRecipeCalculations(
       targetTotalDoughWeight: recipe.totalWeight,
     };
     // --- END OF PHASE 3 ---
-  }, [recipe, steps, ingredientsMeta, ingredientCategoriesMeta, fieldsMeta, stepTemplates]);
+  }, [recipe, steps, ingredientsMeta, ingredientCategoriesMeta, fieldsMeta, stepTemplates]); // Updated dependencies
 }

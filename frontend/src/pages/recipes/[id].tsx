@@ -4,9 +4,6 @@ import RecipeLayout from "../../components/Recipe/RecipeLayout";
 // import { fetchRecipeList } from "../../utils/api"; // No longer needed here
 import { useRecipeBuilderStore } from "../../store/recipeBuilderStore";
 import type { FullRecipe, RecipeStep } from "../../types/recipe"; // Removed RecipeStub
-// StepTemplate type is available via useRecipeBuilderStore if needed for props, but not directly imported here if unused
-
-const SIMPLE_BASE_RECIPE_ID = 1; // ID of your "Simple Base Recipe"
 
 function createNewRecipeFromBaseTemplate(baseRecipe: FullRecipe | null, existingRecipeNames: string[] = []): FullRecipe | null {
   if (!baseRecipe) return null;
@@ -49,6 +46,7 @@ export default function RecipeBuilderPage() {
     error: storeError,   // Error state from the store
     setRecipe,
     fetchRecipe,
+    fetchPredefinedRecipeByName, // Add this action
     fetchAllMetaData,
     setShowAdvanced,
     addStep,
@@ -127,39 +125,38 @@ export default function RecipeBuilderPage() {
              history.push("/recipes/new"); // Or to a 404 or specific error display
           }
         } else { // New recipe mode (id is undefined, "new", or "0")
-          // Fetch the base recipe template using the store's fetchRecipe
-          // This assumes fetchRecipe can handle fetching a recipe that will then be *copied*
-          // A dedicated store action `initializeNewRecipe(baseId)` would be cleaner.
-          // For now, we fetch the base, then create a new one from it.
-          const baseRecipeStoreState = useRecipeBuilderStore.getState();
-          await baseRecipeStoreState.fetchRecipe(SIMPLE_BASE_RECIPE_ID); // Fetch base recipe into store temporarily
-          const fetchedBaseRecipe = useRecipeBuilderStore.getState().recipe; // Get it
+          try {
+            // Fetch the "Base Template" recipe by its name
+            const baseRecipeData = await fetchPredefinedRecipeByName("Base Template");
 
-          // Since availableRecipes is removed, we pass an empty array for unique name generation
-          // This part of createNewRecipeFromBaseTemplate might need adjustment if unique naming is critical
-          if (fetchedBaseRecipe) { 
-            const newRecipe = createNewRecipeFromBaseTemplate(fetchedBaseRecipe, []); // Pass empty array
-            if (newRecipe) {
-              setRecipe(newRecipe);
+            if (baseRecipeData) {
+              // Since availableRecipes is removed, we pass an empty array for unique name generation
+              // This part of createNewRecipeFromBaseTemplate might need adjustment if unique naming is critical later
+              const newRecipe = createNewRecipeFromBaseTemplate(baseRecipeData, []);
+              if (newRecipe) {
+                setRecipe(newRecipe);
+              } else {
+                console.error("\"Base Template\" recipe found but could not be processed into a new recipe.");
+                setRecipe({id:0, name:"Blank Recipe", notes: '', totalWeight: null, hydrationPct: null, saltPct: null, steps:[], fieldValues:[]}); // Fallback
+              }
             } else {
-              console.error("Base recipe template (ID 1) not found or failed to process.");
-              setRecipe({id:0, name:"Blank Recipe", notes: '', steps:[], fieldValues:[]}); // Fallback to a truly blank FullRecipe
+              console.error("\"Base Template\" could not be fetched. Store error:", useRecipeBuilderStore.getState().error);
+              setRecipe({id:0, name:"Blank Recipe", notes: '', totalWeight: null, hydrationPct: null, saltPct: null, steps:[], fieldValues:[]}); // Fallback
             }
-          } else {
-            console.error("Base recipe template (ID 1) could not be fetched.");
-            setRecipe({id:0, name:"Blank Recipe", notes: '', steps:[], fieldValues:[]}); // Fallback to a truly blank FullRecipe
+          } catch (fetchError) {
+            console.error("Error fetching \"Base Template\":", fetchError);
+            setRecipe({id:0, name:"Blank Recipe", notes: '', totalWeight: null, hydrationPct: null, saltPct: null, steps:[], fieldValues:[]}); // Fallback
           }
         }
       } catch (err) {
         console.error("Error initializing recipe page:", err);
-        // Potentially set a page-level error state
       } finally {
         setPageLoading(false);
       }
     };
 
     initializePage();
-  }, [id, history, fetchRecipe, setRecipe]); // Removed availableRecipes from dependencies
+  }, [id, history, fetchRecipe, setRecipe, fetchPredefinedRecipeByName]);
 
   // const handleRecipeSelect = (selectedId: string) => { // No longer needed here
   //   if (selectedId) {

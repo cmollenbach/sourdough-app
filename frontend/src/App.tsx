@@ -13,6 +13,8 @@ import { AuthProvider } from "./context/AuthContext";
 import { useAuth } from "./hooks/useAuthHook";
 import { SettingsProvider, useSettings } from "./context/SettingsContext";
 import { ToastProvider } from "./context/ToastContext";
+import { DialogProvider } from "./context/DialogContext"; // Import DialogProvider
+import DialogManager from "./components/Shared/DialogManager"; // Corrected to default import
 import "./App.css";
 import UserSettingsPage from "./pages/settings/user";
 import RequireAuth from "./components/Auth/RequireAuth";
@@ -73,13 +75,16 @@ function AppRoutes() {
 export default function App() {
   return (
     <ToastProvider>
-      <SettingsProvider>
-        <AuthProvider>
-          <BrowserRouter> {/* BrowserRouter now wraps AppRoutes */}
-            <AppRoutes />
-          </BrowserRouter>
-        </AuthProvider>
-      </SettingsProvider>
+      <DialogProvider> {/* Wrap with DialogProvider */}
+        <SettingsProvider>
+          <AuthProvider>
+            <BrowserRouter> {/* BrowserRouter now wraps AppRoutes */}
+              <AppRoutes />
+              <DialogManager /> {/* Render DialogManager inside DialogProvider */}
+            </BrowserRouter>
+          </AuthProvider>
+        </SettingsProvider>
+      </DialogProvider>
     </ToastProvider>
   );
 }

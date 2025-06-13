@@ -31,7 +31,7 @@
     "ts-node-dev": "^2.0.0"
   },
   "prisma": {
-    "seed": "ts-node --transpile-only prisma/seed.ts"
+    "seed": "node dist/prisma/seed.js"
   },
   "scripts": {
     "clean": "npx rimraf dist",

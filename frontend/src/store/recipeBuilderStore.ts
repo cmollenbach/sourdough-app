@@ -45,6 +45,19 @@ import type {
   FieldMeta as RecipeLayoutFieldMeta         // Use this for the store state
 } from '../types/recipeLayout';
 
+// Define a more specific error type for API responses
+interface ApiErrorData {
+  error?: string;
+  message?: string; // Sometimes 'message' is used by APIs
+  details?: string; // Optional details
+}
+
+interface ApiError extends Error { // Extends the built-in Error
+  response?: {
+    data?: ApiErrorData;
+    status?: number;
+  };
+}
 
 interface RecipeBuilderState {
   recipe: FullRecipe | null;
@@ -60,6 +73,7 @@ interface RecipeBuilderState {
 
   // Data fetching
   fetchRecipe: (id: number) => Promise<void>;
+  fetchPredefinedRecipeByName: (name: string) => Promise<FullRecipe | null>; // Added this line
   fetchAllMetaData: () => Promise<void>;
 
   // Client-side state setters & actions
@@ -93,9 +107,25 @@ export const useRecipeBuilderStore = create<RecipeBuilderState>((set) => ({
     try {
       const recipeData = await apiGet<FullRecipe>(`/recipes/${id}`); // Assumes /recipes/:id returns FullRecipe
       set({ recipe: recipeData, loading: false });
-    } catch (_err) {
-      console.error("Failed to fetch recipe:", _err);
-      set({ error: 'Failed to fetch recipe', loading: false }); // Consider logging _err
+    } catch (err) {
+    console.error(`Failed to fetch recipe with id ${id}:`, err);
+    set({ error: `Failed to fetch recipe (ID: ${id})`, loading: false });
+    }
+  },
+  fetchPredefinedRecipeByName: async (name: string): Promise<FullRecipe | null> => {
+    set({ loading: true, error: null });
+    try {
+      const recipeData = await apiGet<FullRecipe>(`/recipes/predefined/by-name?name=${encodeURIComponent(name)}`);
+      // Set the fetched recipe as the current recipe in the store
+      // This is useful if the page directly uses the store's 'recipe' state after this call
+      set({ recipe: recipeData, loading: false }); 
+      return recipeData; // Return the fetched recipe so the caller can also use it directly
+    } catch (error) {
+      const apiError = error as ApiError; // Type assertion
+      const errorMessage = apiError.response?.data?.error || apiError.response?.data?.message || apiError.message || `Failed to fetch predefined recipe by name: ${name}`;
+      console.error(`Error fetching predefined recipe by name "${name}":`, error);
+      set({ error: errorMessage, loading: false, recipe: null });
+      return null; // Indicate failure
     }
   },
   fetchAllMetaData: async () => {
@@ -149,9 +179,9 @@ export const useRecipeBuilderStore = create<RecipeBuilderState>((set) => ({
         loading: false,
         error: null, // Clear error on successful fetch
       });
-    } catch (_err) {
-      console.error("Failed to fetch metadata:", _err);
-      set({ error: 'Failed to fetch metadata', loading: false }); // Consider logging _err
+    } catch (err) {
+    console.error("Failed to fetch metadata:", err);
+    set({ error: 'Failed to fetch metadata', loading: false });
     }
   },
 

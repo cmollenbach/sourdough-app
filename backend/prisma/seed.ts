@@ -190,6 +190,11 @@ const prefermentTemplate = await prisma.stepTemplate.upsert({
         { parameterId: prefermentContribParam.id, helpText: "Defines how much of the recipe's total flour is in this preferment.", defaultValue: '20' },
         { parameterId: prefermentHydrationParam.id, helpText: 'The hydration level of this preferment itself (e.g., 100% for equal parts flour and water by weight).', defaultValue: '100' }
       ]
+    },
+    ingredientRules: { // Added ingredient rule for flour in preferment
+      create: [
+        { ingredientCategoryId: flourCategory.id, required: true, helpText: 'Specify the flour(s) for the preferment.' }
+      ]
     }
   }
 });
@@ -451,6 +456,9 @@ const restTemplate = await prisma.stepTemplate.upsert({
         updateMany: { where: {}, data: {} }, // Placeholder if we needed to update steps
         create: [
           { stepTemplateId: prefermentTemplate.id, order: 1, parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 20 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } }, // Example default values
+          // For a base template, we might not specify a default flour for preferment,
+          // or assume bread flour if the rule is there. Let's omit explicit ingredient for base.
+          // The UI would prompt for it if the rule is 'required'.
           { stepTemplateId: mixTemplate.id, order: 2 }
         ]
       }
@@ -465,6 +473,7 @@ const restTemplate = await prisma.stepTemplate.upsert({
       saltPct: 2,
       steps: { create: [
         { stepTemplateId: prefermentTemplate.id, order: 1, parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 20 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } }, // Example default values
+        // Omitting explicit ingredient for base template preferment.
         { stepTemplateId: mixTemplate.id, order: 2 }
       ]}
     }
@@ -484,8 +493,17 @@ const restTemplate = await prisma.stepTemplate.upsert({
       steps: {
         updateMany: { where: {}, data: {} },
         create: [
-          { stepTemplateId: prefermentTemplate.id, order: 1, ingredients: { create: [{ ingredientId: starter.id, amount: 15, calculationMode: IngredientCalculationMode.PERCENTAGE }] }, parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 15 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } },
-          { stepTemplateId: mixTemplate.id, order: 2, ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: water.id, amount: 67, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: salt.id, amount: 2, calculationMode: IngredientCalculationMode.PERCENTAGE }] } },
+          { 
+            stepTemplateId: prefermentTemplate.id, order: 1, 
+            // Preferment step defines its own starter percentage based on its contribution to total flour
+            // The starter itself (an ingredient) is implicitly 100% of the preferment's flour if not specified otherwise.
+            // Or, if starter is an ingredient *within* the preferment step, it would be listed here.
+            // For simplicity, assuming the preferment step *is* the starter build.
+            // No explicit ingredients needed here if preferment step's parameters define its composition.
+            parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 15 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } 
+            , ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }] } // Preferment uses Bread Flour
+          },
+          { stepTemplateId: mixTemplate.id, order: 2, ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }] } }, // Water and Salt are derived from recipe's hydration/saltPct
           { stepTemplateId: bulkFermentTemplate.id, order: 3, notes: "Look for the dough to increase in volume by about 25-50%, feel airy, and show some bubbles on the surface. The exact time can vary based on starter activity and room temperature.", parameterValues: { create: [{ parameterId: durationParam.id, value: 240 }, { parameterId: tempParam.id, value: 24 }] } },
           { stepTemplateId: shapeTemplate.id, order: 4 },
           { stepTemplateId: proofTemplate.id, order: 5, notes: "Cold proofing in the fridge develops flavor and makes scoring easier. Dough should look puffy and pass the 'poke test' (an indentation fills back slowly).", parameterValues: { create: [{ parameterId: durationParam.id, value: 720 }, { parameterId: tempParam.id, value: 4 }] } },
@@ -503,8 +521,12 @@ const restTemplate = await prisma.stepTemplate.upsert({
       saltPct: 2,
       steps: {
         create: [
-          { stepTemplateId: prefermentTemplate.id, order: 1, ingredients: { create: [{ ingredientId: starter.id, amount: 15, calculationMode: IngredientCalculationMode.PERCENTAGE }] }, parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 15 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } },
-          { stepTemplateId: mixTemplate.id, order: 2, ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: water.id, amount: 67, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: salt.id, amount: 2, calculationMode: IngredientCalculationMode.PERCENTAGE }] } },
+          { 
+            stepTemplateId: prefermentTemplate.id, order: 1,
+            parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 15 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } ,
+            ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }] } // Preferment uses Bread Flour
+          },
+          { stepTemplateId: mixTemplate.id, order: 2, ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }] } }, // Water and Salt derived
           { stepTemplateId: bulkFermentTemplate.id, order: 3, notes: "Look for the dough to increase in volume by about 25-50%, feel airy, and show some bubbles on the surface. The exact time can vary based on starter activity and room temperature.", parameterValues: { create: [{ parameterId: durationParam.id, value: 240 }, { parameterId: tempParam.id, value: 24 }] } },
           { stepTemplateId: shapeTemplate.id, order: 4 },
           { stepTemplateId: proofTemplate.id, order: 5, notes: "Cold proofing in the fridge develops flavor and makes scoring easier. Dough should look puffy and pass the 'poke test' (an indentation fills back slowly).", parameterValues: { create: [{ parameterId: durationParam.id, value: 720 }, { parameterId: tempParam.id, value: 4 }] } },
@@ -527,10 +549,17 @@ const restTemplate = await prisma.stepTemplate.upsert({
       steps: {
         updateMany: { where: {}, data: {} },
         create: [
-          { stepTemplateId: prefermentTemplate.id, order: 1, ingredients: { create: [{ ingredientId: starter.id, amount: 20, calculationMode: IngredientCalculationMode.PERCENTAGE }] }, parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 20 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } },
+          {
+            stepTemplateId: prefermentTemplate.id, order: 1,
+            parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 20 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } ,
+            ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }] } // Preferment uses Bread Flour (common for whole wheat recipes to use white flour in levain)
+          },
           {
             stepTemplateId: mixTemplate.id, order: 2, ingredients: {
-              create: [{ ingredientId: breadFlour.id, amount: 70, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: wholeWheatFlour.id, amount: 30, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: water.id, amount: 72, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: salt.id, amount: 2, calculationMode: IngredientCalculationMode.PERCENTAGE }]
+              create: [
+                { ingredientId: breadFlour.id, amount: 70, calculationMode: IngredientCalculationMode.PERCENTAGE }, 
+                { ingredientId: wholeWheatFlour.id, amount: 30, calculationMode: IngredientCalculationMode.PERCENTAGE }
+              ] // Water and Salt derived
             }
           },
           { stepTemplateId: bulkFermentTemplate.id, order: 3, notes: "Whole wheat can ferment a bit faster. Watch for a good rise and airy texture.", parameterValues: { create: [{ parameterId: durationParam.id, value: 240 }, { parameterId: tempParam.id, value: 24 }] } },
@@ -550,10 +579,17 @@ const restTemplate = await prisma.stepTemplate.upsert({
       saltPct: 2,
       steps: {
         create: [
-          { stepTemplateId: prefermentTemplate.id, order: 1, ingredients: { create: [{ ingredientId: starter.id, amount: 20, calculationMode: IngredientCalculationMode.PERCENTAGE }] }, parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 20 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } },
+          {
+            stepTemplateId: prefermentTemplate.id, order: 1,
+            parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 20 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } ,
+            ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }] } // Preferment uses Bread Flour
+          },
           {
             stepTemplateId: mixTemplate.id, order: 2, ingredients: {
-              create: [{ ingredientId: breadFlour.id, amount: 70, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: wholeWheatFlour.id, amount: 30, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: water.id, amount: 72, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: salt.id, amount: 2, calculationMode: IngredientCalculationMode.PERCENTAGE }]
+              create: [
+                { ingredientId: breadFlour.id, amount: 70, calculationMode: IngredientCalculationMode.PERCENTAGE }, 
+                { ingredientId: wholeWheatFlour.id, amount: 30, calculationMode: IngredientCalculationMode.PERCENTAGE }
+              ] // Water and Salt derived
             }
           },
           { stepTemplateId: bulkFermentTemplate.id, order: 3, notes: "Whole wheat can ferment a bit faster. Watch for a good rise and airy texture.", parameterValues: { create: [{ parameterId: durationParam.id, value: 240 }, { parameterId: tempParam.id, value: 24 }] } },
@@ -578,8 +614,12 @@ const restTemplate = await prisma.stepTemplate.upsert({
       steps: {
         updateMany: { where: {}, data: {} },
         create: [
-          { stepTemplateId: prefermentTemplate.id, order: 1, ingredients: { create: [{ ingredientId: starter.id, amount: 40, calculationMode: IngredientCalculationMode.PERCENTAGE }] }, parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 40 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } },
-          { stepTemplateId: mixTemplate.id, order: 2, ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: water.id, amount: 70, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: salt.id, amount: 2, calculationMode: IngredientCalculationMode.PERCENTAGE }] } },
+          {
+            stepTemplateId: prefermentTemplate.id, order: 1,
+            parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 40 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } ,
+            ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }] } // Preferment uses Bread Flour
+          },
+          { stepTemplateId: mixTemplate.id, order: 2, ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }] } }, // Water and Salt derived
           { stepTemplateId: bulkFermentTemplate.id, order: 3, notes: "With more starter and warmer temp, this will be quicker. Watch the dough, not just the clock. Aim for a good rise and airy texture.", parameterValues: { create: [{ parameterId: durationParam.id, value: 180 }, { parameterId: tempParam.id, value: 26 }] } },
           { stepTemplateId: shapeTemplate.id, order: 4 },
           { stepTemplateId: proofTemplate.id, order: 5, parameterValues: { create: [{ parameterId: durationParam.id, value: 120 }, { parameterId: tempParam.id, value: 26 }] } },
@@ -597,8 +637,12 @@ const restTemplate = await prisma.stepTemplate.upsert({
       saltPct: 2,
       steps: {
         create: [
-          { stepTemplateId: prefermentTemplate.id, order: 1, ingredients: { create: [{ ingredientId: starter.id, amount: 40, calculationMode: IngredientCalculationMode.PERCENTAGE }] }, parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 40 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } },
-          { stepTemplateId: mixTemplate.id, order: 2, ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: water.id, amount: 70, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: salt.id, amount: 2, calculationMode: IngredientCalculationMode.PERCENTAGE }] } },
+          {
+            stepTemplateId: prefermentTemplate.id, order: 1,
+            parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 40 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } ,
+            ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }] } // Preferment uses Bread Flour
+          },
+          { stepTemplateId: mixTemplate.id, order: 2, ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }] } }, // Water and Salt derived
           { stepTemplateId: bulkFermentTemplate.id, order: 3, notes: "With more starter and warmer temp, this will be quicker. Watch the dough, not just the clock. Aim for a good rise and airy texture.", parameterValues: { create: [{ parameterId: durationParam.id, value: 180 }, { parameterId: tempParam.id, value: 26 }] } },
           { stepTemplateId: shapeTemplate.id, order: 4 },
           { stepTemplateId: proofTemplate.id, order: 5, parameterValues: { create: [{ parameterId: durationParam.id, value: 120 }, { parameterId: tempParam.id, value: 26 }] } },
@@ -622,13 +666,20 @@ const restTemplate = await prisma.stepTemplate.upsert({
       steps: {
         updateMany: { where: {}, data: {} },
         create: [
-          { stepTemplateId: prefermentTemplate.id, order: 1, ingredients: { create: [{ ingredientId: starter.id, amount: 20, calculationMode: IngredientCalculationMode.PERCENTAGE }] }, parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 20 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } },
+          {
+            stepTemplateId: prefermentTemplate.id, order: 1,
+            parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 20 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } ,
+            ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }] } // Preferment uses Bread Flour
+          },
           { 
             stepTemplateId: autolyseTemplate.id, order: 2, parameterValues: { create: [{ parameterId: durationParam.id, value: 60 }] },
-            ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: water.id, amount: 85, calculationMode: IngredientCalculationMode.PERCENTAGE }] },
+            // Autolyse step only lists flour. Water for autolyse is part of the total recipe hydration.
+            ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }] },
             notes: "A longer autolyse helps manage very wet dough by allowing flour to fully hydrate."
           },
-          { stepTemplateId: mixTemplate.id, order: 3, ingredients: { create: [{ ingredientId: salt.id, amount: 2.2, calculationMode: IngredientCalculationMode.PERCENTAGE }] } },
+          { 
+            stepTemplateId: mixTemplate.id, order: 3 // This step implicitly includes the salt based on recipe's saltPct. No explicit salt ingredient needed.
+          },
           { stepTemplateId: stretchFoldTemplate.id, order: 4, notes: "Be very gentle with wet dough. Use wet hands to prevent sticking. More folds might be needed.", parameterValues: { create: [{ parameterId: numFoldsParam.id, value: 4 }] } },
           { stepTemplateId: bulkFermentTemplate.id, order: 5, parameterValues: { create: [{ parameterId: durationParam.id, value: 180 }, { parameterId: tempParam.id, value: 26 }] } },
           { stepTemplateId: shapeTemplate.id, order: 6 },
@@ -647,13 +698,20 @@ const restTemplate = await prisma.stepTemplate.upsert({
       saltPct: 2.2,
       steps: {
         create: [
-          { stepTemplateId: prefermentTemplate.id, order: 1, ingredients: { create: [{ ingredientId: starter.id, amount: 20, calculationMode: IngredientCalculationMode.PERCENTAGE }] }, parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 20 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } },
+          {
+            stepTemplateId: prefermentTemplate.id, order: 1,
+            parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 20 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } ,
+            ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }] } // Preferment uses Bread Flour
+          },
           { 
             stepTemplateId: autolyseTemplate.id, order: 2, parameterValues: { create: [{ parameterId: durationParam.id, value: 60 }] },
-            ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: water.id, amount: 85, calculationMode: IngredientCalculationMode.PERCENTAGE }] },
+            // Autolyse step only lists flour. Water for autolyse is part of the total recipe hydration.
+            ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }] },
             notes: "A longer autolyse helps manage very wet dough by allowing flour to fully hydrate."
           },
-          { stepTemplateId: mixTemplate.id, order: 3, ingredients: { create: [{ ingredientId: salt.id, amount: 2.2, calculationMode: IngredientCalculationMode.PERCENTAGE }] } },
+          { 
+            stepTemplateId: mixTemplate.id, order: 3 // Salt derived from recipe's saltPct
+          },
           { stepTemplateId: stretchFoldTemplate.id, order: 4, notes: "Be very gentle with wet dough. Use wet hands to prevent sticking. More folds might be needed.", parameterValues: { create: [{ parameterId: numFoldsParam.id, value: 4 }] } },
           { stepTemplateId: bulkFermentTemplate.id, order: 5, parameterValues: { create: [{ parameterId: durationParam.id, value: 180 }, { parameterId: tempParam.id, value: 26 }] } },
           { stepTemplateId: shapeTemplate.id, order: 6 },
@@ -677,13 +735,16 @@ const restTemplate = await prisma.stepTemplate.upsert({
       steps: {
         updateMany: { where: {}, data: {} },
         create: [
-          { stepTemplateId: prefermentTemplate.id, order: 1, notes: 'Primo Impasto: Let this first dough ferment for 10-12 hours.', ingredients: { create: [{ ingredientId: starter.id, amount: 20, calculationMode: IngredientCalculationMode.PERCENTAGE }] }, parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 20 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } },
+          {
+            stepTemplateId: prefermentTemplate.id, order: 1, notes: 'Primo Impasto: Let this first dough ferment for 10-12 hours.',
+            parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 20 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } ,
+            ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }] } // Panettone preferment typically uses strong bread flour
+          },
           { // Enrich step using the enrichTemplate
             stepTemplateId: enrichTemplate.id, order: 2, notes: 'Secondo Impasto: Add final ingredients.',
             ingredients: { create: [
-              { ingredientId: breadFlour.id, amount: 80, calculationMode: IngredientCalculationMode.PERCENTAGE },
-              { ingredientId: water.id, amount: 40, calculationMode: IngredientCalculationMode.PERCENTAGE },
-              { ingredientId: salt.id, amount: 1.5, calculationMode: IngredientCalculationMode.PERCENTAGE },
+              { ingredientId: breadFlour.id, amount: 80, calculationMode: IngredientCalculationMode.PERCENTAGE }, // Specific flour
+              // Water and Salt for this step are derived from overall recipe hydration/salt Pct, minus what was in preferment.
               { ingredientId: honey.id, amount: 75, calculationMode: IngredientCalculationMode.FIXED_WEIGHT }, // Example: 75g
               { ingredientId: butter.id, amount: 150, calculationMode: IngredientCalculationMode.FIXED_WEIGHT }, // Example: 150g
               { ingredientId: egg.id, amount: 100, calculationMode: IngredientCalculationMode.FIXED_WEIGHT } // Example: 100g (approx 2 large eggs)
@@ -705,13 +766,16 @@ const restTemplate = await prisma.stepTemplate.upsert({
       saltPct: 1.5,
       steps: {
         create: [
-          { stepTemplateId: prefermentTemplate.id, order: 1, notes: 'Primo Impasto: Let this first dough ferment for 10-12 hours.', ingredients: { create: [{ ingredientId: starter.id, amount: 20, calculationMode: IngredientCalculationMode.PERCENTAGE }] }, parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 20 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } },
+          {
+            stepTemplateId: prefermentTemplate.id, order: 1, notes: 'Primo Impasto: Let this first dough ferment for 10-12 hours.',
+            parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 20 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } ,
+            ingredients: { create: [{ ingredientId: breadFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }] } // Panettone preferment
+          },
           { // Enrich step using the enrichTemplate
             stepTemplateId: enrichTemplate.id, order: 2, notes: 'Secondo Impasto: Add final ingredients.',
             ingredients: { create: [
-              { ingredientId: breadFlour.id, amount: 80, calculationMode: IngredientCalculationMode.PERCENTAGE },
-              { ingredientId: water.id, amount: 40, calculationMode: IngredientCalculationMode.PERCENTAGE },
-              { ingredientId: salt.id, amount: 1.5, calculationMode: IngredientCalculationMode.PERCENTAGE },
+              { ingredientId: breadFlour.id, amount: 80, calculationMode: IngredientCalculationMode.PERCENTAGE }, // Specific flour
+              // Water and Salt derived
               { ingredientId: honey.id, amount: 75, calculationMode: IngredientCalculationMode.FIXED_WEIGHT }, // Example: 75g
               { ingredientId: butter.id, amount: 150, calculationMode: IngredientCalculationMode.FIXED_WEIGHT }, // Example: 150g
               { ingredientId: egg.id, amount: 100, calculationMode: IngredientCalculationMode.FIXED_WEIGHT } // Example: 100g (approx 2 large eggs)
@@ -738,10 +802,16 @@ const restTemplate = await prisma.stepTemplate.upsert({
       steps: {
         updateMany: { where: {}, data: {} },
         create: [
-          { stepTemplateId: prefermentTemplate.id, order: 1, ingredients: { create: [{ ingredientId: starter.id, amount: 50, calculationMode: IngredientCalculationMode.PERCENTAGE }] }, parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 50 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } },
+          {
+            stepTemplateId: prefermentTemplate.id, order: 1,
+            parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 50 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } ,
+            ingredients: { create: [{ ingredientId: ryeFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }] } // Danish Rye preferment uses Rye Flour
+          },
           {
             stepTemplateId: mixTemplate.id, order: 2, notes: 'Mix into a thick, sticky paste.',
-            ingredients: { create: [{ ingredientId: ryeFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: water.id, amount: 87.5, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: salt.id, amount: 3.75, calculationMode: IngredientCalculationMode.PERCENTAGE }] }
+            ingredients: { create: [
+                { ingredientId: ryeFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }
+              ] } // Water and Salt derived
           },
           { stepTemplateId: proofTemplate.id, order: 3, notes: 'Proof in a loaf pan.', parameterValues: { create: [{ parameterId: durationParam.id, value: 240 }, { parameterId: tempParam.id, value: 24 }] } },
           { stepTemplateId: bakeTemplate.id, order: 4, parameterValues: { create: [{ parameterId: durationParam.id, value: 60 }, { parameterId: tempParam.id, value: 190 }] } },
@@ -759,10 +829,16 @@ const restTemplate = await prisma.stepTemplate.upsert({
       saltPct: 3.75,
       steps: {
         create: [
-          { stepTemplateId: prefermentTemplate.id, order: 1, ingredients: { create: [{ ingredientId: starter.id, amount: 50, calculationMode: IngredientCalculationMode.PERCENTAGE }] }, parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 50 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } },
+          {
+            stepTemplateId: prefermentTemplate.id, order: 1,
+            parameterValues: { create: [{ parameterId: prefermentContribParam.id, value: 50 }, { parameterId: prefermentHydrationParam.id, value: 100 }] } ,
+            ingredients: { create: [{ ingredientId: ryeFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }] } // Danish Rye preferment uses Rye Flour
+          },
           {
             stepTemplateId: mixTemplate.id, order: 2, notes: 'Mix into a thick, sticky paste.',
-            ingredients: { create: [{ ingredientId: ryeFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: water.id, amount: 87.5, calculationMode: IngredientCalculationMode.PERCENTAGE }, { ingredientId: salt.id, amount: 3.75, calculationMode: IngredientCalculationMode.PERCENTAGE }] }
+            ingredients: { create: [
+                { ingredientId: ryeFlour.id, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE }
+              ] } // Water and Salt derived
           },
           { stepTemplateId: proofTemplate.id, order: 3, notes: 'Proof in a loaf pan.', parameterValues: { create: [{ parameterId: durationParam.id, value: 240 }, { parameterId: tempParam.id, value: 24 }] } },
           { stepTemplateId: bakeTemplate.id, order: 4, parameterValues: { create: [{ parameterId: durationParam.id, value: 60 }, { parameterId: tempParam.id, value: 190 }] } },

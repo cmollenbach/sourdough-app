@@ -1,5 +1,6 @@
 // RecipeControls.tsx
 import React, { useState, useEffect, useMemo } from 'react';
+import { useDialog } from '../../context/useDialog'; // Updated import path
 import { useHistory } from 'react-router-dom'; // For react-router-dom v5
 import { useRecipeBuilderStore } from '../../store/recipeBuilderStore';
 import { useBakeStore } from '../../store/useBakeStore'; // Import useBakeStore
@@ -66,14 +67,17 @@ async function apiDeleteRecipe(id: number): Promise<void> {
 }
 
 
-const SIMPLE_BASE_RECIPE_ID = 1;
+// const BASE_TEMPLATE_NAME = "Base Template"; // No longer needed if selecting from list
 // --- End Placeholder API functions ---
 
+// Removed placeholder openNameInputModal as we'll use useDialog
 
 export default function RecipeControls() {
+  const { showDialog, hideDialog } = useDialog(); // Get showDialog and hideDialog
   const currentRecipe = useRecipeBuilderStore(state => state.recipe);
   const setRecipe = useRecipeBuilderStore(state => state.setRecipe);
   const fieldsMeta = useRecipeBuilderStore(state => state.fieldsMeta); // Access fieldsMeta from the store
+  // const fetchPredefinedRecipeByNameFromStore = useRecipeBuilderStore(state => state.fetchPredefinedRecipeByName); // No longer directly used here
   const isRecipeDirty = useRecipeBuilderStore(state => state.isRecipeDirty);
   const { startBake: initiateBake, isLoading: isBakeLoading, error: bakeError, clearError: clearBakeError } = useBakeStore(); // Destructure from useBakeStore
 
@@ -148,6 +152,7 @@ export default function RecipeControls() {
     }
 
     if (currentRecipe && isRecipeDirty) { // Only confirm if there are unsaved changes
+      // TODO: Replace window.confirm with showDialog
       if (!window.confirm("You have unsaved changes to the current recipe. Loading a new one will discard these changes. Continue?")) {
         event.target.value = selectedRecipeId; // Revert dropdown
         return;
@@ -213,29 +218,68 @@ export default function RecipeControls() {
   const performSaveAsNew = async (recipeToSave: FullRecipe, suggestedName: string) => {
     setIsLoading(true);
     setError(null);
-    const newName = window.prompt("Enter name for the new recipe:", suggestedName);
-    if (!newName || newName.trim() === "") {
-      setIsLoading(false);
-      return; // User cancelled or entered empty name
-    }
-    try {
-      const payload = transformRecipeToBackendPayload({ ...recipeToSave, name: newName.trim(), id: 0 });
-      const savedRecipe = await apiSaveNewRecipe(payload); // Use real API call
-      setRecipe(savedRecipe);
-      await fetchRecipeList(); // Refresh the recipe list
-      setSelectedRecipeId(savedRecipe.id.toString()); // Select the newly saved recipe
-      alert('Recipe saved successfully!');
-    } catch (_err) {
-      setError('Failed to save recipe.');
-      console.error("Failed to save recipe:", _err);
-    } finally {
-      setIsLoading(false);
-    }
+
+    let tempName = suggestedName; // Variable to hold the input value
+    const NameInputComponent = (
+      <input
+        type="text"
+        defaultValue={suggestedName}
+        onChange={(e) => (tempName = e.target.value)}
+        className="border border-border rounded px-3 py-2 w-full bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300 transition-colors"
+        autoFocus
+        placeholder="Enter recipe name"
+      />
+    );
+
+    showDialog({
+      title: "Enter name for the new recipe:",
+      content: NameInputComponent,
+      confirmText: "Save",
+      onConfirm: async () => {
+        const newName = tempName; // Use the captured input value
+        if (!newName || newName.trim() === "") {
+          setError("Recipe name cannot be empty.");
+          setIsLoading(false); // Keep dialog open by not calling hideDialog
+          return; 
+        }
+        const trimmedNewName = newName.trim();
+
+        const existingRecipeWithName = recipeList.find(r => r.name === trimmedNewName);
+        if (existingRecipeWithName) {
+          setError(`A recipe named "${trimmedNewName}" already exists. Please choose a different name to save as new.`);
+          setIsLoading(false); // Keep dialog open
+          return;
+        }
+
+        try {
+          const payload = transformRecipeToBackendPayload({ ...recipeToSave, name: trimmedNewName, id: 0 });
+          const savedRecipe = await apiSaveNewRecipe(payload);
+          setRecipe(savedRecipe);
+          await fetchRecipeList();
+          setSelectedRecipeId(savedRecipe.id.toString());
+          // TODO: showToast('Recipe saved successfully!', { type: 'success' });
+          console.log('Success: Recipe saved successfully!'); 
+        } catch (_err) {
+          setError('Failed to save recipe.');
+          // TODO: showToast('Failed to save recipe.', { type: 'error' });
+          console.error("Failed to save recipe:", _err);
+        } finally {
+          setIsLoading(false);
+          hideDialog(); // Close the name input dialog
+        }
+      },
+      onCancel: () => {
+        setIsLoading(false);
+        // setError(null); // Optionally clear error if dialog is cancelled
+        hideDialog(); // Close the name input dialog
+      }
+    });
   };
 
   const handleUpdateOrSave = async () => {
     if (!currentRecipe) {
       setError("No recipe loaded.");
+      // TODO: showToast("No recipe loaded.", { type: 'error' });
       return;
     }
 
@@ -252,46 +296,80 @@ export default function RecipeControls() {
     }
 
     // Existing user recipe: Ask to update or save as new
-    const shouldUpdate = window.confirm(
-      `Do you want to update the existing recipe "${currentRecipe.name}"?\n\n(OK = Update, Cancel = Save as New)`
-    );
-
-    if (!shouldUpdate) {
-      performSaveAsNew(currentRecipe, currentRecipe.name);
-      return;
-    }
-
-    // Perform Update
-    setIsLoading(true);
-    setError(null);
-    try {
-      const payload = transformRecipeToBackendPayload(currentRecipe);
-      const updatedRecipe = await apiUpdateExistingRecipe(currentRecipe.id, payload); // Use real API call
-      setRecipe(updatedRecipe);
-      await fetchRecipeList(); // Refresh the recipe list
-      // setSelectedRecipeId(updatedRecipe.id.toString()); // Already selected, but good for consistency if needed
-      alert('Recipe updated successfully!');
-    } catch (_err) {
-      setError('Failed to update recipe.');
-      console.error("Failed to update recipe:", _err);
-    } finally {
-      setIsLoading(false);
-    }
+    showDialog({
+      title: "Save Changes",
+      content: `Do you want to update the existing recipe "${currentRecipe.name}" or save it as a new copy?`,
+      confirmText: "Update Existing",
+      onConfirm: async () => {
+        // Perform Update
+        setIsLoading(true);
+        setError(null);
+        try {
+          const payload = transformRecipeToBackendPayload(currentRecipe);
+          const updatedRecipe = await apiUpdateExistingRecipe(currentRecipe.id, payload);
+          setRecipe(updatedRecipe);
+          await fetchRecipeList();
+          // TODO: showToast('Recipe updated successfully!', { type: 'success' });
+          console.log('Success: Recipe updated successfully!'); 
+        } catch (_err) {
+          setError('Failed to update recipe.');
+          // TODO: showToast('Failed to update recipe.', { type: 'error' });
+          console.error("Failed to update recipe:", _err);
+        } finally {
+          setIsLoading(false);
+          hideDialog(); // Close this dialog after update
+        }
+      },
+      cancelText: "Save as New Copy",
+      onCancel: () => {
+        hideDialog(); // Hide the current "Update/Save as New" dialog first
+        // Use a minimal timeout to ensure the UI has processed the hideDialog
+        setTimeout(() => {
+          performSaveAsNew(currentRecipe, currentRecipe.name);
+        }, 0); // 0ms timeout is often enough to push to next event loop tick
+      }
+    });
   };
 
   const handleNewFromBase = async () => {
     if (currentRecipe && isRecipeDirty) { // Only confirm if there are unsaved changes
-      if (!window.confirm("You have unsaved changes to the current recipe. Creating a new one will discard these changes. Continue?")) {
-        return;
-      }
+      showDialog({
+        title: "Unsaved Changes",
+        content: "You have unsaved changes. Creating a new recipe will discard them. Continue?",
+        confirmText: "Continue",
+        onConfirm: () => {
+          hideDialog();
+          proceedWithNewFromBase();
+        },
+        onCancel: () => { hideDialog(); /* User cancelled */ }
+      });
+      return; // Don't proceed until dialog is resolved
     }
+    proceedWithNewFromBase();
+  };
 
+  const proceedWithNewFromBase = async () => { // Extracted logic
     setIsLoading(true);
     setError(null);
     try {
-      const baseRecipe = await fetchFullRecipe(SIMPLE_BASE_RECIPE_ID); // Use the actual fetching function
+      // Find the first available template from the grouped list
+      let firstTemplateStub: RecipeStub | undefined = groupedRecipes.simpleTemplates[0];
+      if (!firstTemplateStub && groupedRecipes.advancedTemplates.length > 0) {
+        firstTemplateStub = groupedRecipes.advancedTemplates[0];
+      }
+
+      if (!firstTemplateStub) {
+        setError("No predefined templates available to start a new recipe.");
+        // TODO: showToast("No predefined templates available.", { type: 'info' });
+        setIsLoading(false);
+        return;
+      }
+
+      // Fetch the full details of this first template
+      const baseRecipe = await fetchFullRecipe(firstTemplateStub.id);
+
       if (baseRecipe) {
-        let newName = "Untitled";
+        let newName = "Untitled Recipe"; // Match the naming from [id].tsx
         let counter = 1;
         while (recipeList.some(r => r.name === newName)) {
           newName = `Untitled ${counter}`;
@@ -308,11 +386,11 @@ export default function RecipeControls() {
       saltPct: baseRecipe.saltPct,
           steps: baseRecipe.steps.map((step, stepIdx) => ({
             ...step,
-            id: 0,
+            id: -(Date.now() + stepIdx + Math.floor(Math.random() * 100000) + 3000), // Unique temporary ID
             recipeId: 0,
             order: step.order || stepIdx + 1,
-            fields: step.fields.map(f => ({ ...f, id: 0, recipeStepId: 0 } as RecipeStepField)),
-            ingredients: step.ingredients.map(i => ({ ...i, id: 0, recipeStepId: 0 } as RecipeStepIngredient)),
+            fields: step.fields.map((f, fIdx) => ({ ...f, id: -(Date.now() + stepIdx + fIdx + Math.floor(Math.random() * 100000) + 4000), recipeStepId: 0 } as RecipeStepField)),
+            ingredients: step.ingredients.map((i, iIdx) => ({ ...i, id: -(Date.now() + stepIdx + iIdx + Math.floor(Math.random() * 100000) + 5000), recipeStepId: 0 } as RecipeStepIngredient)),
           } as RecipeStep)),
       fieldValues: baseRecipe.fieldValues
         .filter(fv => {
@@ -321,11 +399,14 @@ export default function RecipeControls() {
         }).map(fv => ({ ...fv } as RecipeFieldValue)),
         };
         setRecipe(newRecipe);
+        setSelectedRecipeId(''); // Clear selection as it's a new, unsaved recipe
       } else {
-        setError('Simple Base Recipe template not found.');
+        setError(`Could not load the details for the template: ${firstTemplateStub.name}.`);
+        // TODO: showToast(`Could not load template: ${firstTemplateStub.name}.`, { type: 'error' });
       }
     } catch (_err) {
       setError('Failed to create new recipe from template.');
+      // TODO: showToast('Failed to create new recipe.', { type: 'error' });
       console.error("Failed to create new recipe from template:", _err);
     } finally {
       setIsLoading(false);
@@ -333,41 +414,96 @@ export default function RecipeControls() {
   };
 
   const handleDelete = async () => {
-    if (!currentRecipe || currentRecipe.id === 0 || currentRecipe.isPredefined) {
-      alert("Cannot delete a new, unsaved recipe or a predefined template.");
+    const recipeForDelete = currentRecipe; // Assign to a new const for clearer type narrowing
+
+    if (!recipeForDelete) {
+      showDialog({
+        title: "Cannot Delete",
+        content: "No recipe is currently loaded to delete.",
+        confirmText: "OK",
+        onConfirm: hideDialog,
+        hideCancelButton: true,
+      });
       return;
     }
 
-    if (window.confirm(`Are you sure you want to delete the recipe "${currentRecipe.name}"? This action cannot be undone.`)) {
+    // Now use recipeForDelete, which TypeScript knows is not null here
+    if (recipeForDelete.id === 0 || recipeForDelete.isPredefined) {
+      showDialog({
+        title: "Cannot Delete",
+        content: "Cannot delete a new, unsaved recipe or a predefined template.",
+        confirmText: "OK",
+        onConfirm: hideDialog,
+        hideCancelButton: true,
+      });
+      return;
+    }
+
+    showDialog({
+      title: "Confirm Deletion",
+      content: `Are you sure you want to delete the recipe "${recipeForDelete.name}"? This action cannot be undone.`,
+      confirmText: "Delete",
+      onConfirm: async () => {
       setIsLoading(true);
       setError(null);
       try {
-        await apiDeleteRecipe(currentRecipe.id);
-        alert(`Recipe "${currentRecipe.name}" deleted successfully.`);
+        await apiDeleteRecipe(recipeForDelete.id);
+        // TODO: showToast(`Recipe "${recipeForDelete.name}" deleted successfully.`, { type: 'success' });
+        console.log(`Success: Recipe "${recipeForDelete.name}" deleted successfully.`); 
         // Optionally, load the base template or clear the current recipe
         await fetchRecipeList(); // Refresh list first
+        hideDialog(); // Close the confirmation dialog
         handleNewFromBase(); // Load new from base after delete
       } catch (_err) {
         setError('Failed to delete recipe.');
+        // TODO: showToast('Failed to delete recipe.', { type: 'error' });
         console.error("Failed to delete recipe:", _err);
-      } finally {
+      }
+      finally {
         setIsLoading(false);
       }
-    }
+      },
+      onCancel: () => { hideDialog(); /* User cancelled deletion */ }
+    });
   };
 
   const handleStartBake = async () => {
     if (!currentRecipe || currentRecipe.id === 0) {
-      alert("Please save or load a recipe before starting a bake.");
+      showDialog({ // This check is fine as it's the first one for currentRecipe in this function
+        title: "Recipe Not Ready",
+        content: "Please save or load a recipe before starting a bake.",
+        confirmText: "OK",
+        onConfirm: hideDialog,
+        hideCancelButton: true,
+      });
       return;
     }
     if (isRecipeDirty) {
-      if (!window.confirm("You have unsaved changes to the current recipe. It's recommended to save them before starting a bake. Continue to start bake with last saved version?")) {
-        return;
-      }
+      showDialog({
+        title: "Unsaved Changes",
+        content: "You have unsaved changes. It's recommended to save them before starting a bake. Continue to start bake with the last saved version?",
+        confirmText: "Continue to Bake",
+        onConfirm: () => {
+          hideDialog();
+          proceedWithStartBake();
+        },
+        onCancel: () => { hideDialog(); /* User cancelled */ }
+      });
+      return; // Don't proceed until dialog is resolved
     }
+    proceedWithStartBake();
+  };
 
+  const proceedWithStartBake = async () => { // Extracted logic
     clearBakeError(); // Clear any previous bake errors
+    // Add a null check for currentRecipe here as well, as its state might have changed
+    // if there was a delay (e.g. user interaction with dialog) before this function is called.
+    if (!currentRecipe) {
+        console.error("Cannot start bake, current recipe is null.");
+        // TODO: showToast('Error: No recipe loaded to start bake.', { type: 'error' });
+        // Optionally show a dialog or set an error state
+        return;
+    }
     const newBake = await initiateBake(currentRecipe.id, `Bake of ${currentRecipe.name}`);
 
     if (newBake) {
@@ -375,9 +511,12 @@ export default function RecipeControls() {
       history.push(`/bakes`); // For react-router-dom v5. Or history.push(`/bakes/${newBake.id}`);
     } else {
       // bakeError will be set in the store, you could display it here or rely on a global error display
-      alert(`Failed to start bake: ${bakeError || 'Unknown error'}`);
+      // Replace alert with a toast notification or more integrated error display
+      // TODO: showToast(`Failed to start bake: ${bakeError || 'Unknown error'}`, { type: 'error' });
+      console.error(`Failed to start bake: ${bakeError || 'Unknown error'}`); // Placeholder for showToast/setError
     }
   };
+
 
   const canPerformActions = !isLoading && currentRecipe && !isBakeLoading;
   const canStartBake = currentRecipe && currentRecipe.id !== 0 && !isBakeLoading;
