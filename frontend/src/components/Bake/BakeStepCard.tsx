@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import type { BakeStep, BakeStepParameterValue } from '../../types/bake'; 
 
 import { useBakeStore } from '../../store/useBakeStore';
@@ -71,7 +71,7 @@ export default function BakeStepCard({ step, bakeId, isActiveBake, isInitiallyEx
   }, [isEditingDeviations]);
 
 
-  const { startStep, completeStep, skipStep, updateStepNote, updateStepDeviations, isLoading: isStoreLoading } = useBakeStore();
+  const { currentBake, startStep, completeStep, skipStep, updateStepNote, updateStepDeviations, isLoading: isStoreLoading } = useBakeStore();
   const { addToast } = useToast();
 
   const toggleExpand = () => setIsExpanded(!isExpanded);
@@ -117,11 +117,14 @@ export default function BakeStepCard({ step, bakeId, isActiveBake, isInitiallyEx
   };
 
   const handlePrepareComplete = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card from toggling
+    e.stopPropagation(); // Prevent card from toggling if it was already expanded
     const initialInputs: Record<number, string> = {};
     step.parameterValues.forEach(pv => initialInputs[pv.parameterId] = getInitialInputValueForParameter(pv.plannedValue, pv.parameter.type));
     setActualValuesInput(initialInputs);
     setIsCompleting(true);
+    if (!isExpanded) { // If the card is collapsed
+      setIsExpanded(true); // Expand it so the form is visible
+    }
   };
 
   const handleCompleteStep = async (e?: React.MouseEvent) => {
@@ -287,7 +290,29 @@ export default function BakeStepCard({ step, bakeId, isActiveBake, isInitiallyEx
     }
   };
 
-  const canStart = isActiveBake && step.status === 'PENDING';
+  // Determine if this specific step is the one that can be started next
+  const isTheDesignatedNextPendingStep = useMemo(() => {
+    if (!currentBake || !isActiveBake || step.status !== 'PENDING') {
+      return false;
+    }
+
+    const sortedSteps = currentBake.steps?.slice().sort((a, b) => a.order - b.order);
+    if (!sortedSteps || sortedSteps.length === 0) {
+      return false;
+    }
+
+    // Check if any step is IN_PROGRESS. If so, no PENDING step can be started.
+    const inProgressStepExists = sortedSteps.some(s => s.status === 'IN_PROGRESS');
+    if (inProgressStepExists) {
+      return false;
+    }
+
+    // If no step is IN_PROGRESS, find the first PENDING step. Only this step can be started.
+    const firstPendingStep = sortedSteps.find(s => s.status === 'PENDING');
+    return firstPendingStep?.id === step.id;
+  }, [currentBake, isActiveBake, step.id, step.status]);
+
+  const canStart = isTheDesignatedNextPendingStep;
   const canComplete = isActiveBake && step.status === 'IN_PROGRESS';
   const canSkip = isActiveBake && (step.status === 'PENDING' || step.status === 'IN_PROGRESS');
 
