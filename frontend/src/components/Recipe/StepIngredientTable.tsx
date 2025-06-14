@@ -93,12 +93,16 @@ export function StepIngredientTable({
               }
 
               return (
-                <div key={ingredientFieldData.id ?? ingredientFieldData.idx} className="flex items-center gap-2 mt-1 self-center">
+                <div
+                  key={ingredientFieldData.id ?? ingredientFieldData.idx}
+                  className="ingredient-row flex flex-col md:flex-row md:items-center gap-2 mt-1 md:self-center w-full"
+                >
                   {/* Register ingredientCategoryId so it's tracked */}
                   <Controller
                     name={`ingredients.${ingredientFieldData.idx}.ingredientCategoryId` as Path<{ templateId: number; fields: Record<number, string | number>; ingredients: RecipeStepIngredient[]; }>}
                     control={control}
                     render={({ field }) => (
+                      // This hidden input doesn't need responsive width adjustments
                       <input type="hidden" {...field} value={rule.ingredientCategory.id} />
                     )}
                   />
@@ -106,42 +110,46 @@ export function StepIngredientTable({
                     name={`ingredients.${ingredientFieldData.idx}.ingredientId` as Path<{ templateId: number; fields: Record<number, string | number>; ingredients: RecipeStepIngredient[]; }>}
                     control={control}
                     render={({ field }) => (
-                      <select
-                        {...field}
-                        value={typeof field.value === "number" ? field.value : 0}
-                        onChange={e => {
-                          const selectedIngredientId = Number(e.target.value);
-                          field.onChange(selectedIngredientId);
+                      <div className="w-full md:min-w-[150px] md:w-auto"> {/* Full width on mobile, auto/min on desktop */}
+                        <select
+                          {...field}
+                          value={typeof field.value === "number" ? field.value : 0}
+                          onChange={e => {
+                            const selectedIngredientId = Number(e.target.value);
+                            field.onChange(selectedIngredientId);
 
-                          if (selectedIngredientId > 0) {
-                            const isSelectedIngredientInInclusionsCategory = rule.ingredientCategory.name === INCLUSIONS_CATEGORY_NAME;
-                            const newMode = isSelectedIngredientInInclusionsCategory
-                              ? IngredientCalculationMode.FIXED_WEIGHT
-                              : IngredientCalculationMode.PERCENTAGE;
+                            if (selectedIngredientId > 0) {
+                              const isSelectedIngredientInInclusionsCategory = rule.ingredientCategory.name === INCLUSIONS_CATEGORY_NAME;
+                              const newMode = isSelectedIngredientInInclusionsCategory
+                                ? IngredientCalculationMode.FIXED_WEIGHT
+                                : IngredientCalculationMode.PERCENTAGE;
 
-                            setValue(`ingredients.${ingredientFieldData.idx}.calculationMode`, newMode);
-                            setValue(`ingredients.${ingredientFieldData.idx}.amount`, 0);
-                          } else {
-                            setValue(`ingredients.${ingredientFieldData.idx}.calculationMode`, IngredientCalculationMode.PERCENTAGE);
-                            setValue(`ingredients.${ingredientFieldData.idx}.amount`, 0);
-                          }
-                        }}                        className="border border-border rounded px-2 py-1 min-w-[120px] bg-surface text-text-primary focus:border-primary-300 focus:ring-1 focus:ring-primary-100"
-                      >
-                        <option value={0}>Select ingredient</option>
-                        {categoryIngredients.length === 0 && (
-                          <option disabled>No ingredients available</option>
-                        )}
-                        {categoryIngredients.map(meta => (
-                          <option key={meta.id} value={meta.id}>{meta.name}</option>
-                        ))}
-                        <option value={-1}>[+ Request new ingredient]</option>
-                      </select>
+                              setValue(`ingredients.${ingredientFieldData.idx}.calculationMode`, newMode);
+                              setValue(`ingredients.${ingredientFieldData.idx}.amount`, 0);
+                            } else {
+                              setValue(`ingredients.${ingredientFieldData.idx}.calculationMode`, IngredientCalculationMode.PERCENTAGE);
+                              setValue(`ingredients.${ingredientFieldData.idx}.amount`, 0);
+                            }
+                          }}
+                          className="w-full border border-border rounded px-2 py-1 bg-surface text-text-primary focus:border-primary-300 focus:ring-1 focus:ring-primary-100"
+                        >
+                          <option value={0}>Select ingredient</option>
+                          {categoryIngredients.length === 0 && (
+                            <option disabled>No ingredients available</option>
+                          )}
+                          {categoryIngredients.map(meta => (
+                            <option key={meta.id} value={meta.id}>{meta.name}</option>
+                          ))}
+                          <option value={-1}>[+ Request new ingredient]</option>
+                        </select>
+                      </div>
                     )}
                   />
                   <Controller
                     name={`ingredients.${ingredientFieldData.idx}.amount` as Path<{ templateId: number; fields: Record<number, string | number>; ingredients: RecipeStepIngredient[]; }>}
                     control={control}
                     render={({ field }) => {
+                      // Wrap input and unit in a flex container for better alignment on mobile when stacked
                       return (
                         <input
                           type="number"
@@ -203,24 +211,27 @@ export function StepIngredientTable({
                                 });
                               }
                             }
-                          }}                          className={`border border-border rounded px-2 py-1 w-24 text-center bg-surface text-text-primary focus:border-primary-300 focus:ring-1 focus:ring-primary-100 transition-colors ${inputDisabled ? 'bg-secondary-50 text-text-tertiary cursor-not-allowed dark:bg-secondary-900' : ''}`}
+                          }}
+                          className={`border border-border rounded px-2 py-1 w-full md:w-24 text-center bg-surface text-text-primary focus:border-primary-300 focus:ring-1 focus:ring-primary-100 transition-colors ${inputDisabled ? 'bg-secondary-50 text-text-tertiary cursor-not-allowed dark:bg-secondary-900' : ''}`}
                           placeholder={currentCalcMode === IngredientCalculationMode.PERCENTAGE ? "Percentage" : "Grams"}
                           disabled={inputDisabled}
                         />
                       );
                     }}
                   />
-                  <span>
+                  <span className="w-full md:w-auto text-left md:text-center"> {/* Unit alignment */}
                     {currentCalcMode === IngredientCalculationMode.PERCENTAGE ? '%' : 'g'}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => remove(ingredientFieldData.idx)}
-                    aria-label="Remove ingredient"
-                    className="btn-danger"
-                  >
-                    🗑️
-                  </button>
+                  <div className="w-full md:w-auto"> {/* Wrapper for button for full width on mobile */}
+                    <button
+                      type="button"
+                      onClick={() => remove(ingredientFieldData.idx)}
+                      aria-label="Remove ingredient"
+                      className="btn-danger w-full md:w-auto" // Full width on mobile
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
               );
             })}

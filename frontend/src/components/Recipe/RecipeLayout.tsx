@@ -5,6 +5,7 @@ import type { DragEndEvent } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import type { RecipeStep } from "../../types/recipe";
 import type { RecipeLayoutProps } from "../../types/recipeLayout";
+import RecipeGlobalControls from "./RecipeGlobalControls"; // Import RecipeGlobalControls
 import StepColumn from "./StepColumn";
 import { TargetEditor } from "./TargetEditor";
 import RecipeControls from "./RecipeControls"; // Import the new component
@@ -54,13 +55,19 @@ export default function RecipeLayout({
       <div>
         <IonGrid>
           <IonRow>
+            <IonCol size="12"> {/* This column will span the full width for the global controls bar */}
+              <RecipeGlobalControls
+                showAdvanced={showAdvanced}
+                onToggleAdvanced={() => setShowAdvanced(!showAdvanced)}
+              />
+            </IonCol>
+          </IonRow>
+          <IonRow>
             <IonCol size="12" sizeMd="6">
               <RecipeControls /> {/* Add the RecipeControls component here */}
               {recipe && (
                 <TargetEditor
                   recipe={recipe}
-                  showAdvanced={showAdvanced}
-                  setShowAdvanced={setShowAdvanced}
                   onChange={onRecipeChange} // Use prop handler
                 />
               )}

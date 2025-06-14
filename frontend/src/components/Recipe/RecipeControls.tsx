@@ -6,6 +6,7 @@ import { useRecipeBuilderStore } from '../../store/recipeBuilderStore';
 import { useBakeStore } from '../../store/useBakeStore'; // Import useBakeStore
 import type { FullRecipe, RecipeFieldValue, RecipeStep, RecipeStepField, RecipeStepIngredient, IngredientCalculationMode } from '../../types/recipe';
 import { apiGet, apiPost, apiPut, apiDelete } from '../../utils/api'; // Import all needed API utils
+import ResponsiveActionBar from './ResponsiveActionBar.tsx'; // Import the new component
 
 // Define RecipeStub based on the Recipe type for the dropdown
 type RecipeStub = {
@@ -519,13 +520,20 @@ export default function RecipeControls() {
 
 
   const canPerformActions = !isLoading && currentRecipe && !isBakeLoading;
-  const canStartBake = currentRecipe && currentRecipe.id !== 0 && !isBakeLoading;
+  const canStartBake = !!(currentRecipe && currentRecipe.id !== 0 && !isBakeLoading);
 
   return (
-    <div className="p-4 border border-border rounded-lg shadow-card bg-surface-elevated mb-6">
-      <h2 className="text-xl font-bold mb-3 text-text-primary">Recipe Controls</h2>
-      {isLoading && <div className="text-accent-500">Loading...</div>}
-      {error && <div className="text-danger-700 p-2 my-2 border border-danger-200 rounded bg-danger-50">{error}</div>}
+    <>
+      <ResponsiveActionBar
+        onSave={handleUpdateOrSave}
+        onStartBake={handleStartBake}
+        isSavingOrLoading={isLoading || isBakeLoading}
+        canStartBake={canStartBake}
+      />
+      <div className="p-4 border border-border rounded-lg shadow-card bg-surface-elevated mt-4 md:mt-6 mb-6"> {/* Added mt-4/md:mt-6 to account for sticky bar */}
+        <h2 className="text-xl font-bold mb-3 text-text-primary">Recipe Management</h2>
+        {isLoading && <div className="text-accent-500">Loading...</div>}
+        {error && <div className="text-danger-700 p-2 my-2 border border-danger-200 rounded bg-danger-50">{error}</div>}
       {isBakeLoading && <div className="text-accent-500">Starting bake...</div>}
       {bakeError && <div className="text-danger-700 p-2 my-2 border border-danger-200 rounded bg-danger-50">Bake Error: {bakeError}</div>}
 
@@ -569,14 +577,8 @@ export default function RecipeControls() {
         </select>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2">
-        <button
-          onClick={handleUpdateOrSave}
-          disabled={!canPerformActions || isBakeLoading}
-          className="btn-primary"
-        >
-          Update / Save
-        </button>
+      <div className="flex flex-col sm:flex-row sm:justify-end gap-2 mt-4">
+        {/* "Update / Save" and "Start Bake" buttons are now in ResponsiveActionBar */}
         <button
           onClick={handleNewFromBase}
           disabled={isLoading || isBakeLoading} // Disable if any operation is in progress
@@ -584,15 +586,6 @@ export default function RecipeControls() {
         >
           New
         </button>
-        {/* START: New Button Added Here */}
-        <button
-          onClick={handleStartBake}
-          disabled={!canStartBake}
-          className="btn-secondary" // Or any other appropriate class
-        >
-          Start Bake
-        </button>
-        {/* END: New Button Added Here */}
         <button
           onClick={handleDelete}
           disabled={!canPerformActions || currentRecipe?.isPredefined || currentRecipe?.id === 0}
@@ -603,6 +596,7 @@ export default function RecipeControls() {
           🗑️
         </button>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

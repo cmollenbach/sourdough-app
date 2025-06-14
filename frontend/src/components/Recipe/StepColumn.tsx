@@ -1,3 +1,4 @@
+import { useState } from "react"; // Moved useState import to 'react'
 import {
   DndContext,
   closestCenter,
@@ -49,6 +50,12 @@ export default function StepColumn({
     })
   );
 
+  // State for managing expanded step for accordion behavior
+  const [expandedStepId, setExpandedStepId] = useState<number | null>(null);
+
+  const handleToggleExpand = (stepId: number) => {
+    setExpandedStepId((prevId: number | null) => (prevId === stepId ? null : stepId));
+  };
   // Create a unique ID string for dnd-kit items
   const getDndId = (stepId: number) => `step-${stepId}`;
 
@@ -76,6 +83,8 @@ export default function StepColumn({
                 onChange={(updated: RecipeStep) => onStepChange(idx, updated)}
                 onDuplicate={onStepDuplicate}
                 onRemove={onStepRemove}
+                isExpanded={expandedStepId === step.id} // Pass expanded state
+                onToggleExpand={() => handleToggleExpand(step.id)} // Pass toggle handler
               />
             ))}
           </div>
@@ -92,24 +101,38 @@ export default function StepColumn({
 }
 
 // Wrapper component to make StepCard sortable
-interface SortableStepCardItemProps extends Omit<StepCardProps, 'dragHandleProps'> {
+interface SortableStepCardItemProps extends Omit<StepCardProps, 'dragHandleProps' | 'isExpanded' | 'onToggleExpand'> {
   dndId: string;
+  step: RecipeStep; // Explicitly list step to satisfy StepCardProps
+  ingredientsMeta: IngredientMeta[]; // Explicitly list to satisfy StepCardProps
+  // Other props like stepTemplates, showAdvanced, onChange, onDuplicate, onRemove are passed
+  isExpanded: boolean; // Add from StepCardProps
+  onToggleExpand: () => void; // Add from StepCardProps
 }
 
 function SortableStepCardItem(props: SortableStepCardItemProps) {
-  const { dndId, ...otherProps } = props; // Destructure dndId and the rest of the props
+  // Destructure dndId and specific props for useSortable or direct pass-through.
+  // The rest of the props (`otherProps`) will be spread onto StepCard.
+  const { dndId, step, ingredientsMeta, isExpanded, onToggleExpand, ...otherStepCardProps } = props;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: dndId }); // Use the destructured dndId
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.7 : 1,
-    zIndex: isDragging ? 100 : 'auto', // Ensure dragged item is on top
+    zIndex: isDragging ? 100 : 'auto',
   };
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} >
-      <StepCard {...otherProps} dragHandleProps={listeners} />
+      <StepCard
+        step={step}
+        ingredientsMeta={ingredientsMeta}
+        dragHandleProps={listeners}
+        isExpanded={isExpanded}
+        onToggleExpand={onToggleExpand}
+        {...otherStepCardProps} // Spread remaining props like onChange, onDuplicate, etc.
+      />
     </div>
   );
 }

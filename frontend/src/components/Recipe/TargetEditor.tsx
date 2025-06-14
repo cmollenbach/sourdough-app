@@ -2,30 +2,18 @@ import type { FullRecipe } from "../../types/recipe";
 
 interface TargetEditorProps {
   recipe: FullRecipe;
-  showAdvanced: boolean; 
-  setShowAdvanced: (show: boolean) => void; 
   onChange: (updated: FullRecipe) => void;
 }
 
 export function TargetEditor({
   recipe,
-  showAdvanced,
-  setShowAdvanced,
   onChange,
 }: TargetEditorProps) {
   return (
     <div className="mb-6 p-4 bg-surface-elevated rounded-xl shadow-card border border-border">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-bold text-lg">Recipe Info</h2>
-        <label className="flex items-center gap-2 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={showAdvanced} 
-            onChange={e => setShowAdvanced(e.target.checked)} 
-            className="accent-blue-600"
-          />
-          Show advanced fields
-        </label>
+        <h2 className="font-bold text-lg">Recipe Targets</h2> 
+        {/* "Show advanced fields" toggle moved to RecipeGlobalControls */}
       </div>
       {/* Core target inputs in one line */}
       <div className="flex flex-col md:flex-row gap-4 mb-3">
