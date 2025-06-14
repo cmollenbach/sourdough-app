@@ -120,6 +120,55 @@ async function main() {
     const milk = await prisma.ingredient.upsert({ where: { name: 'Milk' }, update: { ingredientCategoryId: enrichmentsCategory.id, advanced: true, order: 3, helpText: 'Adds richness, softens crumb, and can enhance browning. Can be used instead of some or all water.' }, create: { name: 'Milk', ingredientCategoryId: enrichmentsCategory.id, advanced: true, order: 3, helpText: 'Adds richness, softens crumb, and can enhance browning. Can be used instead of some or all water.' } });
     const butter = await prisma.ingredient.upsert({ where: { name: 'Butter' }, update: { ingredientCategoryId: enrichmentsCategory.id, advanced: true, order: 4, helpText: 'Adds rich flavor, tenderness, and a soft crumb. Typically added softened.' }, create: { name: 'Butter', ingredientCategoryId: enrichmentsCategory.id, advanced: true, order: 4, helpText: 'Adds rich flavor, tenderness, and a soft crumb. Typically added softened.' } });
     const egg = await prisma.ingredient.upsert({ where: { name: 'Egg' }, update: { ingredientCategoryId: enrichmentsCategory.id, advanced: true, order: 5, helpText: 'Adds richness, color, and structure. Yolks add fat and flavor, whites add structure.' }, create: { name: 'Egg', ingredientCategoryId: enrichmentsCategory.id, advanced: true, order: 5, helpText: 'Adds richness, color, and structure. Yolks add fat and flavor, whites add structure.' } });
+    // --- Seed new inclusions ---
+    console.log('Seeding new inclusion ingredients...');
+    await prisma.ingredient.upsert({
+        where: { name: 'Walnuts' },
+        update: { ingredientCategoryId: inclusionsCategory.id, advanced: true, order: 1, helpText: 'Adds a crunchy texture and earthy flavor. Best added during lamination or late in bulk fermentation.' },
+        create: { name: 'Walnuts', ingredientCategoryId: inclusionsCategory.id, advanced: true, order: 1, helpText: 'Adds a crunchy texture and earthy flavor. Best added during lamination or late in bulk fermentation.' }
+    });
+    await prisma.ingredient.upsert({
+        where: { name: 'Raisins' },
+        update: { ingredientCategoryId: inclusionsCategory.id, advanced: true, order: 2, helpText: 'Adds pockets of sweetness. Soak them in water before adding to prevent them from drawing moisture from the dough.' },
+        create: { name: 'Raisins', ingredientCategoryId: inclusionsCategory.id, advanced: true, order: 2, helpText: 'Adds pockets of sweetness. Soak them in water before adding to prevent them from drawing moisture from the dough.' }
+    });
+    await prisma.ingredient.upsert({
+        where: { name: 'Sesame Seeds' },
+        update: { ingredientCategoryId: inclusionsCategory.id, advanced: true, order: 3, helpText: 'Can be mixed in or used as a crust coating. Toasting them beforehand enhances their nutty flavor.' },
+        create: { name: 'Sesame Seeds', ingredientCategoryId: inclusionsCategory.id, advanced: true, order: 3, helpText: 'Can be mixed in or used as a crust coating. Toasting them beforehand enhances their nutty flavor.' }
+    });
+    // --- Add "Other" ingredient to each category ---
+    console.log('Seeding "Other" ingredients for all categories...');
+    await prisma.ingredient.upsert({
+        where: { name: 'Other Flour (see note)' },
+        update: { ingredientCategoryId: flourCategory.id, order: 99, helpText: 'Select this to use a flour not on the list. Specify the type and amount in the step notes.' },
+        create: { name: 'Other Flour (see note)', ingredientCategoryId: flourCategory.id, order: 99, helpText: 'Select this to use a flour not on the list. Specify the type and amount in the step notes.' }
+    });
+    await prisma.ingredient.upsert({
+        where: { name: 'Other Liquid (see note)' },
+        update: { ingredientCategoryId: liquidCategory.id, order: 99, helpText: 'Select this to use a liquid not on the list. Specify the type and amount in the step notes.' },
+        create: { name: 'Other Liquid (see note)', ingredientCategoryId: liquidCategory.id, order: 99, helpText: 'Select this to use a liquid not on the list. Specify the type and amount in the step notes.' }
+    });
+    await prisma.ingredient.upsert({
+        where: { name: 'Other Salt (see note)' },
+        update: { ingredientCategoryId: saltCategory.id, order: 99, helpText: 'Select this to use a salt not on the list. Specify the type and amount in the step notes.' },
+        create: { name: 'Other Salt (see note)', ingredientCategoryId: saltCategory.id, order: 99, helpText: 'Select this to use a salt not on the list. Specify the type and amount in the step notes.' }
+    });
+    await prisma.ingredient.upsert({
+        where: { name: 'Other Preferment (see note)' },
+        update: { ingredientCategoryId: prefermentCategory.id, order: 99, helpText: 'Select this to use a preferment not on the list. Specify the type and amount in the step notes.' },
+        create: { name: 'Other Preferment (see note)', ingredientCategoryId: prefermentCategory.id, order: 99, helpText: 'Select this to use a preferment not on the list. Specify the type and amount in the step notes.' }
+    });
+    await prisma.ingredient.upsert({
+        where: { name: 'Other Inclusion (see note)' },
+        update: { ingredientCategoryId: inclusionsCategory.id, advanced: true, order: 99, helpText: 'Select this to use an inclusion not on the list. Specify the type and amount in the step notes.' },
+        create: { name: 'Other Inclusion (see note)', ingredientCategoryId: inclusionsCategory.id, advanced: true, order: 99, helpText: 'Select this to use an inclusion not on the list. Specify the type and amount in the step notes.' }
+    });
+    await prisma.ingredient.upsert({
+        where: { name: 'Other Enrichment (see note)' },
+        update: { ingredientCategoryId: enrichmentsCategory.id, advanced: true, order: 99, helpText: 'Select this to use an enrichment not on the list. Specify the type and amount in the step notes.' },
+        create: { name: 'Other Enrichment (see note)', ingredientCategoryId: enrichmentsCategory.id, advanced: true, order: 99, helpText: 'Select this to use an enrichment not on the list. Specify the type and amount in the step notes.' }
+    });
     // --- Step Types (for grouping templates) ---
     console.log('Seeding Step Types...');
     const prefermentsType = await prisma.stepType.upsert({ where: { name: 'Preferments' }, update: { order: 1, description: 'Steps related to creating and managing preferments like levain or sourdough starter.' }, create: { name: 'Preferments', description: 'Steps related to creating and managing preferments like levain or sourdough starter.', order: 1 } });
@@ -304,7 +353,7 @@ async function main() {
         update: {
             stepTypeId: bulkType.id,
             order: 2,
-            advanced: true,
+            advanced: false,
             description: 'A gentle technique to develop gluten strength and equalize dough temperature during bulk fermentation. Performed periodically.',
             role: 'BULK'
         },
@@ -312,7 +361,7 @@ async function main() {
             name: 'Stretch & Fold',
             stepTypeId: bulkType.id,
             order: 2,
-            advanced: true,
+            advanced: false,
             description: 'A gentle technique to develop gluten strength and equalize dough temperature during bulk fermentation. Performed periodically.',
             role: 'BULK',
             parameters: {
