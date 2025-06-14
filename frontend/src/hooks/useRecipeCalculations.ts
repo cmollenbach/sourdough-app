@@ -191,9 +191,25 @@ export function useRecipeCalculations(
               }
               explicitFlourComponents.push({ ingredientId: ing.ingredientId, name: ingMeta.name, weight: parseFloat(weight.toFixed(2)) });
             } else if (ingMeta.ingredientCategoryId === SALT_CATEGORY_ID && ing.calculationMode === IngredientCalculationMode.FIXED_WEIGHT) { // Explicit salt in preferment
-                saltFromIngredients += ing.amount; // Accumulate fixed salt in preferment
+              saltFromIngredients += ing.amount; // Accumulate fixed salt in preferment
             } else { // Other ingredients in preferment
-              otherIngredientsForStep.push({ ingredientId: ing.ingredientId, name: ingMeta.name, amount: ing.amount, calculationMode: ing.calculationMode });
+              let finalAmount = ing.amount;
+              if (ing.calculationMode === IngredientCalculationMode.PERCENTAGE) {
+                // Assumption: Percentage "other" ingredients in a preferment are relative
+                // to that preferment's total flour.
+                if (prefermentParams?.contrib != null) {
+                  const prefermentTargetFlour = recipeTargets.overallTargetFlour * (prefermentParams.contrib / 100);
+                  finalAmount = (ing.amount / 100) * prefermentTargetFlour;
+                } else {
+                  console.warn(`Cannot calculate percentage for other ingredient ${ingMeta.name} in preferment ${step.id} due to missing preferment contribution percentage. Using original amount.`);
+                }
+              }
+              otherIngredientsForStep.push({
+                ingredientId: ing.ingredientId,
+                name: ingMeta.name,
+                amount: parseFloat(finalAmount.toFixed(2)), // Store calculated weight or original if not calculable
+                calculationMode: ing.calculationMode // Keep original mode for context
+              });
             }
           }
 
@@ -286,7 +302,17 @@ export function useRecipeCalculations(
           } else if (ingMeta.ingredientCategoryId === SALT_CATEGORY_ID) {
             stepTotalSalt += weight;
           } else { // Other ingredients
-            otherIngredientsForStep.push({ ingredientId: ing.ingredientId, name: ingMeta.name, amount: ing.amount, calculationMode: ing.calculationMode });
+            let finalAmount = ing.amount;
+            if (ing.calculationMode === IngredientCalculationMode.PERCENTAGE) {
+              // Assumption: Percentage "other" ingredients are relative to total recipe flour.
+              finalAmount = (ing.amount / 100) * recipeTargets.overallTargetFlour;
+            }
+            otherIngredientsForStep.push({
+              ingredientId: ing.ingredientId,
+              name: ingMeta.name,
+              amount: parseFloat(finalAmount.toFixed(2)), // Store calculated weight
+              calculationMode: ing.calculationMode // Keep original mode for context
+            });
           }
         }
       }
@@ -323,7 +349,19 @@ export function useRecipeCalculations(
           if (ingMeta.ingredientCategoryId === flourCategory.id) mixStepExplicitFlourComponents.push({ ingredientId: ing.ingredientId, name: ingMeta.name, weight });
           // Water and Salt for MIX step are primarily derived from overall targets minus other contributions.
           // Explicit fixed-weight water/salt or other liquids/salts in MIX would be "other" ingredients.
-          else { mixStepOtherIngredients.push({ ingredientId: ing.ingredientId, name: ingMeta.name, amount: ing.amount, calculationMode: ing.calculationMode });}
+          else { // Other ingredients in MIX step
+            let finalAmount = ing.amount;
+            if (ing.calculationMode === IngredientCalculationMode.PERCENTAGE) {
+              // Assumption: Percentage "other" ingredients are relative to total recipe flour.
+              finalAmount = (ing.amount / 100) * recipeTargets.overallTargetFlour;
+            }
+            mixStepOtherIngredients.push({
+              ingredientId: ing.ingredientId,
+              name: ingMeta.name,
+              amount: parseFloat(finalAmount.toFixed(2)), // Store calculated weight
+              calculationMode: ing.calculationMode // Keep original mode for context
+            });
+          }
         }
       }
     }
