@@ -4,15 +4,23 @@ import type { BakeStep, BakeStepParameterValue } from '../../types/bake';
 import { useBakeStore } from '../../store/useBakeStore';
 import { useToast } from '../../context/ToastContext'; // Assuming this is the correct path
 import Spinner from '../Shared/Spinner';
+import type { CalculatedStepColumn, FlourComponent, OtherIngredientDisplay } from '../../hooks/useRecipeCalculations'; // Import calculation types
 
 interface BakeStepCardProps {
   step: BakeStep;
   bakeId: number;
   isActiveBake: boolean; // To enable/disable actions based on overall bake status
   isInitiallyExpanded: boolean; // To control initial expansion
+  stepCalculations?: CalculatedStepColumn; // New prop for calculated ingredient weights
 }
 
-export default function BakeStepCard({ step, bakeId, isActiveBake, isInitiallyExpanded }: BakeStepCardProps) {
+export default function BakeStepCard({ 
+  step, 
+  bakeId, 
+  isActiveBake, 
+  isInitiallyExpanded,
+  stepCalculations 
+}: BakeStepCardProps) {
   const [isExpanded, setIsExpanded] = useState(isInitiallyExpanded);
   const [isCompleting, setIsCompleting] = useState(false); // For "Record Actual Values" form
 
@@ -316,42 +324,34 @@ export default function BakeStepCard({ step, bakeId, isActiveBake, isInitiallyEx
   const canComplete = isActiveBake && step.status === 'IN_PROGRESS';
   const canSkip = isActiveBake && (step.status === 'PENDING' || step.status === 'IN_PROGRESS');
 
-  // Helper to render parameter values
-  const renderParameterValue = (paramValue: BakeStepParameterValue) => {
-    const formatValue = (value: unknown, type: string): string => {
-      if (value === null || value === undefined) {
-        return '(not set)';
-      }
-      if (type === 'DATE' && typeof value === 'string') {
-        try {
-          const d = new Date(value);
-          if (!isNaN(d.getTime())) {
-            // Adjust options as needed for your preferred date/time format
-            return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-          }
-        } catch { /* Fall through to JSON.stringify if parsing fails */ }
-      }
-      if (type === 'BOOLEAN') {
-        return value ? 'Yes' : 'No'; // Or True/False
-      }
-      // For other types or if DATE parsing failed, use JSON.stringify
-      try {
-        return JSON.stringify(value);
-      } catch (stringifyError) {
-        console.warn(`Error stringifying ${type} value:`, value, stringifyError);
-        return '(error displaying value)';
-      }
-    };
-
-    let displayValue = '';
-    if (paramValue.actualValue !== null && paramValue.actualValue !== undefined) {
-      displayValue = `Actual: ${formatValue(paramValue.actualValue, paramValue.parameter.type)}`;
-    } else if (paramValue.plannedValue !== null && paramValue.plannedValue !== undefined) {
-      displayValue = `Planned: ${formatValue(paramValue.plannedValue, paramValue.parameter.type)}`;
-    } else {
-      displayValue = `Planned: (not set)`;
+  // Helper to format parameter display values
+  const formatParameterDisplayValue = (value: unknown, type: string): string => {
+    if (value === null || value === undefined) {
+      return '(not set)';
     }
-    return `${paramValue.parameter.name}: ${displayValue}`;
+    if (type === 'DATE' && typeof value === 'string') {
+      try {
+        const d = new Date(value);
+        if (!isNaN(d.getTime())) {
+          // Adjust options as needed for your preferred date/time format
+          return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+      } catch { /* Fall through */ }
+    }
+    if (type === 'BOOLEAN') {
+      return value ? 'Yes' : 'No';
+    }
+    // For other types or if DATE parsing failed
+    try {
+      // For numbers, directly convert to string. For objects/arrays, stringify.
+      if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean') {
+          return String(value);
+      }
+      return JSON.stringify(value);
+    } catch (stringifyError) {
+      console.warn(`Error stringifying ${type} value:`, value, stringifyError);
+      return '(error displaying value)';
+    }
   };
 
   const isLiveStep = step.status === 'IN_PROGRESS';
@@ -436,29 +436,94 @@ export default function BakeStepCard({ step, bakeId, isActiveBake, isInitiallyEx
           {step.recipeStep?.description && <p className="text-sm text-text-secondary">{step.recipeStep.description}</p>}
 
           {/* Ingredients Section */}
-          {step.ingredients && step.ingredients.length > 0 && (
+          {stepCalculations ? (
             <div>
-              <h4 className="font-semibold text-text-secondary mb-1">Ingredients for this step:</h4>
-              <ul className="list-disc list-inside text-sm text-text-secondary pl-4">
-                {step.ingredients.map(ing => (
-                  <li key={ing.id}>
-                    {ing.ingredient.name}: <strong>{ing.plannedPercentage !== null ? `${ing.plannedPercentage}%` : 'N/A'}</strong>
-                    {ing.plannedPreparation && ` (${ing.plannedPreparation})`}
-                  </li>
-                ))}
-              </ul>
+              <h4 className="text-md font-semibold text-text-primary mb-3 mt-3">Ingredients for this step:</h4>
+              <div className="space-y-1.5 text-sm text-text-secondary pl-1"> {/* Reduced space-y, adjusted pl */}
+                {stepCalculations.flourComponents.length > 0 && (
+                  <div>
+                    <p className="font-medium text-text-primary mb-0.5">Flours:</p>
+                    <ul className="pl-3 space-y-0.5"> {/* Indent list items slightly */}
+                      {stepCalculations.flourComponents.map((flour: FlourComponent) => (
+                        <li key={flour.ingredientId} className="flex justify-between items-center">
+                          <span>{flour.name}</span>
+                          <span>{flour.weight.toFixed(0)}g</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {stepCalculations.genericFlourWeight > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-text-primary">Generic Flour:</span>
+                    <span>{stepCalculations.genericFlourWeight.toFixed(1)}g</span>
+                  </div>
+                )}
+                {stepCalculations.waterWeight > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-text-primary">Water:</span>
+                    <span>{stepCalculations.waterWeight.toFixed(1)}g</span>
+                  </div>
+                )}
+                {stepCalculations.saltWeight > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-text-primary">Salt:</span>
+                    <span>{stepCalculations.saltWeight.toFixed(1)}g</span>
+                  </div>
+                )}
+                {stepCalculations.otherIngredients.length > 0 && (
+                  <div>
+                    <p className="font-medium text-text-primary mb-0.5 mt-1">Other Ingredients:</p>
+                    <ul className="pl-3 space-y-0.5"> {/* Indent list items slightly */}
+                      {stepCalculations.otherIngredients.map((otherIng: OtherIngredientDisplay) => (
+                        <li key={otherIng.ingredientId} className="flex justify-between items-center">
+                          <span>{otherIng.name}</span>
+                          <span>{otherIng.amount.toFixed(1)}g</span>
+                          {/* Optional: Display original mode if needed: (Mode: {otherIng.calculationMode}) */}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {/* Total Weight for the Step */}
+                <div className="pt-2 mt-3 border-t border-border-muted flex justify-between items-center">
+                  <span className="font-semibold text-text-primary">
+                    Total weight for this step:
+                  </span>
+                  <span className="font-bold text-text-primary">
+                    {stepCalculations.totalWeight.toFixed(1)}g
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3">
+              <p className="text-sm text-text-tertiary italic">Calculating ingredient weights...</p>
             </div>
           )}
 
+
           {/* Parameters Section */}
           {step.parameterValues && step.parameterValues.length > 0 && (
-            <div>
-              <h4 className="font-semibold text-text-secondary mb-1">Parameters:</h4>
-              <ul className="list-disc list-inside pl-4 text-sm text-text-secondary">
-                {step.parameterValues.map(pv => (
-                  <li key={pv.id}>{renderParameterValue(pv)}</li>
-                ))}
-              </ul>
+            <div className="mt-3">
+              <h4 className="text-md font-semibold text-text-primary mb-2">Parameters:</h4>
+              <div className="space-y-1.5 text-sm text-text-secondary pl-1">
+                {step.parameterValues.map(pv => {
+                  const valueToDisplay = pv.actualValue !== null && pv.actualValue !== undefined 
+                    ? pv.actualValue 
+                    : pv.plannedValue;
+                  const valuePrefix = pv.actualValue !== null && pv.actualValue !== undefined 
+                    ? "Actual: " 
+                    : "Planned: ";
+                  const formattedValueString = formatParameterDisplayValue(valueToDisplay, pv.parameter.type);
+                  return (
+                    <div key={pv.id} className="flex justify-between items-center">
+                      <span className="text-text-primary">{pv.parameter.name}:</span>
+                      <span>{valuePrefix}{formattedValueString}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
