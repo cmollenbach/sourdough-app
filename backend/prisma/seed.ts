@@ -276,8 +276,7 @@ const autolyseTemplate = await prisma.stepTemplate.upsert({
     },
     ingredientRules: {
       create: [
-        { ingredientCategoryId: flourCategory.id, required: true, helpText: 'The main flours for your recipe.' },
-        { ingredientCategoryId: liquidCategory.id, required: true, helpText: 'The primary liquid (usually water) for hydration.' }
+        { ingredientCategoryId: flourCategory.id, required: true, helpText: 'The main flours for your recipe. Liquid will be calculated automatically.' }
       ]
     }
   }
