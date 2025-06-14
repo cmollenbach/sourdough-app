@@ -1,3 +1,4 @@
+// StepCard.tsx
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMemo, useEffect, useRef, useState } from "react"; // Added useState
 import debounce from 'lodash.debounce';
@@ -18,6 +19,8 @@ export interface StepCardProps {
   dragHandleProps?: React.HTMLAttributes<HTMLSpanElement>;
   isExpanded: boolean; // Added for accordion
   onToggleExpand: () => void; // Added for accordion
+  isNewlyAdded?: boolean; // For auto-expand/focus on new step
+  onNewlyAddedStepHandled?: () => void; // Callback after handling newly added step
 }
 
 function getDefaultFields(template: StepTemplate) {
@@ -91,6 +94,8 @@ export default function StepCard({
   dragHandleProps,
   isExpanded,
   onToggleExpand,
+  isNewlyAdded,
+  onNewlyAddedStepHandled,
 }: StepCardProps) {
   const safeIngredientsMeta = useMemo(
     () =>
@@ -115,6 +120,14 @@ export default function StepCard({
   const { watch, control, reset, setValue, getValues, formState } = formMethods;
 
   const selectedTemplateId = Number(watch("templateId"));
+
+  // Ref for the notes textarea (for "focus on Other ingredient" feature)
+  const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const focusNotesField = () => {
+    notesTextareaRef.current?.focus();
+  };
+  const [shouldFocusTemplateSelect, setShouldFocusTemplateSelect] = useState(false); // New state for managing focus
+  const templateSelectRef = useRef<HTMLSelectElement>(null); // Ref for the template select input
   const template = memoizedStepTemplates.find((t) => t.id === selectedTemplateId);
 
   const { fields: ingredientFields, append, remove } = useFieldArray({
@@ -157,6 +170,33 @@ export default function StepCard({
     memoizedStepTemplates,
     safeIngredientsMeta,
   ]); // step.stepTemplateId is covered by 'step'
+
+  // Effect for handling newly added step: auto-expand and flag for focus
+  useEffect(() => {
+    if (isNewlyAdded) {
+      if (!isExpanded) {
+        onToggleExpand(); // Expand if not already expanded
+      }
+      setShouldFocusTemplateSelect(true); // Set flag to attempt focus after expansion
+
+      if (onNewlyAddedStepHandled) {
+        onNewlyAddedStepHandled(); // Notify parent that this has been handled
+      }
+    }
+  }, [isNewlyAdded, isExpanded, onToggleExpand, onNewlyAddedStepHandled]);
+
+  // Effect to focus the template select input when isExpanded changes and the flag is set
+  useEffect(() => {
+    if (isExpanded && shouldFocusTemplateSelect) {
+      // Delay focus slightly to ensure the element is rendered and visible after expansion
+      const timer = setTimeout(() => {
+        templateSelectRef.current?.focus();
+        setShouldFocusTemplateSelect(false); // Reset the flag
+      }, 100); // Increased delay slightly, adjust if needed
+      return () => clearTimeout(timer);
+    }
+  }, [isExpanded, shouldFocusTemplateSelect]);
+
 
 
 const debouncedOnChange = useMemo(() =>
@@ -274,7 +314,11 @@ const debouncedOnChange = useMemo(() =>
                 control={control}
                 render={({ field }) => (
                   <select
-                    {...field}
+                    {...field} // Spread field props first
+                    ref={(e) => { // Then, merge your ref with RHF's ref
+                      field.ref(e); // Call RHF's ref function
+                      templateSelectRef.current = e; // Assign to your ref
+                    }}
                     value={field.value}
                     onChange={e => {
                       const newTemplateId = Number(e.target.value);
@@ -295,12 +339,16 @@ const debouncedOnChange = useMemo(() =>
                         }));
                         setValue("ingredients", newDefaultIngredients, {shouldDirty: true});
                       }
+                      // UX Enhancement: Auto-expand if not already expanded when type changes
+                      if (!isExpanded) {
+                        onToggleExpand();
+                      }
                     }}
                     className="px-3 py-2 text-base border border-border rounded-md min-w-[180px] bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300 transition-colors"
                     aria-label="Select step template"
                   >
                     {memoizedStepTemplates.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
+                  <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
                     <option value="">[+ Request new template]</option>
                   </select>
@@ -423,7 +471,8 @@ const debouncedOnChange = useMemo(() =>
                 control={control}
                 setValue={setValue as UseFormSetValue<StepFormValues>}
                 flourCategoryName={FLOUR_CATEGORY_NAME}
-                recipeStepId={step.id}
+                recipeStepId={step.id} // recipeStepId is used by StepIngredientTable
+                onFocusNotesRequested={focusNotesField} // Pass the actual focus function
               />
             )}
 
@@ -437,7 +486,11 @@ const debouncedOnChange = useMemo(() =>
                 control={control}
                 render={({ field }) => (
                   <textarea
-                    {...field}
+                    {...field} // Spread field props first
+                    ref={(e) => { // Merge refs
+                      field.ref(e); // Call RHF's ref
+                      notesTextareaRef.current = e; // Assign to your notes ref
+                    }}
                     id={`step-${step.id}-notes`}
                     value={field.value || ""}
                     rows={3}

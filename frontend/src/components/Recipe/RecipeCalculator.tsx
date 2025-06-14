@@ -1,7 +1,8 @@
 // RecipeCalculator.tsx
 import React, { useMemo, useCallback } from "react"; // Added useCallback
 import { useRecipeBuilderStore } from "../../store/recipeBuilderStore";
-import { useRecipeCalculations } from "../../hooks/useRecipeCalculations";
+import { useRecipeCalculations, type OtherIngredientDisplay } from "../../hooks/useRecipeCalculations";
+import { IngredientCalculationMode } from "../../types/recipe"; // Import directly from its source
 
 // Helper function to format numbers with a thousands separator
 function formatNumberWithCommas(num: number): string {
@@ -29,9 +30,10 @@ export default function RecipeCalculator() {
     }
     return calculatedValues.columns.filter(
       col =>
-        col.flourComponents.some(fc => fc.weight > 0) ||
-        col.waterWeight > 0 || // Check if waterWeight is greater than 0
-        col.saltWeight > 0    // Check if saltWeight is greater than 0
+        (col.flourComponents.some(fc => fc.weight > 0) || col.genericFlourWeight > 0) || // Has specific or generic flour
+        col.waterWeight > 0 ||
+        col.saltWeight > 0 ||
+        col.otherIngredients.length > 0 // Has other ingredients
     );
   }, [calculatedValues]); // Dependency is calculatedValues itself or calculatedValues.columns
   
@@ -47,10 +49,14 @@ export default function RecipeCalculator() {
 
   const formatWeight = useCallback((weight: number) => {
     if (typeof weight !== 'number' || isNaN(weight)) {
-      return '0'; // Or some other placeholder for invalid input
+      return '-'; // Display '-' for invalid or non-numeric input
     }
+    // If the weight is exactly 0, display '-'
+    if (weight === 0) return '-';
+    
     return formatNumberWithCommas(parseFloat(weight.toFixed(0)));
   }, []); // Empty dependency array as formatNumberWithCommas is stable
+
   
   // --- Refactored Data Transformation for Table Rendering ---
   interface TableRowData {
@@ -63,9 +69,19 @@ export default function RecipeCalculator() {
     totalValue: string | number;
   }
 
+  // Determine all unique "other ingredient" names across all steps to create consistent rows
+  const allOtherIngredientNames = useMemo(() => {
+    if (!calculatedValues?.columns) return [];
+    const names = new Set<string>();
+    calculatedValues.columns.forEach(column => {
+      column.otherIngredients.forEach(ing => names.add(ing.name));
+    });
+    return Array.from(names).sort();
+  }, [calculatedValues?.columns]);
+
   const tableDisplayData = useMemo((): TableRowData[] => {
     // Add guards for all dependencies
-    if (!calculatedValues || !calculatedValues.totals || !columnsWithIngredients || !allFlourTypesInRecipe) {
+    if (!calculatedValues || !calculatedValues.totals || !columnsWithIngredients || !allFlourTypesInRecipe || !allOtherIngredientNames) {
       return [];
     }
 
@@ -87,7 +103,8 @@ export default function RecipeCalculator() {
         isIndented: true,
         stepValues: columnsWithIngredients.map(col => {
           const flourInStep = col.flourComponents.find(fc => fc.ingredientId === flourType.id);
-          return formatWeight(flourInStep ? flourInStep.weight : 0);
+          const weight = flourInStep ? flourInStep.weight : 0;
+          return weight > 0 ? formatWeight(weight) : '-';
         }),
         totalValue: formatWeight(calculatedValues.totals.flourDetails.find(fd => fd.ingredientId === flourType.id)?.totalWeight || 0),
       });
@@ -98,8 +115,28 @@ export default function RecipeCalculator() {
     // Salt Row
     rows.push({ label: "Salt", stepValues: columnsWithIngredients.map(col => formatWeight(col.saltWeight)), totalValue: formatWeight(calculatedValues.totals.salt) });
 
+    // Step Total (F/W/S based) Row
+    rows.push({
+      label: "Step Total", // Changed Label
+      isTotal: true, // Mark as a main total row
+      stepValues: columnsWithIngredients.map(col => formatWeight(col.totalWeight)),
+      totalValue: formatWeight(calculatedValues.totals.grandTotal),
+    });
+
+    // Percentage of Total Dough Row
+    rows.push({
+      label: "% of Total", // Changed Label
+      isTotal: false, // Not a weight total, but a summary row
+      stepValues: columnsWithIngredients.map(col => `${col.percentageOfTotal.toFixed(1)}%`),
+      totalValue: '100%',
+    });
+
+    // --- Other Ingredients Rows (Moved to be after % of Total) ---
+    // This section remains the same logically but is now added after the above totals.
+    // Its rendering position in the final table will also need to reflect this.
+
     return rows;
-  }, [calculatedValues, columnsWithIngredients, allFlourTypesInRecipe, formatWeight]);
+  }, [calculatedValues, columnsWithIngredients, allFlourTypesInRecipe, formatWeight, allOtherIngredientNames]);
   // --- End of Refactored Data Transformation ---
 
   // Conditional rendering moved after all hook calls
@@ -137,27 +174,52 @@ export default function RecipeCalculator() {
             {/* Ingredient Rows */}
             {tableDisplayData.map((row, rowIndex) => (
               <React.Fragment key={`row-${rowIndex}-${row.label}`}>
-                <div className={`sticky left-0 bg-surface-elevated z-10 pr-2 text-left ${row.isSubTotal ? 'font-semibold border-t border-border pt-1' : ''} ${row.isIndented ? 'pl-4' : ''}`}>
+                <div className={`sticky left-0 bg-surface-elevated z-10 pr-2 text-left ${row.isHeader ? 'font-bold col-span-full mt-2' : ''} ${row.isTotal ? 'font-bold border-t-2 border-border pt-2' : (row.isSubTotal ? 'font-semibold border-t border-border pt-1' : '')} ${row.isIndented ? 'pl-4' : ''}`}>
                   {row.label}
                 </div>
                 {row.stepValues.map((value, colIndex) => (
                   <div 
                     key={`row-${rowIndex}-col-${colIndex}`} 
-                    className={`text-center ${row.isSubTotal ? 'font-medium border-t border-border pt-1' : ''}`}
+                    className={`text-center ${row.isTotal ? 'font-bold border-t-2 border-border pt-2' : (row.isSubTotal ? 'font-medium border-t border-border pt-1' : '')}`}
                   >
                     {value}
                   </div>
                 ))}
-                <div className={`text-center font-semibold ${row.isSubTotal ? 'font-bold border-t border-border pt-1' : ''}`}>
+                <div className={`text-center font-semibold ${row.isHeader ? '' : (row.isTotal ? 'font-bold border-t-2 border-border pt-2' : (row.isSubTotal ? 'font-bold border-t border-border pt-1' : ''))}`}>
                   {row.totalValue}
                 </div>
               </React.Fragment>
             ))}
 
-            {/* Total Row */}
-            <div className="font-semibold sticky left-0 bg-surface-elevated z-10 pr-2 text-left">Step Total</div>
-            {columnsWithIngredients.map(col => <div key={`${col.stepId}-total`} className="text-center font-medium">{formatNumberWithCommas(parseFloat(col.totalWeight.toFixed(0)))}</div>)}
-            <div className="text-center font-bold">{formatNumberWithCommas(parseFloat(calculatedValues.totals.grandTotal.toFixed(0)))}</div>
+            {/* Separator before Other Ingredients, if they exist */}
+            {allOtherIngredientNames.length > 0 && (
+                <div className="col-span-full h-px bg-border my-1"></div>
+            )}
+
+            {/* Render "Other Ingredients" after the main F/W/S rows and their totals */}
+            {allOtherIngredientNames.length > 0 && allOtherIngredientNames.map((otherIngName, otherIngIndex) => (
+              <React.Fragment key={`otherIng-row-${otherIngName}-${otherIngIndex}`}>
+                <div className={`sticky left-0 bg-surface-elevated z-10 pr-2 text-left ${otherIngIndex === 0 ? 'pt-1' : ''}`}> 
+                  {/* Added pt-1 to the first "other ingredient" label for spacing after the separator line */}
+                  {otherIngName}
+                </div>
+                {columnsWithIngredients.map(col => {
+                  const otherIng: OtherIngredientDisplay | undefined = col.otherIngredients.find(oi => oi.name === otherIngName);
+                  return (
+                    <div key={`otherIng-cell-${otherIngName}-${col.stepId}`} className="text-center">
+                      {(() => {
+                        if (!otherIng) return '-'; // Ensure otherIng is defined before accessing its properties
+                        const weightInGrams = otherIng.calculationMode === IngredientCalculationMode.FIXED_WEIGHT
+                          ? otherIng.amount
+                          : (otherIng.amount / 100) * (calculatedValues?.totals.totalFlour || 0);
+                        return formatWeight(weightInGrams);
+                      })()}
+                    </div>
+                  );
+                })}
+                <div className="text-center font-semibold">-</div>
+              </React.Fragment>
+            ))}
           </div>
         );
       })()}

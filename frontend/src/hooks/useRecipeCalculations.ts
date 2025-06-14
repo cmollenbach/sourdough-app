@@ -22,6 +22,14 @@ export interface FlourComponent {
   weight: number;
 }
 
+export interface OtherIngredientDisplay {
+  ingredientId: number;
+  name: string;
+  amount: number;
+  calculationMode: IngredientCalculationMode;
+}
+
+
 export interface CalculatedStepColumn {
   stepId: number;
   order: number;
@@ -35,6 +43,7 @@ export interface CalculatedStepColumn {
   saltWeight: number;
   totalWeight: number;
   percentageOfTotal: number; // New field for the percentage
+  otherIngredients: OtherIngredientDisplay[];
 }
 
 export interface CalculatedTableData {
@@ -90,7 +99,7 @@ export function useRecipeCalculations(
   return useMemo((): CalculatedTableData => {
     const emptyData: CalculatedTableData = {
       columns: [],
-      totals: { totalFlour: 0, flourDetails: [], water: 0, salt: 0, grandTotal: 0 },
+      totals: { totalFlour: 0, flourDetails: [], water: 0, salt: 0, grandTotal: 0},
       targetTotalDoughWeight: recipe?.totalWeight ?? 0,
     };
 
@@ -138,6 +147,7 @@ export function useRecipeCalculations(
       // For preferments, genericFlourWeight and waterWeight are based on its params.
       // For others, they are sum of their explicit ingredients.
       contributedFlour: number; // Sum of explicitFlourComponents + genericFlourWeight (for preferments)
+      otherIngredients: OtherIngredientDisplay[]; // Added here
       contributedWater: number;
       contributedSalt: number;
     };
@@ -155,6 +165,7 @@ export function useRecipeCalculations(
       const explicitFlourComponents: FlourComponent[] = [];
       let genericFlourWeight = 0;
       let waterFromParams = 0;
+      const otherIngredientsForStep: OtherIngredientDisplay[] = [];
       let saltFromIngredients = 0; // Salt in preferment from explicit ingredients
       let prefermentParams: { contrib: number | null, hydr: number | null } | undefined;
 
@@ -179,8 +190,10 @@ export function useRecipeCalculations(
                 weight = ing.amount;
               }
               explicitFlourComponents.push({ ingredientId: ing.ingredientId, name: ingMeta.name, weight: parseFloat(weight.toFixed(2)) });
-            } else if (ingMeta.ingredientCategoryId === SALT_CATEGORY_ID && ing.calculationMode === IngredientCalculationMode.FIXED_WEIGHT) {
+            } else if (ingMeta.ingredientCategoryId === SALT_CATEGORY_ID && ing.calculationMode === IngredientCalculationMode.FIXED_WEIGHT) { // Explicit salt in preferment
                 saltFromIngredients += ing.amount; // Accumulate fixed salt in preferment
+            } else { // Other ingredients in preferment
+              otherIngredientsForStep.push({ ingredientId: ing.ingredientId, name: ingMeta.name, amount: ing.amount, calculationMode: ing.calculationMode });
             }
           }
 
@@ -199,6 +212,7 @@ export function useRecipeCalculations(
         step, template, isPreferment: true, isMix: false, prefermentParams,
         explicitFlourComponents, // Specific flours of this preferment
         contributedFlour: parseFloat(contributedFlour.toFixed(2)),
+        otherIngredients: otherIngredientsForStep,
         contributedWater: parseFloat(waterFromParams.toFixed(2)),
         contributedSalt: parseFloat(saltFromIngredients.toFixed(2)),
       });
@@ -212,6 +226,7 @@ export function useRecipeCalculations(
       const explicitFlourComponents: FlourComponent[] = [];
       let stepTotalFlour = 0; // Total flour for this step
       let stepTotalWater = 0; // Total water for this step
+      const otherIngredientsForStep: OtherIngredientDisplay[] = [];
       let stepTotalSalt = 0;  // Total salt for this step (typically 0 for autolyse)
 
       if (template.role === AUTOLYSE_ROLE) {
@@ -234,6 +249,9 @@ export function useRecipeCalculations(
               weight = ing.amount; // Fixed weight for this specific flour component
             }
             explicitFlourComponents.push({ ingredientId: ing.ingredientId, name: ingMeta.name, weight: parseFloat(weight.toFixed(2)) });
+          } else { // Other ingredients in Autolyse (uncommon but possible)
+            // Water for autolyse is primarily from stepTotalWater, not listed as an "other" ingredient here.
+            otherIngredientsForStep.push({ ingredientId: ing.ingredientId, name: ingMeta.name, amount: ing.amount, calculationMode: ing.calculationMode });
           }
           // Note: Water in autolyse is usually just "Water". If specific water types could be defined
           // as ingredients within autolyse, similar logic would apply here for WATER_CATEGORY_ID.
@@ -267,6 +285,8 @@ export function useRecipeCalculations(
             stepTotalWater += weight;
           } else if (ingMeta.ingredientCategoryId === SALT_CATEGORY_ID) {
             stepTotalSalt += weight;
+          } else { // Other ingredients
+            otherIngredientsForStep.push({ ingredientId: ing.ingredientId, name: ingMeta.name, amount: ing.amount, calculationMode: ing.calculationMode });
           }
         }
       }
@@ -274,6 +294,7 @@ export function useRecipeCalculations(
         step, template, isPreferment: false, isMix: template.role === MIX_ROLE,
         explicitFlourComponents, // Specific flours of this step
         contributedFlour: parseFloat(stepTotalFlour.toFixed(2)),
+        otherIngredients: otherIngredientsForStep,
         contributedWater: parseFloat(stepTotalWater.toFixed(2)),
         contributedSalt: parseFloat(stepTotalSalt.toFixed(2)),
       });
@@ -282,6 +303,7 @@ export function useRecipeCalculations(
     // Phase 2, Stage B: Determine MIX step's explicit contributions and then total allocated amounts
     const mixStepData = steps.find(s => stepTemplates.find(t => t.id === s.stepTemplateId)?.role === MIX_ROLE);
     const mixStepExplicitFlourComponents: FlourComponent[] = [];
+    const mixStepOtherIngredients: OtherIngredientDisplay[] = [];
 
     if (mixStepData) {
       const mixTemplate = stepTemplates.find(t => t.id === mixStepData.stepTemplateId);
@@ -299,8 +321,9 @@ export function useRecipeCalculations(
           }
           weight = parseFloat(weight.toFixed(2));
           if (ingMeta.ingredientCategoryId === flourCategory.id) mixStepExplicitFlourComponents.push({ ingredientId: ing.ingredientId, name: ingMeta.name, weight });
-          // else if (ingMeta.ingredientCategoryId === WATER_CATEGORY_ID) mixStepExplicitWater += weight; // mixStepExplicitWater is not used
-          // else if (ingMeta.ingredientCategoryId === SALT_CATEGORY_ID) mixStepExplicitSalt += weight;   // mixStepExplicitSalt is not used
+          // Water and Salt for MIX step are primarily derived from overall targets minus other contributions.
+          // Explicit fixed-weight water/salt or other liquids/salts in MIX would be "other" ingredients.
+          else { mixStepOtherIngredients.push({ ingredientId: ing.ingredientId, name: ingMeta.name, amount: ing.amount, calculationMode: ing.calculationMode });}
         }
       }
     }
@@ -327,6 +350,7 @@ export function useRecipeCalculations(
       // Store explicit flour components from non-MIX steps (preferments already have them)
       // and MIX step's explicit flours for Phase 3 breakdown
       explicitFlourIngredientsForPhase3: FlourComponent[];
+      otherIngredients: OtherIngredientDisplay[];
     };
 
     const finalStepAllocations: AllocatedStep[] = [];
@@ -342,6 +366,7 @@ export function useRecipeCalculations(
           allocatedWater: mixStepAllocatedWater,
           allocatedSalt: mixStepAllocatedSalt,
           explicitFlourIngredientsForPhase3: mixStepExplicitFlourComponents,
+          otherIngredients: mixStepOtherIngredients,
         });
       } else if (nonMixData) {
         finalStepAllocations.push({
@@ -353,6 +378,7 @@ export function useRecipeCalculations(
           allocatedWater: nonMixData.contributedWater,
           allocatedSalt: nonMixData.contributedSalt,
           explicitFlourIngredientsForPhase3: nonMixData.explicitFlourComponents,
+          otherIngredients: nonMixData.otherIngredients,
         });
       }
     });
@@ -417,6 +443,7 @@ export function useRecipeCalculations(
         saltWeight: parseFloat(stepSalt.toFixed(2)),
         totalWeight: parseFloat(stepTotalWeight.toFixed(2)),
         percentageOfTotal: 0, // Initialize, will calculate later
+        otherIngredients: allocatedStep.otherIngredients.map(oi => ({...oi, amount: parseFloat(oi.amount.toFixed(2))})),
         order: allocatedStep.step.order,
       };
     }).sort((a, b) => a.order - b.order);

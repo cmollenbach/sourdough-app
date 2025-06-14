@@ -27,6 +27,7 @@ interface StepIngredientTableProps {
   }>;
   flourCategoryName: string;
   recipeStepId: number;
+  onFocusNotesRequested?: () => void; // New prop to request focus on notes
 }
 
 
@@ -40,6 +41,7 @@ export function StepIngredientTable({
   setValue,
   flourCategoryName,
   recipeStepId,
+  onFocusNotesRequested,
 }: StepIngredientTableProps) {
   const INCLUSIONS_CATEGORY_NAME = "Inclusions";
   const { getValues: getStepCardFormValues } = useFormContext<{ templateId: number; fields: Record<number, string | number>; ingredients: RecipeStepIngredient[]; }>();
@@ -129,6 +131,12 @@ export function StepIngredientTable({
                             } else {
                               setValue(`ingredients.${ingredientFieldData.idx}.calculationMode`, IngredientCalculationMode.PERCENTAGE);
                               setValue(`ingredients.${ingredientFieldData.idx}.amount`, 0);
+                            }
+
+                            // Check if "Other" ingredient was selected and request notes focus
+                            const selectedMeta = ingredientsMeta.find(meta => meta.id === selectedIngredientId);
+                            if (selectedMeta && selectedMeta.name.toLowerCase().includes('other (see note)') && onFocusNotesRequested) {
+                              onFocusNotesRequested();
                             }
                           }}
                           className="w-full border border-border rounded px-2 py-1 bg-surface text-text-primary focus:border-primary-300 focus:ring-1 focus:ring-primary-100"
