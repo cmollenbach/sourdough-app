@@ -97,7 +97,7 @@ export function StepIngredientTable({
               return (
                 <div
                   key={ingredientFieldData.id ?? ingredientFieldData.idx}
-                  className="ingredient-row flex flex-col md:flex-row md:items-center gap-2 mt-1 md:self-center w-full"
+                  className="ingredient-row flex flex-col items-start md:flex-row md:items-center gap-2 sm:gap-4 mt-1 md:self-center w-full"
                 >
                   {/* Register ingredientCategoryId so it's tracked */}
                   <Controller
@@ -157,73 +157,133 @@ export function StepIngredientTable({
                     name={`ingredients.${ingredientFieldData.idx}.amount` as Path<{ templateId: number; fields: Record<number, string | number>; ingredients: RecipeStepIngredient[]; }>}
                     control={control}
                     render={({ field }) => {
-                      // Wrap input and unit in a flex container for better alignment on mobile when stacked
-                      return (
-                        <input
-                          type="number"
-                          value={typeof field.value === "number" || typeof field.value === "string" ? field.value : 0}
-                          onChange={e => {
-                            // Determine raw value, allowing empty string for clearing
-                            let rawValue = Number(e.target.value);
-                            const isClearingInput = e.target.value === "";
-                            if (!isClearingInput && isNaN(rawValue)) rawValue = 0; // Default to 0 if invalid and not clearing
+                      // Helper function to process new amount value (string from input or buttons)
+                      const processNewAmountValue = (newValueString: string): number | string => {
+                        let rawValue = Number(newValueString);
+                        const isClearingInput = newValueString === "";
+                        if (!isClearingInput && isNaN(rawValue)) rawValue = 0; // Default to 0 if invalid and not clearing
 
-                            let valueToSet: number | string = isClearingInput ? "" : rawValue;
+                        let valueToSet: number | string;
 
-                            if (!isClearingInput && isFlourCategoryRule && ingredientFieldData.calculationMode === IngredientCalculationMode.PERCENTAGE) {
-                              // Enforce that the current input, combined with others in the same main flour category, doesn't exceed 100%
-                              const allFormIngredients = getStepCardFormValues("ingredients");
-                              let sumOfOtherFlourPercentagesInMainCategory = 0;
-                              allFormIngredients.forEach((ing, index) => {
-                                if (
-                                  index !== ingredientFieldData.idx && // Exclude current field
-                                  ing.ingredientCategoryId === flourCategoryId && // Must be in THE main flour category
-                                  ing.calculationMode === IngredientCalculationMode.PERCENTAGE
-                                ) {
-                                  sumOfOtherFlourPercentagesInMainCategory += (Number(ing.amount) || 0);
-                                }
-                              });
-
-                              const maxAllowedForCurrentToKeepSum100 = Math.max(0, 100 - sumOfOtherFlourPercentagesInMainCategory);
-                              const individuallyClampedRawValue = Math.min(100, Math.max(0, rawValue)); // Clamp 0-100
-                              valueToSet = Math.min(individuallyClampedRawValue, maxAllowedForCurrentToKeepSum100);
-
-                            } else if (isFlourCategoryRule && ingredientFieldData.calculationMode === IngredientCalculationMode.PERCENTAGE) {
-                              // This case is now covered above. If not clearing, it's a number.
-                            } else if (!isClearingInput) {
-                              // Default clamping for non-flour-percentage numbers
-                              valueToSet = Math.max(0, Math.min(10000, rawValue)); // General clamp for grams etc.
-                            }
-
-                            field.onChange(valueToSet); // Let RHF handle the update
-
-                            // After updating the current field, if it was a flour percentage,
-                            // adjust the 'last' (disabled) flour percentage input in the same category rule.
-                            if (isFlourCategoryRule && ingredientFieldData.calculationMode === IngredientCalculationMode.PERCENTAGE) {
-                              const latestAllIngredientsAfterChange = getStepCardFormValues("ingredients");
-                              const percentageFloursInThisRule = categoryIngredientFields.filter(
-                                f => f.calculationMode === IngredientCalculationMode.PERCENTAGE
-                              );
-
-                              if (percentageFloursInThisRule.length > 1) {
-                                const lastFlourFieldInRule = percentageFloursInThisRule[percentageFloursInThisRule.length - 1];
-                                let sumOfAllExceptLastInRule = 0;
-                                percentageFloursInThisRule.forEach(f => {
-                                  if (f.idx !== lastFlourFieldInRule.idx) { // Sum all *except* the last one
-                                    sumOfAllExceptLastInRule += (Number(latestAllIngredientsAfterChange[f.idx]?.amount) || 0);
-                                  }
-                                });
-                                const amountForLastFlour = Math.max(0, 100 - sumOfAllExceptLastInRule);
-                                setValue(`ingredients.${lastFlourFieldInRule.idx}.amount`, Math.min(100, amountForLastFlour), {
-                                  shouldValidate: true, shouldDirty: true,
-                                });
+                        if (isClearingInput) {
+                          valueToSet = "";
+                        } else {
+                          // Input is not being cleared, so it's a number (or will be treated as 0 if NaN)
+                          if (isFlourCategoryRule && ingredientFieldData.calculationMode === IngredientCalculationMode.PERCENTAGE) {
+                            // Enforce that the current input, combined with others in the same main flour category, doesn't exceed 100%
+                            const allFormIngredients = getStepCardFormValues("ingredients");
+                            let sumOfOtherFlourPercentagesInMainCategory = 0;
+                            allFormIngredients.forEach((ing, index) => {
+                              if (
+                                index !== ingredientFieldData.idx && // Exclude current field
+                                ing.ingredientCategoryId === flourCategoryId && // Must be in THE main flour category
+                                ing.calculationMode === IngredientCalculationMode.PERCENTAGE
+                              ) {
+                                sumOfOtherFlourPercentagesInMainCategory += (Number(ing.amount) || 0);
                               }
-                            }
-                          }}
-                          className={`border border-border rounded px-2 py-1 w-full md:w-24 text-center bg-surface text-text-primary focus:border-primary-300 focus:ring-1 focus:ring-primary-100 transition-colors ${inputDisabled ? 'bg-secondary-50 text-text-tertiary cursor-not-allowed dark:bg-secondary-900' : ''}`}
-                          placeholder={currentCalcMode === IngredientCalculationMode.PERCENTAGE ? "Percentage" : "Grams"}
-                          disabled={inputDisabled}
-                        />
+                            });
+
+                            const maxAllowedForCurrentToKeepSum100 = Math.max(0, 100 - sumOfOtherFlourPercentagesInMainCategory);
+                            const individuallyClampedRawValue = Math.min(100, Math.max(0, rawValue)); // Clamp 0-100
+                            valueToSet = Math.min(individuallyClampedRawValue, maxAllowedForCurrentToKeepSum100);
+                          } else {
+                            // Default clamping for non-flour-percentage numbers or non-percentage flours
+                            valueToSet = Math.max(0, Math.min(10000, rawValue)); // General clamp for grams etc.
+                          }
+                        }
+                        return valueToSet;
+                      };
+
+                      // Helper function to trigger updates for dependent fields (e.g., last flour item)
+                      const triggerDependentUpdates = () => {
+                        if (isFlourCategoryRule && ingredientFieldData.calculationMode === IngredientCalculationMode.PERCENTAGE) {
+                          const latestAllIngredientsAfterChange = getStepCardFormValues("ingredients");
+                          const percentageFloursInThisRule = categoryIngredientFields.filter(
+                            f => f.calculationMode === IngredientCalculationMode.PERCENTAGE
+                          );
+
+                          if (percentageFloursInThisRule.length > 1) {
+                            const lastFlourFieldInRule = percentageFloursInThisRule[percentageFloursInThisRule.length - 1];
+                            let sumOfAllExceptLastInRule = 0;
+                            percentageFloursInThisRule.forEach(f => {
+                              if (f.idx !== lastFlourFieldInRule.idx) { // Sum all *except* the last one
+                                sumOfAllExceptLastInRule += (Number(latestAllIngredientsAfterChange[f.idx]?.amount) || 0);
+                              }
+                            });
+                            const amountForLastFlour = Math.max(0, 100 - sumOfAllExceptLastInRule);
+                            setValue(`ingredients.${lastFlourFieldInRule.idx}.amount`, Math.min(100, amountForLastFlour), {
+                              shouldValidate: true, shouldDirty: true,
+                            });
+                          }
+                        }
+                      };
+
+                      const handleDirectInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+                        const valueToSet = processNewAmountValue(e.target.value);
+                        field.onChange(valueToSet);
+                        triggerDependentUpdates();
+                      };
+
+                      const getStepValue = () => {
+                        const numValue = Number(field.value) || 0;
+                        if (currentCalcMode === IngredientCalculationMode.PERCENTAGE) {
+                          return (numValue < 10 && numValue > 0 && numValue % 1 !== 0) ? 0.1 : 1; // Finer steps for small percentages
+                        }
+                        return 1; // Default step for grams
+                      };
+
+                      const handleIncrement = () => {
+                        const currentValue = Number(field.value) || 0;
+                        const step = getStepValue();
+                        const newValueString = String(currentValue + step);
+                        const valueToSet = processNewAmountValue(newValueString);
+                        field.onChange(valueToSet);
+                        triggerDependentUpdates();
+                      };
+
+                      const handleDecrement = () => {
+                        const currentValue = Number(field.value) || 0;
+                        const step = getStepValue();
+                        const newValueString = String(Math.max(0, currentValue - step));
+                        const valueToSet = processNewAmountValue(newValueString);
+                        field.onChange(valueToSet);
+                        triggerDependentUpdates();
+                      };
+
+                      return (
+                        <div className="flex items-center gap-1 w-full md:w-auto">
+                          <button
+                            type="button"
+                            onClick={handleDecrement}
+                            disabled={inputDisabled || (Number(field.value) || 0) <= 0}
+                            className={`p-2 rounded-md border border-border bg-surface hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${inputDisabled ? 'cursor-not-allowed' : ''}`}
+                            aria-label="Decrease amount"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4" /></svg>
+                          </button>
+                          <input
+                            {...field} // RHF's field props
+                            type="number"
+                            inputMode="numeric" // Enhances mobile keyboard
+                            step={currentCalcMode === IngredientCalculationMode.PERCENTAGE ? "0.1" : "1"} // Semantic step
+                            // Ensure the value is either a number or a string for the input.
+                            // If TypeScript infers field.value as a wider type (object/array) or it's undefined/null, default to an empty string.
+                            value={(typeof field.value === 'number' || typeof field.value === 'string') ? field.value : ""}
+                            onChange={handleDirectInputChange}
+                            className={`border border-border rounded px-2 py-1 w-full md:w-20 text-center bg-surface text-text-primary focus:border-primary-300 focus:ring-1 focus:ring-primary-100 transition-colors ${inputDisabled ? 'bg-secondary-50 text-text-tertiary cursor-not-allowed dark:bg-secondary-900' : ''}`}
+                            placeholder={currentCalcMode === IngredientCalculationMode.PERCENTAGE ? "%" : "g"}
+                            disabled={inputDisabled}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleIncrement}
+                            disabled={inputDisabled || (currentCalcMode === IngredientCalculationMode.PERCENTAGE && (Number(field.value) || 0) >= 100 && isFlourCategoryRule)}
+                            className={`p-2 rounded-md border border-border bg-surface hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${inputDisabled ? 'cursor-not-allowed' : ''}`}
+                            aria-label="Increase amount"
+                          >
+                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                          </button>
+                        </div>
                       );
                     }}
                   />

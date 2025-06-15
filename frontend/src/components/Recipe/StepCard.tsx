@@ -38,7 +38,7 @@ function getDefaultFields(template: StepTemplate) {
 }
 
 // Define StepFormValues outside the component so it's accessible by getFormValuesFromStepData
-type StepFormValues = {
+export type StepFormValues = { // Export this type
   templateId: number;
   fields: Record<number, string | number>;
   notes?: string | null;
@@ -449,23 +449,42 @@ const debouncedOnChange = useMemo(() =>
                 ingredientsMeta={safeIngredientsMeta}
                 ingredientFields={ingredientFields}
                 append={(newIngredientData) => {
-                  let finalIngredientToAdd = { ...newIngredientData };
+                  // This 'append' is RHF's useFieldArray append, aliased for clarity
+                  const rhfAppend = append; 
+                  let finalIngredientToAdd = { ...newIngredientData }; // newIngredientData comes from StepIngredientTable's +Add button (amount 0)
+                  
                   const flourCategoryRule = template.ingredientRules.find(r => r.ingredientCategory.name === FLOUR_CATEGORY_NAME);
+
+                  // Check if the append is for the main flour category defined by FLOUR_CATEGORY_NAME
                   if (flourCategoryRule && newIngredientData.ingredientCategoryId === flourCategoryRule.ingredientCategory.id) {
                     const breadFlourMeta = safeIngredientsMeta.find((m: IngredientMeta) => m.name === BREAD_FLOUR_NAME && m.ingredientCategoryId === flourCategoryRule.ingredientCategory.id);
-                    const currentFormIngredients = getValues("ingredients");
-                    const flourIngredientsInStep = currentFormIngredients.filter(ing => ing.ingredientCategoryId === flourCategoryRule.ingredientCategory.id);
-                    const isBreadFlourPresent = flourIngredientsInStep.some(ing => ing.ingredientId === breadFlourMeta?.id);
-                    if (breadFlourMeta && !isBreadFlourPresent && flourIngredientsInStep.length === 0) {
-                      finalIngredientToAdd = {
-                        ...newIngredientData,
-                        ingredientId: breadFlourMeta.id,
-                        amount: 100,
-                        calculationMode: IngredientCalculationMode.PERCENTAGE,
-                      };
+                    const currentFormIngredients = getValues("ingredients"); // All ingredients in the step form
+
+                    // Filter for flours that are ALREADY in the form for THIS SPECIFIC RULE
+                    const existingFloursInThisRule = currentFormIngredients.filter(
+                      ing => ing.ingredientCategoryId === flourCategoryRule.ingredientCategory.id
+                    );
+
+                    // If this rule currently has NO flours, then the one being added is the first.
+                    if (existingFloursInThisRule.length === 0) {
+                      if (breadFlourMeta && (newIngredientData.ingredientId === 0 || newIngredientData.ingredientId === breadFlourMeta.id)) {
+                        // If Bread Flour meta exists and the user is adding a generic flour or specifically Bread Flour as the first
+                        finalIngredientToAdd = {
+                          ...newIngredientData, // keeps categoryId, recipeStepId
+                          ingredientId: breadFlourMeta.id, // Override/set ingredientId to Bread Flour
+                          amount: 100, // Set to 100
+                          calculationMode: IngredientCalculationMode.PERCENTAGE, // Ensure mode
+                        };
+                      } else {
+                        // No specific "Bread Flour" preference, or a different flour is explicitly chosen first.
+                        // Still, it's the first in the rule, so set its amount to 100%.
+                        finalIngredientToAdd = { ...newIngredientData, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE };
+                      }
                     }
+                    // If there are already flours in this rule, finalIngredientToAdd remains as is (e.g., amount 0),
+                    // and the auto-balancing will adjust the existing "first" (now disabled) flour.
                   }
-                  append(finalIngredientToAdd);
+                  rhfAppend(finalIngredientToAdd); // Call the actual RHF append function
                 }}
                 remove={(idx) => remove(idx)}
                 control={control}
