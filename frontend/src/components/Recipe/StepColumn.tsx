@@ -30,6 +30,8 @@ interface StepColumnProps {
   onStepRemove: (stepId: number) => void;
   onDragEnd: (event: DragEndEvent) => void; // Changed from onReorder to match dnd-kit
   onStepAdd: () => void; // New prop for adding a step
+  newlyAddedStepId?: number | null; // To identify the newly added step
+  onNewlyAddedStepHandled?: () => void; // Callback after the new step has been handled (e.g., expanded/focused)
 }
 
 export default function StepColumn({
@@ -41,7 +43,9 @@ export default function StepColumn({
   onStepDuplicate,
   onStepRemove,
   onDragEnd,
-  onStepAdd, // Destructure the new prop
+  onStepAdd,
+  newlyAddedStepId,
+  onNewlyAddedStepHandled,
 }: StepColumnProps) {
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -56,6 +60,11 @@ export default function StepColumn({
   const handleToggleExpand = (stepId: number) => {
     setExpandedStepId((prevId: number | null) => (prevId === stepId ? null : stepId));
   };
+
+  const handleEnsureExpanded = (stepId: number) => {
+    setExpandedStepId(stepId); // Directly set, don't toggle
+  };
+
   // Create a unique ID string for dnd-kit items
   const getDndId = (stepId: number) => `step-${stepId}`;
 
@@ -85,13 +94,21 @@ export default function StepColumn({
                 onRemove={onStepRemove}
                 isExpanded={expandedStepId === step.id} // Pass expanded state
                 onToggleExpand={() => handleToggleExpand(step.id)} // Pass toggle handler
+                onEnsureExpanded={() => handleEnsureExpanded(step.id)} // Pass new handler for ensuring expansion
+                isNewlyAdded={newlyAddedStepId === step.id} // Pass isNewlyAdded status
+                onNewlyAddedStepHandled={onNewlyAddedStepHandled} // Pass handler
               />
             ))}
           </div>
         </SortableContext>
       </DndContext>
       <button
-        onClick={onStepAdd}
+        onClick={(e) => {
+          onStepAdd();
+          // Blur the button after clicking to prevent it from re-gaining focus
+          // and interfering with the programmatic focus on the new step's select.
+          (e.target as HTMLElement).blur();
+        }}
         className="btn-primary"
       >
         + Add Step
@@ -101,19 +118,20 @@ export default function StepColumn({
 }
 
 // Wrapper component to make StepCard sortable
-interface SortableStepCardItemProps extends Omit<StepCardProps, 'dragHandleProps' | 'isExpanded' | 'onToggleExpand'> {
+interface SortableStepCardItemProps extends Omit<StepCardProps, 'dragHandleProps' | 'isExpanded' | 'onToggleExpand' | 'onEnsureExpanded'> {
   dndId: string;
   step: RecipeStep; // Explicitly list step to satisfy StepCardProps
   ingredientsMeta: IngredientMeta[]; // Explicitly list to satisfy StepCardProps
   // Other props like stepTemplates, showAdvanced, onChange, onDuplicate, onRemove are passed
   isExpanded: boolean; // Add from StepCardProps
   onToggleExpand: () => void; // Add from StepCardProps
+  onEnsureExpanded: () => void; // Add new prop
 }
 
 function SortableStepCardItem(props: SortableStepCardItemProps) {
   // Destructure dndId and specific props for useSortable or direct pass-through.
   // The rest of the props (`otherProps`) will be spread onto StepCard.
-  const { dndId, step, ingredientsMeta, isExpanded, onToggleExpand, ...otherStepCardProps } = props;
+  const { dndId, step, ingredientsMeta, isExpanded, onToggleExpand, onEnsureExpanded, ...otherStepCardProps } = props;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: dndId }); // Use the destructured dndId
 
   const style: React.CSSProperties = {
@@ -131,6 +149,7 @@ function SortableStepCardItem(props: SortableStepCardItemProps) {
         dragHandleProps={listeners}
         isExpanded={isExpanded}
         onToggleExpand={onToggleExpand}
+        onEnsureExpanded={onEnsureExpanded}
         {...otherStepCardProps} // Spread remaining props like onChange, onDuplicate, etc.
       />
     </div>

@@ -1,6 +1,6 @@
 // StepCard.tsx
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useMemo, useEffect, useRef, useState } from "react"; // Added useState
+import { useMemo, useEffect, useRef, useState } from "react";
 import debounce from 'lodash.debounce';
 import { useForm, Controller, useFieldArray, type UseFormSetValue, FormProvider } from "react-hook-form";
 import type { RecipeStep, RecipeStepIngredient, RecipeStepField } from "../../types/recipe";
@@ -17,10 +17,11 @@ export interface StepCardProps {
   onDuplicate: (step: RecipeStep) => void;
   onRemove: (stepId: number) => void;
   dragHandleProps?: React.HTMLAttributes<HTMLSpanElement>;
-  isExpanded: boolean; // Added for accordion
-  onToggleExpand: () => void; // Added for accordion
-  isNewlyAdded?: boolean; // For auto-expand/focus on new step
-  onNewlyAddedStepHandled?: () => void; // Callback after handling newly added step
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onEnsureExpanded?: () => void; // New optional prop for ensuring expansion
+  isNewlyAdded?: boolean;
+  onNewlyAddedStepHandled?: () => void;
 }
 
 function getDefaultFields(template: StepTemplate) {
@@ -37,20 +38,19 @@ function getDefaultFields(template: StepTemplate) {
   return fields;
 }
 
-// Define StepFormValues outside the component so it's accessible by getFormValuesFromStepData
-export type StepFormValues = { // Export this type
+export type StepFormValues = {
   templateId: number;
   fields: Record<number, string | number>;
   notes?: string | null;
   description?: string | null;
   ingredients: RecipeStepIngredient[];
 };
-// Helper function to generate form values from step data
+
 function getFormValuesFromStepData(
   stepData: RecipeStep,
   allTemplates: StepTemplate[],
-  allIngredientsMeta: IngredientMeta[] // Expects the already "safe" array from useMemo
-): StepFormValues { // StepFormValues is defined below
+  allIngredientsMeta: IngredientMeta[]
+): StepFormValues {
   const template = allTemplates.find((t) => t.id === stepData.stepTemplateId);
   const defaultStepFields = template ? getDefaultFields(template) : {};
   
@@ -96,9 +96,10 @@ export default function StepCard({
   onToggleExpand,
   isNewlyAdded,
   onNewlyAddedStepHandled,
+  onEnsureExpanded,
 }: StepCardProps) {
   const safeIngredientsMeta = useMemo(
-    () =>
+    (): IngredientMeta[] =>
       Array.isArray(ingredientsMeta)
         ? ingredientsMeta
         : Array.isArray((ingredientsMeta as any)?.ingredients)
@@ -111,26 +112,30 @@ export default function StepCard({
     [stepTemplates]
   );
 
+  // Capture the initial step prop to stabilize defaultValues for useForm
+  // This helps prevent formMethods from changing reference unnecessarily
+  const [initialStepForForm] = useState(step);
+
   const formMethods = useForm<StepFormValues>({
-    mode: "onChange", // Important for formState.isDirty to update on changes
+    mode: "onChange",
     defaultValues: useMemo(() => {
-      return getFormValuesFromStepData(step, memoizedStepTemplates, safeIngredientsMeta);
-    }, [step, memoizedStepTemplates, safeIngredientsMeta]), // Added step, step.xyz are covered by step
+      return getFormValuesFromStepData(initialStepForForm, memoizedStepTemplates, safeIngredientsMeta);
+    }, [initialStepForForm, memoizedStepTemplates, safeIngredientsMeta]) // Depends on initialStepForForm
   });
   const { watch, control, reset, setValue, getValues, formState } = formMethods;
 
   const selectedTemplateId = Number(watch("templateId"));
 
-  // Ref for the notes textarea (for "focus on Other ingredient" feature)
   const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
   const focusNotesField = () => {
     notesTextareaRef.current?.focus();
   };
-  const [shouldFocusTemplateSelect, setShouldFocusTemplateSelect] = useState(false); // New state for managing focus
-  const templateSelectRef = useRef<HTMLSelectElement>(null); // Ref for the template select input
+  const templateSelectRef = useRef<HTMLSelectElement>(null);
+  const cardRootRef = useRef<HTMLDivElement>(null); // Ref for the root div of the card
   const template = memoizedStepTemplates.find((t) => t.id === selectedTemplateId);
+  const newlyAddedFocusAttemptedRef = useRef(false); // Ref to track if focus was attempted for this newly added card
 
-  const { fields: ingredientFields, append, remove } = useFieldArray({
+  const { fields: ingredientFields, append, remove: removeIngredient } = useFieldArray({ // Renamed remove to removeIngredient
     control,
     name: "ingredients",
   });
@@ -138,78 +143,113 @@ export default function StepCard({
   const FLOUR_CATEGORY_NAME = "Flour";
   const BREAD_FLOUR_NAME = "Bread Flour";
 
-  // Memoize stringified versions of critical step content from props
-  // This helps in reliably detecting if the incoming prop content has actually changed.
   const stringifiedStepContentFromProps = useMemo(() => JSON.stringify({
     templateId: step.stepTemplateId,
     fields: step.fields,
     notes: step.notes,
     ingredients: step.ingredients,
-    description: step.description,
+    description: step.description
   }), [step.stepTemplateId, step.fields, step.ingredients, step.notes, step.description]);
+
+  // console.log(`%cStepCard (step.id: ${step.id}): Render. isNewlyAdded: ${isNewlyAdded}, isExpanded: ${isExpanded}, newlyAddedFocusAttempted: ${newlyAddedFocusAttemptedRef.current}`, "color: dodgerblue; font-weight: bold;");
 
   const prevStringifiedStepRef = useRef<string | null>(null);
 
-  // Effect to reset the form when the step prop changes significantly from an external source
-  useEffect(() => {
-    // Get the stringified version of the current incoming props
-    const currentPropContent = stringifiedStepContentFromProps;
+  const isMounted = useRef(false); // Ref to track if component has mounted
 
-    // If the current prop content is different from what we last knew (or submitted)
+  useEffect(() => {
+    // Skip this effect on the initial mount because `useForm`'s `defaultValues`
+    // (using `initialStepForForm`) already sets the initial form state.
+    // `prevStringifiedStepRef.current` will be null on first render.
+    if (!isMounted.current) {
+      prevStringifiedStepRef.current = stringifiedStepContentFromProps; // Initialize ref for subsequent renders
+      isMounted.current = true;
+      return;
+    }
+
+    const currentPropContent = stringifiedStepContentFromProps;
     if (prevStringifiedStepRef.current !== currentPropContent) {
-      // This indicates either an initial load or a genuine external change.
+      // console.groupCollapsed(`%cStepCard (step.id: ${step.id}): Prop content changed. Resetting form. isNewlyAdded: ${isNewlyAdded}, isExpanded: ${isExpanded}`, "color: blueviolet; font-weight: bold;");
+      // console.log("Previous stringified content (prevStringifiedStepRef.current):", prevStringifiedStepRef.current);
+      // console.log("Current stringified content (currentPropContent):", currentPropContent);
+      // console.log("Current step prop object:", step);
+      // console.log("Current initialStepForForm object:", initialStepForForm);
+      // console.groupEnd();
       const newFormValues = getFormValuesFromStepData(step, memoizedStepTemplates, safeIngredientsMeta);
-      reset(newFormValues, { keepDirty: false }); // Reset the form to be clean against new props
-      // Update the ref to reflect this newly set state from props.
+      reset(newFormValues, { keepDirty: false });
       prevStringifiedStepRef.current = currentPropContent;
     }
   }, [
-    step, // step is used in getFormValuesFromStepData
-    stringifiedStepContentFromProps, // The primary trigger for content-based resets.
+    step, // Keep `step` as a dependency to re-evaluate if its reference changes
+    stringifiedStepContentFromProps,
     reset,
     memoizedStepTemplates,
     safeIngredientsMeta,
-  ]); // step.stepTemplateId is covered by 'step'
+    isNewlyAdded, // Added to log its state when this effect runs
+  ]); // isMounted.current is a ref, not needed in deps
 
-  // Effect for handling newly added step: auto-expand and flag for focus
+  // Effect for handling newly added step: auto-expand
   useEffect(() => {
+    // console.log(`%cStepCard (step.id: ${step.id}): isNewlyAdded EFFECT. isNewlyAdded: ${isNewlyAdded}, isExpanded: ${isExpanded}`, "color: green; font-weight: bold;");
     if (isNewlyAdded) {
-      if (!isExpanded) {
-        onToggleExpand(); // Expand if not already expanded
-      }
-      setShouldFocusTemplateSelect(true); // Set flag to attempt focus after expansion
-
-      if (onNewlyAddedStepHandled) {
-        onNewlyAddedStepHandled(); // Notify parent that this has been handled
+      // console.log(`%cStepCard (step.id: ${step.id}): isNewlyAdded is TRUE. Current isExpanded: ${isExpanded}`, "color: green;");
+      if (!isExpanded && onEnsureExpanded) {
+        // console.log(`%cStepCard (step.id: ${step.id}): Calling onEnsureExpanded()`, "color: green;");
+        onEnsureExpanded();
+      } else if (!isExpanded) { 
+        // console.log(`%cStepCard (step.id: ${step.id}): Calling onToggleExpand() as fallback for expansion.`, "color: darkgoldenrod;");
+        onToggleExpand(); 
       }
     }
-  }, [isNewlyAdded, isExpanded, onToggleExpand, onNewlyAddedStepHandled]);
+  }, [isNewlyAdded, isExpanded, onToggleExpand, onEnsureExpanded, step.id]);
 
-  // Effect to focus the template select input when isExpanded changes and the flag is set
+  // Effect to handle focus for newly added and expanded card
   useEffect(() => {
-    if (isExpanded && shouldFocusTemplateSelect) {
-      // Delay focus slightly to ensure the element is rendered and visible after expansion
-      const timer = setTimeout(() => {
-        templateSelectRef.current?.focus();
-        setShouldFocusTemplateSelect(false); // Reset the flag
-      }, 100); // Increased delay slightly, adjust if needed
-      return () => clearTimeout(timer);
+    let parentNotificationTimerId: ReturnType<typeof setTimeout> | undefined;
+    let rAFId: number | undefined;
+
+    // console.log(`%cStepCard (step.id: ${step.id}): FOCUS LOGIC. isNewlyAdded: ${isNewlyAdded}, isExpanded: ${isExpanded}, newlyAddedFocusAttempted: ${newlyAddedFocusAttemptedRef.current}`, "color: orange; font-weight: bold;");
+    if (isNewlyAdded && isExpanded && templateSelectRef.current && !newlyAddedFocusAttemptedRef.current) {
+      // console.log(`%cStepCard (step.id: ${step.id}): Attempting focus on templateSelect.`, "color: orange;");
+      
+      rAFId = requestAnimationFrame(() => {
+        if (templateSelectRef.current) {
+          // console.log(`%cStepCard (step.id: ${step.id}): rAF - Focusing:`, "color: orange;", templateSelectRef.current);
+          templateSelectRef.current.focus();
+          if (document.activeElement !== templateSelectRef.current) {
+            console.warn(`%cStepCard (step.id: ${step.id}): Focus attempt FAILED. Active:`, "color: red;", document.activeElement);
+          } else {
+            console.log(`%cStepCard (step.id: ${step.id}): Focus SUCCEEDED.`, "color: lightgreen; font-weight: bold;");
+            newlyAddedFocusAttemptedRef.current = true; 
+
+            // Call onNewlyAddedStepHandled after focus is successful
+            if (onNewlyAddedStepHandled) {
+              // console.log(`%cStepCard (step.id: ${step.id}): Focus SUCCEEDED - Calling onNewlyAddedStepHandled.`, "color: darkorchid; font-weight: bold;");
+              parentNotificationTimerId = setTimeout(() => {
+                onNewlyAddedStepHandled();
+              }, 50); // Delay to allow browser to process focus
+            }
+          }
+        }
+      });
     }
-  }, [isExpanded, shouldFocusTemplateSelect]);
 
+    // Cleanup function for the setTimeout and requestAnimationFrame
+    return () => {
+      if (rAFId !== undefined) {
+        cancelAnimationFrame(rAFId);
+      }
+      if (parentNotificationTimerId !== undefined) {
+        clearTimeout(parentNotificationTimerId);
+      }
+    };
+  }, [isNewlyAdded, isExpanded, onNewlyAddedStepHandled, step.id]);
 
-
-const debouncedOnChange = useMemo(() =>
+  const debouncedOnChange = useMemo(() =>
     debounce((dataToSubmit: RecipeStep) => {
-      onChange(dataToSubmit); // Propagate the change upwards first
-
-      // After propagating the change, reset the form with this new data.
-      // This makes the form "clean" against this new state and should set formState.isDirty to false.
+      onChange(dataToSubmit);
       const formValuesForReset = getFormValuesFromStepData(dataToSubmit, memoizedStepTemplates, safeIngredientsMeta);
       reset(formValuesForReset, { keepDirty: false });
-
-      // Update prevStringifiedStepRef to reflect the state the form was just reset to.
-      // This helps the prop-sync effect correctly identify external vs. internal updates.
       prevStringifiedStepRef.current = JSON.stringify({
         templateId: dataToSubmit.stepTemplateId,
         fields: dataToSubmit.fields,
@@ -218,20 +258,15 @@ const debouncedOnChange = useMemo(() =>
         description: dataToSubmit.description,
       });
     }, 100),
-    [onChange, reset, safeIngredientsMeta, memoizedStepTemplates] // Added memoizedStepTemplates
+    [onChange, reset, safeIngredientsMeta, memoizedStepTemplates]
   );
-  // Effect to call debouncedOnChange when form is dirty
+
   useEffect(() => {
     if (formState.isDirty) {
       const currentFormData = getValues();
-      
-      // Preserve stable identifiers from the prop `step`
       const stepId = step.id;
       const stepOrder = step.order;
       const stepRecipeId = step.recipeId;
-
-      // Rebuild fields array, preserving existing DB IDs and notes where possible
-      // It uses step.fields from props to get original DB IDs/notes.
       const newFieldsArray: RecipeStepField[] = [];
       const originalFieldsMap = new Map(step.fields.map(f => [f.fieldId, f]));
       if (currentFormData.fields) {
@@ -249,7 +284,6 @@ const debouncedOnChange = useMemo(() =>
         }
       }
       const updatedStepData: RecipeStep = {
-        // Use stable identifiers and form data
         id: stepId,
         order: stepOrder,
         recipeId: stepRecipeId,
@@ -268,14 +302,13 @@ const debouncedOnChange = useMemo(() =>
     formState.isDirty, 
     getValues, 
     debouncedOnChange, 
-    step, // step covers id, order, recipeId, and fields
+    step,
   ]);
 
   const visibleFields = (template?.fields || []).filter(
     (f) => showAdvanced || !f.advanced
   );
 
-  // State to manage the visibility of help popovers for each field
   const [visibleHelpFieldId, setVisibleHelpFieldId] = useState<number | null>(null);
 
   if (!template) {
@@ -284,9 +317,7 @@ const debouncedOnChange = useMemo(() =>
 
   return (
     <FormProvider {...formMethods}>
-      <div className="bg-surface-elevated rounded-2xl shadow-card mb-6 border border-border max-w-3xl mx-auto"
-      >
-        {/* Header Row */}
+      <div ref={cardRootRef} className="bg-surface-elevated rounded-2xl shadow-card mb-6 border border-border max-w-3xl mx-auto">
         <div
           className="flex flex-wrap items-center gap-3 justify-between p-4 cursor-pointer hover:bg-surface-hover transition-colors"
           onClick={onToggleExpand}
@@ -299,25 +330,30 @@ const debouncedOnChange = useMemo(() =>
         >
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <span {...dragHandleProps}
-                  onClick={(e) => e.stopPropagation()} // Prevent toggle when starting drag
-                  onKeyDown={(e) => { // Prevent toggle if space/enter is for drag
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') e.stopPropagation();
                   }}
-                  className="cursor-grab text-gray-400 hover:text-gray-600 text-2xl p-1 -ml-1" // Added padding for easier grab
+                  className="cursor-grab text-gray-400 hover:text-gray-600 text-2xl p-1 -ml-1"
                   aria-label="Reorder step">
               ☰
             </span>
-            {/* Template Selector - stop propagation to prevent toggle when interacting with select */}
             <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} className="flex-shrink-0">
               <Controller
                 name="templateId"
+                key={`step-template-select-${step.id}`} // Stable key
                 control={control}
                 render={({ field }) => (
                   <select
-                    {...field} // Spread field props first
-                    ref={(e) => { // Then, merge your ref with RHF's ref
-                      field.ref(e); // Call RHF's ref function
-                      templateSelectRef.current = e; // Assign to your ref
+                    {...field}
+                    ref={(e) => {
+                      field.ref(e);
+                      templateSelectRef.current = e;
+                    }}
+                    onBlur={() => { // Removed unused _e parameter
+                      // Log what has focus when the select loses it
+                      // console.log('%cStepCard SELECT ONBLUR - Active Element NOW:', 'color: magenta; font-weight: bold;', document.activeElement);
+                      // console.log('%cStepCard SELECT ONBLUR - Focus moved to (relatedTarget):', 'color: magenta;', e.relatedTarget);
                     }}
                     value={field.value}
                     onChange={e => {
@@ -326,20 +362,9 @@ const debouncedOnChange = useMemo(() =>
                       const newTemplate = memoizedStepTemplates.find(t => t.id === newTemplateId);
                       if (newTemplate) {
                         const defaultNewFields = getDefaultFields(newTemplate);
-                        setValue("fields", defaultNewFields, {shouldDirty: true});
-                        const newDefaultIngredients = newTemplate.ingredientRules.map(ir => ({
-                          id: -(Date.now() + ir.ingredientCategoryId + Math.floor(Math.random() * 1000)),
-                          recipeStepId: step.id,
-                          ingredientId: 0,
-                          amount: 0,
-                          calculationMode: safeIngredientsMeta.find((im: IngredientMeta) => im.ingredientCategoryId === ir.ingredientCategoryId)?.defaultCalculationMode || IngredientCalculationMode.PERCENTAGE,
-                          ingredientCategoryId: ir.ingredientCategoryId,
-                          preparation: null,
-                          notes: null,
-                        }));
-                        setValue("ingredients", newDefaultIngredients, {shouldDirty: true});
+                        setValue("fields", defaultNewFields, { shouldDirty: true });
+                        setValue("ingredients", [], { shouldDirty: true }); // Clear ingredients on template change
                       }
-                      // UX Enhancement: Auto-expand if not already expanded when type changes
                       if (!isExpanded) {
                         onToggleExpand();
                       }
@@ -371,27 +396,23 @@ const debouncedOnChange = useMemo(() =>
             >
               🗑️
             </button>
-            {/* Expansion Indicator */}
             <span className="text-xl select-none" aria-hidden="true">
               {isExpanded ? '▲' : '▼'}
             </span>
           </div>
         </div>
 
-        {/* Collapsible Content */}
         {isExpanded && (
           <form
             id={`step-content-${step.id}`}
-            className="p-4 pt-0 flex flex-col gap-4 border-t border-border-muted" // pt-0 because header has p-4
-            // onSubmit={formMethods.handleSubmit(data => console.log("Form submitted", data))} // RHF handles submission via getValues/onChange
+            className="p-4 pt-0 flex flex-col gap-4 border-t border-border-muted"
           >
-            {/* Fields Grid */}
             <div className="flex flex-col gap-3">
               {visibleFields.map((meta) => {
                 const inputId = `step-${step.id}-field-${meta.fieldId}`;
                 return (
                   <Controller
-                    key={meta.fieldId}
+                    key={meta.fieldId} // Key for the Controller itself
                     name={`fields.${meta.fieldId}` as any}
                     control={control}
                     render={({ field, fieldState }) => (
@@ -442,60 +463,47 @@ const debouncedOnChange = useMemo(() =>
               })}
             </div>
 
-            {/* Ingredients Section */}
             {template.ingredientRules.length > 0 && (
               <StepIngredientTable
                 ingredientRules={template.ingredientRules}
                 ingredientsMeta={safeIngredientsMeta}
                 ingredientFields={ingredientFields}
                 append={(newIngredientData) => {
-                  // This 'append' is RHF's useFieldArray append, aliased for clarity
                   const rhfAppend = append; 
-                  let finalIngredientToAdd = { ...newIngredientData }; // newIngredientData comes from StepIngredientTable's +Add button (amount 0)
-                  
+                  let finalIngredientToAdd = { ...newIngredientData };
                   const flourCategoryRule = template.ingredientRules.find(r => r.ingredientCategory.name === FLOUR_CATEGORY_NAME);
 
-                  // Check if the append is for the main flour category defined by FLOUR_CATEGORY_NAME
                   if (flourCategoryRule && newIngredientData.ingredientCategoryId === flourCategoryRule.ingredientCategory.id) {
-                    const breadFlourMeta = safeIngredientsMeta.find((m: IngredientMeta) => m.name === BREAD_FLOUR_NAME && m.ingredientCategoryId === flourCategoryRule.ingredientCategory.id);
-                    const currentFormIngredients = getValues("ingredients"); // All ingredients in the step form
-
-                    // Filter for flours that are ALREADY in the form for THIS SPECIFIC RULE
+                    const breadFlourMeta = safeIngredientsMeta.find((im: IngredientMeta) => im.name === BREAD_FLOUR_NAME && im.ingredientCategoryId === flourCategoryRule.ingredientCategory.id);
+                    const currentFormIngredients = getValues("ingredients");
                     const existingFloursInThisRule = currentFormIngredients.filter(
                       ing => ing.ingredientCategoryId === flourCategoryRule.ingredientCategory.id
                     );
 
-                    // If this rule currently has NO flours, then the one being added is the first.
                     if (existingFloursInThisRule.length === 0) {
                       if (breadFlourMeta && (newIngredientData.ingredientId === 0 || newIngredientData.ingredientId === breadFlourMeta.id)) {
-                        // If Bread Flour meta exists and the user is adding a generic flour or specifically Bread Flour as the first
                         finalIngredientToAdd = {
-                          ...newIngredientData, // keeps categoryId, recipeStepId
-                          ingredientId: breadFlourMeta.id, // Override/set ingredientId to Bread Flour
-                          amount: 100, // Set to 100
-                          calculationMode: IngredientCalculationMode.PERCENTAGE, // Ensure mode
+                          ...newIngredientData,
+                          ingredientId: breadFlourMeta.id,
+                          amount: 100,
+                          calculationMode: IngredientCalculationMode.PERCENTAGE,
                         };
                       } else {
-                        // No specific "Bread Flour" preference, or a different flour is explicitly chosen first.
-                        // Still, it's the first in the rule, so set its amount to 100%.
                         finalIngredientToAdd = { ...newIngredientData, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE };
                       }
                     }
-                    // If there are already flours in this rule, finalIngredientToAdd remains as is (e.g., amount 0),
-                    // and the auto-balancing will adjust the existing "first" (now disabled) flour.
                   }
-                  rhfAppend(finalIngredientToAdd); // Call the actual RHF append function
+                  rhfAppend(finalIngredientToAdd);
                 }}
-                remove={(idx) => remove(idx)}
+                remove={(idx) => removeIngredient(idx)} // Use renamed removeIngredient
                 control={control}
                 setValue={setValue as UseFormSetValue<StepFormValues>}
                 flourCategoryName={FLOUR_CATEGORY_NAME}
-                recipeStepId={step.id} // recipeStepId is used by StepIngredientTable
-                onFocusNotesRequested={focusNotesField} // Pass the actual focus function
+                recipeStepId={step.id}
+                onFocusNotesRequested={focusNotesField}
               />
             )}
 
-            {/* Step Notes */}
             <div className="flex flex-col gap-1">
               <label htmlFor={`step-${step.id}-notes`} className="block font-medium text-sm">
                 Step Notes
@@ -505,10 +513,10 @@ const debouncedOnChange = useMemo(() =>
                 control={control}
                 render={({ field }) => (
                   <textarea
-                    {...field} // Spread field props first
-                    ref={(e) => { // Merge refs
-                      field.ref(e); // Call RHF's ref
-                      notesTextareaRef.current = e; // Assign to your notes ref
+                    {...field}
+                    ref={(e) => {
+                      field.ref(e);
+                      notesTextareaRef.current = e;
                     }}
                     id={`step-${step.id}-notes`}
                     value={field.value || ""}

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import type { Bake, BakeStep, BakeStepParameterValue } from '../types/bake';
 import api from '../utils/api'; // Your existing Axios instance
+import type { Bake, BakeStep, BakeStepParameterValue } from '../types/bake';
+
 
 interface BakeState {
   activeBakes: Bake[];

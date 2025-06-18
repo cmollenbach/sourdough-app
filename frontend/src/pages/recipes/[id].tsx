@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useHistory } from "react-router-dom";
 import RecipeLayout from "../../components/Recipe/RecipeLayout";
 // import { fetchRecipeList } from "../../utils/api"; // No longer needed here
@@ -56,6 +56,11 @@ export default function RecipeBuilderPage() {
     updateRecipeDetails,
   } = useRecipeBuilderStore();
 
+  // State for tracking the newly added step ID
+  const [newlyAddedStepId, setNewlyAddedStepId] = useState<number | null>(null);
+  const prevRecipeRef = useRef<FullRecipe | null | undefined>(null);
+
+
   const handleStepRemove = useCallback((stepId: number) => {
     removeStep(stepId);
   }, [removeStep]);
@@ -79,24 +84,33 @@ export default function RecipeBuilderPage() {
       // based on the original step's template or data.
       // For now, let's assume we add a new step based on the duplicated step's template.
       const templateForDuplicatedStep = stepTemplates.find(t => t.id === stepToDuplicate.stepTemplateId);
-      addStep({ stepTemplateId: stepToDuplicate.stepTemplateId, notes: stepToDuplicate.notes, description: stepToDuplicate.description }, templateForDuplicatedStep);
+      const newStepId = addStep({ stepTemplateId: stepToDuplicate.stepTemplateId, notes: stepToDuplicate.notes, description: stepToDuplicate.description }, templateForDuplicatedStep);
+      setNewlyAddedStepId(newStepId ?? null); // Use the returned ID, fallback to null
     }
   }, [recipe, addStep, stepTemplates]);
 
   const handleRecipeChange = useCallback((updatedRecipe: FullRecipe) => {
     updateRecipeDetails(updatedRecipe);
   }, [updateRecipeDetails]);
+  
+  const handleNewlyAddedStepHandled = useCallback(() => {
+    // console.log('%cRecipeBuilderPage: handleNewlyAddedStepHandled called. Setting newlyAddedStepId to null.');
+    setNewlyAddedStepId(null);
+  }, []);
 
   const handleStepAdd = useCallback(() => {
     const defaultTemplate = stepTemplates.length > 0 ? stepTemplates[0] : undefined;
+    let newStepId: number | null = null;
+
     if (defaultTemplate) {
-      addStep({ stepTemplateId: defaultTemplate.id }, defaultTemplate);
+      newStepId = addStep({ stepTemplateId: defaultTemplate.id }, defaultTemplate) ?? null;
     } else {
       // If no templates, add a truly blank step (store's addStep should handle this)
-      addStep({ stepTemplateId: 0 }); // Assuming stepTemplateId: 0 means a blank step
+      newStepId = addStep({ stepTemplateId: 0 }) ?? null; // Assuming stepTemplateId: 0 means a blank step
       console.warn("No step templates available to add a new step with a default template.");
     }
-  }, [addStep, stepTemplates]);
+    setNewlyAddedStepId(newStepId);
+  }, [addStep, stepTemplates]); // `recipe` is no longer needed if addStep returns ID
 
   const handleStepsReorder = useCallback((reorderedSteps: RecipeStep[]) => {
     reorderSteps(reorderedSteps);
@@ -111,7 +125,31 @@ export default function RecipeBuilderPage() {
     // });
   }, [fetchAllMetaData]);
 
-  // Effect to load or initialize a recipe based on URL 'id'
+  // Diagnostic log for recipe object stability
+  useEffect(() => {
+    if (prevRecipeRef.current && recipe && prevRecipeRef.current !== recipe) {
+      // console.groupCollapsed('%cRecipeBuilderPage: `recipe` object reference CHANGED.', 'color: red; font-weight: bold;');
+      // console.log('Previous recipe object:', prevRecipeRef.current);
+      // console.log('Current recipe object:', recipe);
+
+      // Check a specific step if newlyAddedStepId was just cleared (meaning it was the one focused)
+      // This requires capturing the ID before it's cleared or having another way to identify the relevant step.
+      // For simplicity, let's log if any step reference changed if their content didn't.
+      recipe.steps.forEach(currentStep => {
+        const prevStep = prevRecipeRef.current?.steps.find(s => s.id === currentStep.id);
+        const prevStepContent = prevStep ? JSON.stringify(prevStep) : 'undefined';
+        const currentStepContent = JSON.stringify(currentStep);
+
+        if (prevStep && prevStep !== currentStep && prevStepContent === currentStepContent) {
+          // console.log(`%cRecipeBuilderPage: Step ID ${currentStep.id} reference CHANGED but content is IDENTICAL.`, 'color: orange; font-weight: bold;');
+        }
+      });
+    }
+    prevRecipeRef.current = recipe;
+  }, [recipe]); // Log whenever the recipe object from the store changes
+
+
+  // Effect to load or initialize a recipe based on URL 'id' 
   useEffect(() => {
     const initializePage = async () => {
       setPageLoading(true);
@@ -190,6 +228,8 @@ export default function RecipeBuilderPage() {
         onStepRemove={handleStepRemove}
         onStepSave={handleStepSave}
         onStepAddHandler={handleStepAdd}
+        newlyAddedStepId={newlyAddedStepId} // Pass state
+        onNewlyAddedStepHandled={handleNewlyAddedStepHandled} // Pass handler
         onStepsReorderHandler={handleStepsReorder}
       />
     </div>

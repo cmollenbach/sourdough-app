@@ -24,6 +24,8 @@ export default function RecipeLayout({
   onStepSave,      // Use the prop
   onStepAddHandler,  // New prop
   onStepsReorderHandler, // New prop
+  newlyAddedStepId, // Add this
+  onNewlyAddedStepHandled, // Add this
 }: RecipeLayoutProps) {
 
   const handleStepChange = useCallback((_idx: number, updatedStep: RecipeStep) => {
@@ -38,7 +40,9 @@ export default function RecipeLayout({
       const oldIndex = steps.findIndex(s => `step-${s.id}` === active.id);
       const newIndex = steps.findIndex(s => `step-${s.id}` === over.id);
 
-      if (oldIndex !== -1 && newIndex !== -1 && recipe) {
+      // The check for `recipe` might be removed if `steps` existing implies a valid context
+      // for reordering, or if `onStepsReorderHandler` doesn't depend on the parent `recipe` object.
+      if (oldIndex !== -1 && newIndex !== -1) {
         const newOrderedSteps = arrayMove(steps, oldIndex, newIndex);
         // Update the 'order' property for each step to reflect the new sequence
         const finalSteps = newOrderedSteps.map((s, index) => ({
@@ -48,7 +52,7 @@ export default function RecipeLayout({
         onStepsReorderHandler(finalSteps); // Use prop handler
       }
     }
-  }, [steps, recipe, onStepsReorderHandler]);
+  }, [steps, onStepsReorderHandler]);
 
   return (
     <div className="flex flex-col page-bg"> {/* Applied .page-bg for themed background */}
@@ -84,6 +88,8 @@ export default function RecipeLayout({
                 onStepDuplicate={onStepDuplicate} // Use prop
                 onStepRemove={onStepRemove}       // Use prop
                 onDragEnd={handleDragEnd} // Changed prop name
+                newlyAddedStepId={newlyAddedStepId} // Pass down
+                onNewlyAddedStepHandled={onNewlyAddedStepHandled} // Pass down
               />
             </IonCol>
           </IonRow>

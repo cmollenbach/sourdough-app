@@ -4,32 +4,35 @@ import type { StepTemplateIngredientRuleMeta, IngredientMeta } from "../../types
 import type { RecipeStepIngredient } from "../../types/recipe";
 // import { enforceFlourPercentage } from "../../utils/flourPercentage"; // We'll inline this logic for clarity
 import { IngredientCalculationMode } from "../../types/recipe";
+import type { StepFormValues } from "./StepCard"; // Import the shared type
+
+// Type for elements in categoryIngredientFields (after mapping idx from RHF's useFieldArray)
+type MappedCategoryIngredientField = FieldArrayWithId<StepFormValues, "ingredients", "id"> & { idx: number };
 
 interface StepIngredientTableProps {
   ingredientRules: StepTemplateIngredientRuleMeta[];
   ingredientsMeta: IngredientMeta[];
-  ingredientFields: FieldArrayWithId<{
-    templateId: number;
-    fields: Record<number, string | number>;
-    ingredients: RecipeStepIngredient[];
-  }, "ingredients", "id">[];
+  ingredientFields: FieldArrayWithId<StepFormValues, "ingredients", "id">[];
   append: (value: RecipeStepIngredient) => void;
   remove: (index: number) => void;
-  control: Control<{
-    templateId: number;
-    fields: Record<number, string | number>;
-    ingredients: RecipeStepIngredient[];
-  }>;
-  setValue: UseFormSetValue<{
-    templateId: number;
-    fields: Record<number, string | number>;
-    ingredients: RecipeStepIngredient[]; // Ensure this matches the form values type
-  }>;
+  control: Control<StepFormValues>;
+  setValue: UseFormSetValue<StepFormValues>;
   flourCategoryName: string;
   recipeStepId: number;
   onFocusNotesRequested?: () => void; // New prop to request focus on notes
 }
 
+// Helper to find the first percentage-based flour in a rule by its original form array index
+const findFirstPercentageFlourInRule = (
+  percentageBasedFloursInRule: MappedCategoryIngredientField[]
+): MappedCategoryIngredientField | undefined => {
+  if (!percentageBasedFloursInRule || percentageBasedFloursInRule.length === 0) {
+    return undefined;
+  }
+  // The `idx` is the original index from the main `ingredientFields` array.
+  // We need the one with the smallest `idx`.
+  return percentageBasedFloursInRule.reduce((first, current) => (current.idx < first.idx ? current : first));
+};
 
 export function StepIngredientTable({
   ingredientRules,
@@ -44,7 +47,7 @@ export function StepIngredientTable({
   onFocusNotesRequested,
 }: StepIngredientTableProps) {
   const INCLUSIONS_CATEGORY_NAME = "Inclusions";
-  const { getValues: getStepCardFormValues } = useFormContext<{ templateId: number; fields: Record<number, string | number>; ingredients: RecipeStepIngredient[]; }>();
+  const { getValues: getStepCardFormValues } = useFormContext<StepFormValues>();
 
   const flourCategoryId =
     ingredientsMeta.find(meta => meta.name === flourCategoryName)?.ingredientCategoryId ?? 0;
@@ -70,7 +73,7 @@ export function StepIngredientTable({
           .filter(
             (field) => (field.ingredientCategoryId as number) === rule.ingredientCategory.id
           );
-        return (
+        return ( // Added type assertion for categoryIngredientFields
           <div key={rule.ingredientCategory.id} className="mb-2 flex flex-col">
             <label className="font-semibold mb-1">
               {rule.ingredientCategory.name}
@@ -78,30 +81,29 @@ export function StepIngredientTable({
             </label>
             {categoryIngredientFields.map((ingredientFieldData) => {
               const currentCalcMode = ingredientFieldData.calculationMode;
-
+              const typedIngredientFieldData = ingredientFieldData as MappedCategoryIngredientField; // Use typed version
               // Determine if this amount input should be disabled
               let inputDisabled = false;
               if (isFlourCategoryRule && currentCalcMode === IngredientCalculationMode.PERCENTAGE) {
+                // Filter for flours in this specific rule that are percentage-based
                 const percentageBasedFloursInRule = categoryIngredientFields.filter(
-                  ingField => ingField.ingredientCategoryId === rule.ingredientCategory.id &&
-                              ingField.calculationMode === IngredientCalculationMode.PERCENTAGE
-                );
-                if (percentageBasedFloursInRule.length > 1) {
-                  const lastPercentageFlourInRule = percentageBasedFloursInRule[percentageBasedFloursInRule.length - 1];
-                  if (lastPercentageFlourInRule.idx === ingredientFieldData.idx) {
+                  ingField => ingField.calculationMode === IngredientCalculationMode.PERCENTAGE
+                ) as MappedCategoryIngredientField[];
+
+                const firstFlourInRule = findFirstPercentageFlourInRule(percentageBasedFloursInRule);
+                if (firstFlourInRule && typedIngredientFieldData.idx === firstFlourInRule.idx) {
                     inputDisabled = true;
                   }
-                }
               }
 
               return (
                 <div
-                  key={ingredientFieldData.id ?? ingredientFieldData.idx}
+                  key={typedIngredientFieldData.id ?? typedIngredientFieldData.idx}
                   className="ingredient-row flex flex-col items-start md:flex-row md:items-center gap-2 sm:gap-4 mt-1 md:self-center w-full"
                 >
                   {/* Register ingredientCategoryId so it's tracked */}
                   <Controller
-                    name={`ingredients.${ingredientFieldData.idx}.ingredientCategoryId` as Path<{ templateId: number; fields: Record<number, string | number>; ingredients: RecipeStepIngredient[]; }>}
+                    name={`ingredients.${typedIngredientFieldData.idx}.ingredientCategoryId` as Path<StepFormValues>}
                     control={control}
                     render={({ field }) => (
                       // This hidden input doesn't need responsive width adjustments
@@ -109,7 +111,7 @@ export function StepIngredientTable({
                     )}
                   />
                   <Controller
-                    name={`ingredients.${ingredientFieldData.idx}.ingredientId` as Path<{ templateId: number; fields: Record<number, string | number>; ingredients: RecipeStepIngredient[]; }>}
+                    name={`ingredients.${typedIngredientFieldData.idx}.ingredientId` as Path<StepFormValues>}
                     control={control}
                     render={({ field }) => (
                       <div className="w-full md:min-w-[150px] md:w-auto"> {/* Full width on mobile, auto/min on desktop */}
@@ -126,11 +128,11 @@ export function StepIngredientTable({
                                 ? IngredientCalculationMode.FIXED_WEIGHT
                                 : IngredientCalculationMode.PERCENTAGE;
 
-                              setValue(`ingredients.${ingredientFieldData.idx}.calculationMode`, newMode);
-                              setValue(`ingredients.${ingredientFieldData.idx}.amount`, 0);
+                              setValue(`ingredients.${typedIngredientFieldData.idx}.calculationMode`, newMode);
+                              setValue(`ingredients.${typedIngredientFieldData.idx}.amount`, 0);
                             } else {
-                              setValue(`ingredients.${ingredientFieldData.idx}.calculationMode`, IngredientCalculationMode.PERCENTAGE);
-                              setValue(`ingredients.${ingredientFieldData.idx}.amount`, 0);
+                              setValue(`ingredients.${typedIngredientFieldData.idx}.calculationMode`, IngredientCalculationMode.PERCENTAGE);
+                              setValue(`ingredients.${typedIngredientFieldData.idx}.amount`, 0);
                             }
 
                             // Check if "Other" ingredient was selected and request notes focus
@@ -154,7 +156,7 @@ export function StepIngredientTable({
                     )}
                   />
                   <Controller
-                    name={`ingredients.${ingredientFieldData.idx}.amount` as Path<{ templateId: number; fields: Record<number, string | number>; ingredients: RecipeStepIngredient[]; }>}
+                    name={`ingredients.${typedIngredientFieldData.idx}.amount` as Path<StepFormValues>}
                     control={control}
                     render={({ field }) => {
                       // Helper function to process new amount value (string from input or buttons)
@@ -169,13 +171,13 @@ export function StepIngredientTable({
                           valueToSet = "";
                         } else {
                           // Input is not being cleared, so it's a number (or will be treated as 0 if NaN)
-                          if (isFlourCategoryRule && ingredientFieldData.calculationMode === IngredientCalculationMode.PERCENTAGE) {
+                          if (isFlourCategoryRule && typedIngredientFieldData.calculationMode === IngredientCalculationMode.PERCENTAGE) {
                             // Enforce that the current input, combined with others in the same main flour category, doesn't exceed 100%
                             const allFormIngredients = getStepCardFormValues("ingredients");
                             let sumOfOtherFlourPercentagesInMainCategory = 0;
                             allFormIngredients.forEach((ing, index) => {
                               if (
-                                index !== ingredientFieldData.idx && // Exclude current field
+                                index !== typedIngredientFieldData.idx && // Exclude current field
                                 ing.ingredientCategoryId === flourCategoryId && // Must be in THE main flour category
                                 ing.calculationMode === IngredientCalculationMode.PERCENTAGE
                               ) {
@@ -195,35 +197,40 @@ export function StepIngredientTable({
                       };
 
                       // Helper function to trigger updates for dependent fields (e.g., last flour item)
-                      const triggerDependentUpdates = () => {
-                        if (isFlourCategoryRule && ingredientFieldData.calculationMode === IngredientCalculationMode.PERCENTAGE) {
-                          const latestAllIngredientsAfterChange = getStepCardFormValues("ingredients");
-                          const percentageFloursInThisRule = categoryIngredientFields.filter(
-                            f => f.calculationMode === IngredientCalculationMode.PERCENTAGE
-                          );
+                      // Now targets the *first* flour item in the rule for auto-balancing.
+                      const triggerDependentUpdates = (currentFieldIndex: number) => {
+                        setTimeout(() => { // Ensure setTimeout is used here
+                          if (isFlourCategoryRule && typedIngredientFieldData.calculationMode === IngredientCalculationMode.PERCENTAGE) {
+                            const latestAllIngredientsAfterChange = getStepCardFormValues("ingredients");
+                            // Get all percentage-based flours within the current rule
+                            const percentageFloursInThisRule = categoryIngredientFields.filter(
+                              f => f.calculationMode === IngredientCalculationMode.PERCENTAGE
+                            ) as MappedCategoryIngredientField[]; // Cast for helper
 
-                          if (percentageFloursInThisRule.length > 1) {
-                            const lastFlourFieldInRule = percentageFloursInThisRule[percentageFloursInThisRule.length - 1];
-                            let sumOfAllExceptLastInRule = 0;
-                            percentageFloursInThisRule.forEach(f => {
-                              if (f.idx !== lastFlourFieldInRule.idx) { // Sum all *except* the last one
-                                sumOfAllExceptLastInRule += (Number(latestAllIngredientsAfterChange[f.idx]?.amount) || 0);
-                              }
-                            });
-                            const amountForLastFlour = Math.max(0, 100 - sumOfAllExceptLastInRule);
-                            setValue(`ingredients.${lastFlourFieldInRule.idx}.amount`, Math.min(100, amountForLastFlour), {
-                              shouldValidate: true, shouldDirty: true,
-                            });
+                            const firstFlourFieldInRule = findFirstPercentageFlourInRule(percentageFloursInThisRule);
+
+                            if (firstFlourFieldInRule && firstFlourFieldInRule.idx !== currentFieldIndex) { // Compare with currentFieldIndex
+                              let sumOfAllExceptFirstInRule = 0;
+                              percentageFloursInThisRule.forEach(f => {
+                                // Sum amounts of all *other* percentage flours in this rule
+                                if (f.idx !== firstFlourFieldInRule.idx) {
+                                  sumOfAllExceptFirstInRule += (Number(latestAllIngredientsAfterChange[f.idx]?.amount) || 0);
+                                }
+                              });
+                              const amountForFirstFlour = Math.max(0, 100 - sumOfAllExceptFirstInRule);
+                              setValue(`ingredients.${firstFlourFieldInRule.idx}.amount`, Math.min(100, amountForFirstFlour), {
+                                shouldValidate: true, shouldDirty: true,
+                              });
+                            }
                           }
-                        }
+                        }, 0);
                       };
 
                       const handleDirectInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                         const valueToSet = processNewAmountValue(e.target.value);
-                        field.onChange(valueToSet);
-                        triggerDependentUpdates();
+                        field.onChange(valueToSet); // Update current field immediately
+                        triggerDependentUpdates(typedIngredientFieldData.idx); 
                       };
-
                       const getStepValue = () => {
                         const numValue = Number(field.value) || 0;
                         if (currentCalcMode === IngredientCalculationMode.PERCENTAGE) {
@@ -231,25 +238,23 @@ export function StepIngredientTable({
                         }
                         return 1; // Default step for grams
                       };
-
                       const handleIncrement = () => {
                         const currentValue = Number(field.value) || 0;
                         const step = getStepValue();
                         const newValueString = String(currentValue + step);
                         const valueToSet = processNewAmountValue(newValueString);
-                        field.onChange(valueToSet);
-                        triggerDependentUpdates();
+                        field.onChange(valueToSet); // Update current field immediately
+                        triggerDependentUpdates(typedIngredientFieldData.idx);
                       };
-
                       const handleDecrement = () => {
                         const currentValue = Number(field.value) || 0;
                         const step = getStepValue();
                         const newValueString = String(Math.max(0, currentValue - step));
                         const valueToSet = processNewAmountValue(newValueString);
-                        field.onChange(valueToSet);
-                        triggerDependentUpdates();
+                        field.onChange(valueToSet); // Update current field immediately
+                        triggerDependentUpdates(typedIngredientFieldData.idx);
                       };
-
+                      
                       return (
                         <div className="flex items-center gap-1 w-full md:w-auto">
                           <button
@@ -293,7 +298,7 @@ export function StepIngredientTable({
                   <div className="w-full md:w-auto"> {/* Wrapper for button for full width on mobile */}
                     <button
                       type="button"
-                      onClick={() => remove(ingredientFieldData.idx)}
+                      onClick={() => remove(typedIngredientFieldData.idx)}
                       aria-label="Remove ingredient"
                       className="btn-danger w-full md:w-auto" // Full width on mobile
                     >

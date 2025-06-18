@@ -1,5 +1,5 @@
 // c:\Sourdough-app\sourdough-app\frontend\src\components\Recipe\ResponsiveActionBar.tsx
-import React from 'react';
+import * as React from 'react';
 
 interface ResponsiveActionBarProps {
   onSave: () => void;

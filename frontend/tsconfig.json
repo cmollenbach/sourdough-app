@@ -1,10 +1,30 @@
 {
   "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
     "baseUrl": "./src",
     "moduleResolution": "node",
-    "jsx": "react-jsx"
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    // You can add path aliases here if you like
+    // "paths": {
+    //   "@components/*": ["components/*"],
+    //   "@utils/*": ["utils/*"],
+    //   "@hooks/*": ["hooks/*"],
+    //   "@pages/*": ["pages/*"],
+    //   "@store/*": ["store/*"],
+    //   "@types/*": ["types/*"]
+    // }
   },
-  "include": [
-    "src"
-  ]
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }] // If you have a tsconfig.node.json for Vite config
 }

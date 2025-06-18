@@ -36,6 +36,8 @@ export interface RecipeLayoutProps {
   onStepSave: (step: RecipeStep, isNew: boolean) => void;
   onStepAddHandler: () => void; // For adding a new step to the recipe
   onStepsReorderHandler: (reorderedSteps: RecipeStep[]) => void; // For reordering steps
+  newlyAddedStepId?: number | null;
+  onNewlyAddedStepHandled?: () => void;
 }
 
 export interface RecipeStepEditorProps {

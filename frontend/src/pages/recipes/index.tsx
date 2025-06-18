@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import * as React from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchRecipeList } from '../../utils/api'; // We'll ensure this exists
 import type { RecipeStub } from '../../types/recipe'; // We'll ensure this type exists
