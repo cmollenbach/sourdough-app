@@ -5,7 +5,7 @@ import debounce from 'lodash.debounce';
 import { useForm, Controller, useFieldArray, type UseFormSetValue, FormProvider } from "react-hook-form";
 import type { RecipeStep, RecipeStepIngredient, RecipeStepField } from "../../types/recipe";
 import { IngredientCalculationMode } from "../../types/recipe";
-import type { StepTemplate, IngredientMeta } from "../../types/recipeLayout";
+import type { StepTemplate, IngredientMeta, IngredientCategoryMeta } from "../../types/recipeLayout";
 import { StepIngredientTable } from "./StepIngredientTable";
 
 export interface StepCardProps {
@@ -13,6 +13,7 @@ export interface StepCardProps {
   stepTemplates: StepTemplate[];
   ingredientsMeta: IngredientMeta[] | undefined;
   showAdvanced: boolean;
+  ingredientCategoriesMeta: IngredientCategoryMeta[]; // Added
   onChange: (updated: RecipeStep) => void;
   onDuplicate: (step: RecipeStep) => void;
   onRemove: (stepId: number) => void;
@@ -87,6 +88,7 @@ export default function StepCard({
   step,
   stepTemplates,
   ingredientsMeta,
+  ingredientCategoriesMeta, // Added
   showAdvanced,
   onChange,
   onDuplicate,
@@ -248,17 +250,13 @@ export default function StepCard({
   const debouncedOnChange = useMemo(() =>
     debounce((dataToSubmit: RecipeStep) => {
       onChange(dataToSubmit);
-      const formValuesForReset = getFormValuesFromStepData(dataToSubmit, memoizedStepTemplates, safeIngredientsMeta);
-      reset(formValuesForReset, { keepDirty: false });
-      prevStringifiedStepRef.current = JSON.stringify({
-        templateId: dataToSubmit.stepTemplateId,
-        fields: dataToSubmit.fields,
-        ingredients: dataToSubmit.ingredients,
-        notes: dataToSubmit.notes,
-        description: dataToSubmit.description,
-      });
+      // The form will be reset by the useEffect watching the `step` prop if it changes as a result of `onChange`.
+      // Removing the immediate reset here to prevent focus loss during typing.
+      // The `isDirty` state will persist until the `step` prop change triggers the other reset,
+      // or until the user explicitly saves/navigates away (if you implement such logic).
+      // prevStringifiedStepRef.current is updated by the other useEffect that handles prop changes.
     }, 100),
-    [onChange, reset, safeIngredientsMeta, memoizedStepTemplates]
+    [onChange] 
   );
 
   useEffect(() => {
@@ -467,6 +465,7 @@ export default function StepCard({
               <StepIngredientTable
                 ingredientRules={template.ingredientRules}
                 ingredientsMeta={safeIngredientsMeta}
+                ingredientCategoriesMeta={ingredientCategoriesMeta} // Pass down
                 ingredientFields={ingredientFields}
                 append={(newIngredientData) => {
                   const rhfAppend = append; 

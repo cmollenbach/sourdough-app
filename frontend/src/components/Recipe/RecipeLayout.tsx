@@ -15,6 +15,7 @@ export default function RecipeLayout({
   recipe,
   steps, // Use the steps prop
   ingredientsMeta,
+  ingredientCategoriesMeta, // Added
   stepTemplates,
   showAdvanced,
   setShowAdvanced,
@@ -82,6 +83,7 @@ export default function RecipeLayout({
                 steps={steps}
                 stepTemplates={stepTemplates}
                 ingredientsMeta={ingredientsMeta}
+                ingredientCategoriesMeta={ingredientCategoriesMeta} // Pass down
                 showAdvanced={showAdvanced}
                 onStepChange={handleStepChange}
                 onStepAdd={onStepAddHandler} // Pass the new prop handler here

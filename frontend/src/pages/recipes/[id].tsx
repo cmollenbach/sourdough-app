@@ -40,6 +40,7 @@ export default function RecipeBuilderPage() {
     recipe,
     stepTemplates,
     ingredientsMeta,
+    ingredientCategoriesMeta, // Get from store
     fieldsMeta, // Get fieldsMeta from store
     showAdvanced,
     loading: storeLoading, // Loading state from the store (for recipe/metadata fetching)
@@ -219,6 +220,7 @@ export default function RecipeBuilderPage() {
         recipe={recipe}
         fieldsMeta={fieldsMeta} // Pass fieldsMeta from the store
         steps={recipe.steps}
+        ingredientCategoriesMeta={ingredientCategoriesMeta} // Pass down
         ingredientsMeta={ingredientsMeta}
         stepTemplates={stepTemplates}
         showAdvanced={showAdvanced}

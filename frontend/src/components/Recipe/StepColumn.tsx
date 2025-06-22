@@ -17,12 +17,13 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import StepCard from "./StepCard";
 import type { RecipeStep } from "../../types/recipe";
-import type { StepTemplate, IngredientMeta } from "../../types/recipeLayout";
+import type { StepTemplate, IngredientMeta, IngredientCategoryMeta } from "../../types/recipeLayout";
 import type { StepCardProps } from "./StepCard";
 
 interface StepColumnProps {
   steps: RecipeStep[];
   stepTemplates: StepTemplate[];
+  ingredientCategoriesMeta: IngredientCategoryMeta[]; // Added
   ingredientsMeta: IngredientMeta[];
   showAdvanced: boolean;
   onStepChange: (idx: number, updated: RecipeStep) => void;
@@ -37,6 +38,7 @@ interface StepColumnProps {
 export default function StepColumn({
   steps,
   stepTemplates,
+  ingredientCategoriesMeta, // Added
   ingredientsMeta,
   showAdvanced,
   onStepChange,
@@ -88,6 +90,7 @@ export default function StepColumn({
                 step={step}
                 stepTemplates={stepTemplates}
                 ingredientsMeta={ingredientsMeta}
+                ingredientCategoriesMeta={ingredientCategoriesMeta} // Pass down
                 showAdvanced={showAdvanced}
                 onChange={(updated: RecipeStep) => onStepChange(idx, updated)}
                 onDuplicate={onStepDuplicate}
@@ -118,10 +121,9 @@ export default function StepColumn({
 }
 
 // Wrapper component to make StepCard sortable
-interface SortableStepCardItemProps extends Omit<StepCardProps, 'dragHandleProps' | 'isExpanded' | 'onToggleExpand' | 'onEnsureExpanded'> {
+interface SortableStepCardItemProps extends Omit<StepCardProps, 'dragHandleProps' | 'isExpanded' | 'onToggleExpand' | 'onEnsureExpanded' > {
   dndId: string;
-  step: RecipeStep; // Explicitly list step to satisfy StepCardProps
-  ingredientsMeta: IngredientMeta[]; // Explicitly list to satisfy StepCardProps
+  // step, ingredientsMeta, ingredientCategoriesMeta etc. are part of StepCardProps
   // Other props like stepTemplates, showAdvanced, onChange, onDuplicate, onRemove are passed
   isExpanded: boolean; // Add from StepCardProps
   onToggleExpand: () => void; // Add from StepCardProps
@@ -129,9 +131,8 @@ interface SortableStepCardItemProps extends Omit<StepCardProps, 'dragHandleProps
 }
 
 function SortableStepCardItem(props: SortableStepCardItemProps) {
-  // Destructure dndId and specific props for useSortable or direct pass-through.
-  // The rest of the props (`otherProps`) will be spread onto StepCard.
-  const { dndId, step, ingredientsMeta, isExpanded, onToggleExpand, onEnsureExpanded, ...otherStepCardProps } = props;
+  // dndId is for useSortable, rest are for StepCard
+  const { dndId, ...restOfStepCardProps } = props;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: dndId }); // Use the destructured dndId
 
   const style: React.CSSProperties = {
@@ -144,13 +145,8 @@ function SortableStepCardItem(props: SortableStepCardItemProps) {
   return (
     <div ref={setNodeRef} style={style} {...attributes} >
       <StepCard
-        step={step}
-        ingredientsMeta={ingredientsMeta}
         dragHandleProps={listeners}
-        isExpanded={isExpanded}
-        onToggleExpand={onToggleExpand}
-        onEnsureExpanded={onEnsureExpanded}
-        {...otherStepCardProps} // Spread remaining props like onChange, onDuplicate, etc.
+        {...restOfStepCardProps} // Spread all other props including step, ingredientsMeta, ingredientCategoriesMeta etc.
       />
     </div>
   );

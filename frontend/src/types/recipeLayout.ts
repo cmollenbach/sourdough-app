@@ -26,6 +26,7 @@ export interface RecipeLayoutProps {
   recipe: FullRecipe;
   steps: RecipeStep[];
   ingredientsMeta: IngredientMeta[];
+  ingredientCategoriesMeta: IngredientCategoryMeta[]; // Added
   fieldsMeta: FieldMeta[];         // <-- Add this line
   stepTemplates: StepTemplate[]; // <-- Add this
   showAdvanced: boolean;         // <-- Add this
