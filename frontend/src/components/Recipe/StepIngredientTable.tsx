@@ -1,6 +1,6 @@
-import React from 'react'; // Added React import for JSX
+import React, { useMemo } from 'react'; // Added React import for JSX
 /* Controller and Path were unused after refactoring to StepIngredientRow */
-import type { Control, FieldArrayWithId, UseFormSetValue } from "react-hook-form";
+import type { Control, FieldArrayWithId, UseFormSetValue, UseFieldArrayUpdate } from "react-hook-form";
 import type { StepTemplateIngredientRuleMeta, IngredientMeta } from "../../types/recipeLayout";
 import type { RecipeStepIngredient, IngredientCategory } from "../../types/recipe";
 // import { enforceFlourPercentage } from "../../utils/flourPercentage"; // We'll inline this logic for clarity
@@ -9,96 +9,90 @@ import { IngredientCalculationMode } from "../../types/recipe";
 import type { StepFormValues } from "./StepCard"; // Import the shared type
 
 // Type for elements in categoryIngredientFields (after mapping idx from RHF's useFieldArray)
-type MappedCategoryIngredientField = FieldArrayWithId<StepFormValues, "ingredients", "id"> & { idx: number };
+type MappedCategoryIngredientField = FieldArrayWithId<StepFormValues, "ingredients", "rhfId"> & { idx: number };
 
 interface StepIngredientTableProps {
-  ingredientRules: StepTemplateIngredientRuleMeta[];
-  ingredientsMeta: IngredientMeta[];
-  ingredientCategoriesMeta: IngredientCategory[]; // Added
-  ingredientFields: FieldArrayWithId<StepFormValues, "ingredients", "id">[];
-  append: (value: RecipeStepIngredient) => void;
-  remove: (index: number) => void;
   control: Control<StepFormValues>;
   setValue: UseFormSetValue<StepFormValues>;
+  ingredientsMeta: IngredientMeta[];
+  ingredientCategoriesMeta: IngredientCategory[];
+  onFocusNotesRequested?: () => void;
+  recipeStepId: number; // Add this prop
   flourCategoryName: string;
-  recipeStepId: number;
-  onFocusNotesRequested?: () => void; // New prop to request focus on notes
+  // Add props to receive from useFieldArray in parent
+  ingredientFields: FieldArrayWithId<StepFormValues, "ingredients", "rhfId">[];
+  append: (newIngredientData: Partial<RecipeStepIngredient>) => void;
+  remove: (index: number) => void;
+  update: UseFieldArrayUpdate<StepFormValues, "ingredients">;
+  onIngredientBlur: () => void;
 }
-export function StepIngredientTable({ ingredientRules, ingredientsMeta, ingredientCategoriesMeta, ingredientFields, append, remove, control, setValue, flourCategoryName, recipeStepId, onFocusNotesRequested, }: StepIngredientTableProps) {
-  // const INCLUSIONS_CATEGORY_NAME = "Inclusions"; // This was unused after refactoring logic to StepIngredientRow
-  // const { getValues: getStepCardFormValues } = useFormContext<StepFormValues>(); // Removed as it's not used
 
+export function StepIngredientTable({
+  control,
+  setValue,
+  ingredientsMeta,
+  ingredientCategoriesMeta,
+  onFocusNotesRequested,
+  recipeStepId, // Destructure this prop
+  flourCategoryName,
+  // Destructure the props from useFieldArray
+  ingredientFields,
+  append,
+  remove,
+  update,
+  onIngredientBlur,
+}: StepIngredientTableProps) {
+  const groupedIngredients = useMemo(() => {
+    const categoryMap = new Map<number, { category: IngredientCategory; ingredients: (FieldArrayWithId<StepFormValues, "ingredients", "rhfId"> & { idx: number })[] }>();
+
+    ingredientCategoriesMeta.forEach(cat => {
+      categoryMap.set(cat.id, { category: cat, ingredients: [] });
+    });
+
+    ingredientFields.forEach((field, idx) => {
+      const group = categoryMap.get(field.ingredientCategoryId);
+      if (group) {
+        group.ingredients.push({ ...field, idx });
+      }
+    });
+
+    return Array.from(categoryMap.values());
+  }, [ingredientFields, ingredientCategoriesMeta]);
 
   return (
-    <div className="flex flex-col gap-6">
-      {ingredientRules.map((rule) => {
-        const isFlourCategoryRule = rule.ingredientCategory.name === flourCategoryName;
-
+    <div>
+      {groupedIngredients.map(({ category, ingredients: categoryIngredientFields }) => {
+        const isFlourCategoryRule = category.name === flourCategoryName;
         const categoryIngredients = ingredientsMeta.filter(
-          (meta) => meta.ingredientCategoryId === rule.ingredientCategory.id
+          (ing) => ing.ingredientCategoryId === category.id
         );
-        const categoryIngredientFields = ingredientFields
-          .map((field, idx) => ({ ...field, idx }))
-          .filter(
-            (field) => (field.ingredientCategoryId as number) === rule.ingredientCategory.id
-          );
-
-        // Calculate sum of percentages for the current flour rule
-        let currentRuleFlourPercentageSum = 0;
-        let hasPercentageFlourInRule = false;
-        if (isFlourCategoryRule) {
-          categoryIngredientFields.forEach(field => { // Corrected: Iterate over categoryIngredientFields
-            if (field.calculationMode === IngredientCalculationMode.PERCENTAGE) {
-              currentRuleFlourPercentageSum += (Number(field.amount) || 0);
-              hasPercentageFlourInRule = true;
-            }
-          });
-        }
 
         return (
-          <div key={rule.ingredientCategory.id} className="mb-2 flex flex-col">
-            <label className="font-semibold mb-1">
-              {rule.ingredientCategory.name}
-              {rule.required && <span className="text-red-500 ml-1">*</span>}
-            </label>
-            {categoryIngredientFields.map((ingredientFieldData: MappedCategoryIngredientField) => { // Added type for ingredientFieldData
-              return (
-                <StepIngredientRow
-                  key={ingredientFieldData.id ?? ingredientFieldData.idx}
-                  ingredientFieldData={ingredientFieldData}
-                  categoryIngredients={categoryIngredients}
-                  ingredientsMeta={ingredientsMeta}
-                  ingredientCategoriesMeta={ingredientCategoriesMeta} // Pass down
-                  isFlourCategoryRule={isFlourCategoryRule}
-                  remove={remove}
-                  control={control}
-                  setValue={setValue}
-                  // recipeStepId={recipeStepId} // recipeStepId is not a prop of StepIngredientRow
-                  onFocusNotesRequested={onFocusNotesRequested}
-                />
-              );
-            })}
-            {/* Show a warning if the sum of flour percentages in this rule is not 100 */}
-            {isFlourCategoryRule && hasPercentageFlourInRule && Math.abs(currentRuleFlourPercentageSum - 100) > 0.01 && ( // Check if sum is not 100
-              <div className="text-red-500 text-sm mt-2">
-                Warning: Flour percentages in this section should sum to 100%. Current sum: {currentRuleFlourPercentageSum.toFixed(1)}%
-              </div>
-            )}
+          <div key={category.id} className="ingredient-category-group mb-6">
+            <h4 className="text-lg font-semibold mb-2 text-text-secondary">{category.name}</h4>
+            {categoryIngredientFields.map((ingredientFieldData) => (
+              <StepIngredientRow
+                key={ingredientFieldData.rhfId}
+                ingredientFieldData={ingredientFieldData}
+                categoryIngredients={categoryIngredients}
+                ingredientsMeta={ingredientsMeta}
+                ingredientCategoriesMeta={ingredientCategoriesMeta}
+                isFlourCategoryRule={isFlourCategoryRule}
+                remove={remove}
+                update={update}
+                control={control}
+                setValue={setValue}
+                onFocusNotesRequested={onFocusNotesRequested}
+                recipeStepId={recipeStepId}
+                onIngredientBlur={onIngredientBlur}
+              />
+            ))}
             <button
               type="button"
-              onClick={() =>
-                append({
-                  id: 0,
-                  ingredientId: 0,
-                  amount: 0,
-                  ingredientCategoryId: rule.ingredientCategory.id,
-                  calculationMode: IngredientCalculationMode.PERCENTAGE,
-                  recipeStepId: recipeStepId,
-                })
-              }
-              className="btn-primary"
+              onClick={() => append({ ingredientCategoryId: category.id })}
+              className="btn-secondary mt-2"
             >
-              + Add {rule.ingredientCategory.name}
+              + Add {category.name}
             </button>
           </div>
         );

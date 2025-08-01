@@ -1,6 +1,6 @@
 // StepCard.tsx
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useMemo, useEffect, useRef, useState } from "react";
+import { useMemo, useEffect, useRef, useState, useCallback } from "react"; // Ensure useCallback is imported
 import debounce from 'lodash.debounce';
 import { useForm, Controller, useFieldArray, type UseFormSetValue, FormProvider } from "react-hook-form";
 import type { RecipeStep, RecipeStepIngredient, RecipeStepField } from "../../types/recipe";
@@ -84,6 +84,77 @@ function getFormValuesFromStepData(
   };
 }
 
+// FIX: New helper function to compare form state with props, ignoring the 'rhfId'
+// and normalizing numbers to prevent floating-point comparison errors.
+function areFormValuesEqual(formValues: StepFormValues, propValues: StepFormValues): boolean {
+  // Create deep clones to avoid mutating the original objects.
+  const formValuesCopy = JSON.parse(JSON.stringify(formValues));
+  const propValuesCopy = JSON.parse(JSON.stringify(propValues));
+
+  const normalizeIngredients = (ingredients: any[]) => {
+    if (ingredients && Array.isArray(ingredients)) {
+      ingredients.forEach((ing: any) => {
+        delete ing.rhfId; // Remove RHF internal ID.
+        // Round 'amount' to 5 decimal places to avoid floating point inaccuracies.
+        if (typeof ing.amount === 'number') {
+          ing.amount = parseFloat(ing.amount.toFixed(5));
+        }
+      });
+    }
+  };
+
+  // Normalize both sets of ingredients before comparison.
+  normalizeIngredients(formValuesCopy.ingredients);
+  normalizeIngredients(propValuesCopy.ingredients);
+
+  const isEqual = JSON.stringify(formValuesCopy) === JSON.stringify(propValuesCopy);
+
+  // Keep these logs for now if you continue to see issues.
+  if (!isEqual) {
+    console.log('%c🔍 areFormValuesEqual: Comparison returned false. Inspecting objects:', 'color: red; font-weight: bold;');
+    console.log('%cNormalized Form Values (Object):', 'color: #FF5722;', formValuesCopy);
+    console.log('%cNormalized Prop Values (Object):', 'color: #03A9F4;', propValuesCopy);
+
+    // --- START NEW LOGS ---
+    // Log the pretty-printed JSON strings to find the exact character difference.
+    console.log('%cStringified Form Values (for diffing):', 'color: #FF5722;');
+    console.log(JSON.stringify(formValuesCopy, null, 2));
+    console.log('%cStringified Prop Values (for diffing):', 'color: #03A9F4;');
+    console.log(JSON.stringify(propValuesCopy, null, 2));
+    console.info('Hint: Copy the two string blocks above and use a text comparison tool (like VS Code\'s "Compare Selected") to find the difference.');
+    // --- END NEW LOGS ---
+  }
+
+  return isEqual;
+}
+
+// FIX: This function now correctly maps form data back to the RecipeStep type,
+// preserving the original IDs for existing fields by referencing the original step.
+function mapFormValuesToRecipeStep(
+  formData: StepFormValues,
+  originalStep: RecipeStep
+): RecipeStep {
+  return {
+    id: originalStep.id,
+    recipeId: originalStep.recipeId,
+    order: originalStep.order,
+    stepTemplateId: formData.templateId,
+    notes: formData.notes,
+    description: formData.description,
+    ingredients: formData.ingredients,
+    fields: Object.entries(formData.fields).map(([fieldIdStr, value]) => {
+      const fieldId = Number(fieldIdStr);
+      const originalField = originalStep.fields.find(f => f.fieldId === fieldId);
+      return {
+        id: originalField ? originalField.id : 0,
+        recipeStepId: originalStep.id,
+        fieldId: fieldId,
+        value: value,
+      };
+    }),
+  };
+}
+
 export default function StepCard({
   step,
   stepTemplates,
@@ -114,6 +185,19 @@ export default function StepCard({
     [stepTemplates]
   );
 
+  // FIX: Define stringifiedStepContentFromProps to track relevant prop changes for synchronization.
+  const stringifiedStepContentFromProps = useMemo(() => {
+    // Selectively stringify only the parts of the step that are managed by the form.
+    // This prevents unnecessary re-syncs from parent state changes unrelated to this form.
+    return JSON.stringify({
+      stepTemplateId: step.stepTemplateId,
+      fields: step.fields,
+      notes: step.notes,
+      description: step.description,
+      ingredients: step.ingredients,
+    });
+  }, [step]);
+
   // Capture the initial step prop to stabilize defaultValues for useForm
   // This helps prevent formMethods from changing reference unnecessarily
   const [initialStepForForm] = useState(step);
@@ -121,9 +205,13 @@ export default function StepCard({
   const formMethods = useForm<StepFormValues>({
     mode: "onChange",
     defaultValues: useMemo(() => {
-      return getFormValuesFromStepData(initialStepForForm, memoizedStepTemplates, safeIngredientsMeta);
+      const formValues = getFormValuesFromStepData(initialStepForForm, memoizedStepTemplates, safeIngredientsMeta);
+      // FIX: Ensure the initial form values are mutable to prevent errors when react-hook-form
+      // tries to update its internal state, which was seeded with read-only data from Zustand.
+      return JSON.parse(JSON.stringify(formValues));
     }, [initialStepForForm, memoizedStepTemplates, safeIngredientsMeta]) // Depends on initialStepForForm
   });
+  // FIX: Destructure formState directly to make it available in the component scope.
   const { watch, control, reset, setValue, getValues, formState } = formMethods;
 
   const selectedTemplateId = Number(watch("templateId"));
@@ -137,24 +225,51 @@ export default function StepCard({
   const template = memoizedStepTemplates.find((t) => t.id === selectedTemplateId);
   const newlyAddedFocusAttemptedRef = useRef(false); // Ref to track if focus was attempted for this newly added card
 
-  const { fields: ingredientFields, append, remove: removeIngredient } = useFieldArray({ // Renamed remove to removeIngredient
-    control,
-    name: "ingredients",
+  // FIX: This block replaces the previous debouncing logic to prevent stale closures.
+  // By using a ref, the debounced function can always access the latest props.
+  const latestPropsRef = useRef({ step, onChange });
+  useEffect(() => {
+    latestPropsRef.current = { step, onChange };
   });
 
+  const debouncedOnChange = useMemo(() => {
+    return debounce((formData: StepFormValues) => {
+      const { step: currentStep, onChange: currentOnChange } = latestPropsRef.current;
+      const updatedStep = mapFormValuesToRecipeStep(formData, currentStep);
+      currentOnChange(updatedStep);
+    }, 500);
+  }, []); // Empty dependency array ensures this is created only once.
+
+  useEffect(() => {
+    const subscription = watch((value) => {
+      if (formState.isDirty) {
+        debouncedOnChange(value as StepFormValues);
+      }
+    });
+    return () => {
+      subscription.unsubscribe();
+      debouncedOnChange.cancel();
+    };
+  }, [watch, formState, debouncedOnChange]);
+
+  const onIngredientBlur = useCallback(() => {
+    debouncedOnChange.cancel();
+  }, [debouncedOnChange]);
+
+
+  // FIX: Rename 'append' to 'rhfAppend' to avoid scope conflicts when passing the append function as a prop.
+  const { fields: ingredientFields, append: rhfAppend, remove: removeIngredient, update: updateIngredient } = useFieldArray({
+    control,
+    name: "ingredients",
+    keyName: "rhfId", // Use 'rhfId' to avoid conflict with the ingredient's own 'id' property.
+  });
+
+  // FIX: Define missing constants.
   const FLOUR_CATEGORY_NAME = "Flour";
   const BREAD_FLOUR_NAME = "Bread Flour";
 
-  const stringifiedStepContentFromProps = useMemo(() => JSON.stringify({
-    templateId: step.stepTemplateId,
-    fields: step.fields,
-    notes: step.notes,
-    ingredients: step.ingredients,
-    description: step.description
-  }), [step.stepTemplateId, step.fields, step.ingredients, step.notes, step.description]);
-
-  // console.log(`%cStepCard (step.id: ${step.id}): Render. isNewlyAdded: ${isNewlyAdded}, isExpanded: ${isExpanded}, newlyAddedFocusAttempted: ${newlyAddedFocusAttemptedRef.current}`, "color: dodgerblue; font-weight: bold;");
-
+  // This useEffect handles synchronizing the form state with the global state (props)
+  // It's crucial for updates that happen outside the form, like auto-balancing.
   const prevStringifiedStepRef = useRef<string | null>(null);
 
   const isMounted = useRef(false); // Ref to track if component has mounted
@@ -171,18 +286,40 @@ export default function StepCard({
 
     const currentPropContent = stringifiedStepContentFromProps;
     if (prevStringifiedStepRef.current !== currentPropContent) {
-      // console.groupCollapsed(`%cStepCard (step.id: ${step.id}): Prop content changed. Resetting form. isNewlyAdded: ${isNewlyAdded}, isExpanded: ${isExpanded}`, "color: blueviolet; font-weight: bold;");
-      // console.log("Previous stringified content (prevStringifiedStepRef.current):", prevStringifiedStepRef.current);
-      // console.log("Current stringified content (currentPropContent):", currentPropContent);
-      // console.log("Current step prop object:", step);
-      // console.log("Current initialStepForForm object:", initialStepForForm);
-      // console.groupEnd();
-      const newFormValues = getFormValuesFromStepData(step, memoizedStepTemplates, safeIngredientsMeta);
-      reset(newFormValues, { keepDirty: false });
+      const newFormValuesFromProps = getFormValuesFromStepData(step, memoizedStepTemplates, safeIngredientsMeta);
+      const currentFormValues = getValues();
+
+      // --- START DEBUG LOGS ---
+      console.group(`%cStepCard Sync Effect (Step ID: ${step.id})`, 'color: blue; font-weight: bold;');
+      console.log('Prop content changed. Comparing form state with new props.');
+      console.log('%cCurrent Form Values (from getValues()):', 'color: #9E9E9E;', JSON.parse(JSON.stringify(currentFormValues)));
+      console.log('%cNew Prop Values (from getFormValuesFromStepData()):', 'color: #9E9E9E;', newFormValuesFromProps);
+      // --- END DEBUG LOGS ---
+
+      // FIX: Use the new comparison function that ignores the 'rhfId' property.
+      // This correctly identifies when the form is already in sync with the props,
+      // preventing the unnecessary and error-causing reset.
+      if (areFormValuesEqual(currentFormValues, newFormValuesFromProps)) {
+        console.log('%c✅ States match (ignoring rhfId). Skipping reset.', 'color: green;'); // DEBUG LOG
+        prevStringifiedStepRef.current = currentPropContent;
+        console.groupEnd(); // DEBUG LOG
+        return; // Skip the reset, the form is already in sync.
+      }
+      
+      // --- START DEBUG LOGS ---
+      console.warn('⚠️ States do NOT match. A reset will be triggered.');
+      console.info('Hint: The mismatch is often due to the `rhfId` property that `useFieldArray` adds to the form state, which is not present in the props.');
+      // --- END DEBUG LOGS ---
+
+      const mutableFormValues = JSON.parse(JSON.stringify(newFormValuesFromProps));
+
+      reset(mutableFormValues, { keepDirty: false });
+      console.log('%c🔄 Form has been reset with new prop values.', 'color: blue;'); // DEBUG LOG
       prevStringifiedStepRef.current = currentPropContent;
+      console.groupEnd(); // DEBUG LOG
     }
   }, [
-    step, // Keep `step` as a dependency to re-evaluate if its reference changes
+    step, // This dependency ensures the effect runs when the step data changes
     stringifiedStepContentFromProps,
     reset,
     memoizedStepTemplates,
@@ -247,62 +384,6 @@ export default function StepCard({
     };
   }, [isNewlyAdded, isExpanded, onNewlyAddedStepHandled, step.id]);
 
-  const debouncedOnChange = useMemo(() =>
-    debounce((dataToSubmit: RecipeStep) => {
-      onChange(dataToSubmit);
-      // The form will be reset by the useEffect watching the `step` prop if it changes as a result of `onChange`.
-      // Removing the immediate reset here to prevent focus loss during typing.
-      // The `isDirty` state will persist until the `step` prop change triggers the other reset,
-      // or until the user explicitly saves/navigates away (if you implement such logic).
-      // prevStringifiedStepRef.current is updated by the other useEffect that handles prop changes.
-    }, 100),
-    [onChange] 
-  );
-
-  useEffect(() => {
-    if (formState.isDirty) {
-      const currentFormData = getValues();
-      const stepId = step.id;
-      const stepOrder = step.order;
-      const stepRecipeId = step.recipeId;
-      const newFieldsArray: RecipeStepField[] = [];
-      const originalFieldsMap = new Map(step.fields.map(f => [f.fieldId, f]));
-      if (currentFormData.fields) {
-        for (const fieldIdStr in currentFormData.fields) {
-          const fieldId = Number(fieldIdStr);
-          const value = currentFormData.fields[fieldId];
-          const existingStepField = originalFieldsMap.get(fieldId);
-          newFieldsArray.push({
-            id: existingStepField?.id || 0,
-            recipeStepId: stepId,
-            fieldId: fieldId,
-            value: value,
-            notes: existingStepField?.notes || null,
-          });
-        }
-      }
-      const updatedStepData: RecipeStep = {
-        id: stepId,
-        order: stepOrder,
-        recipeId: stepRecipeId,
-        stepTemplateId: Number(currentFormData.templateId),
-        fields: newFieldsArray,
-        ingredients: currentFormData.ingredients.map(ing => ({
-          ...ing,
-          recipeStepId: stepId,
-        })),
-        notes: currentFormData.notes, 
-        description: currentFormData.description, 
-      };
-      debouncedOnChange(updatedStepData);
-    }
-  }, [
-    formState.isDirty, 
-    getValues, 
-    debouncedOnChange, 
-    step,
-  ]);
-
   const visibleFields = (template?.fields || []).filter(
     (f) => showAdvanced || !f.advanced
   );
@@ -315,7 +396,7 @@ export default function StepCard({
 
   return (
     <FormProvider {...formMethods}>
-      <div ref={cardRootRef} className="bg-surface-elevated rounded-2xl shadow-card mb-6 border border-border max-w-3xl mx-auto">
+      <div className={`step-card bg-surface-container rounded-lg shadow-md mb-4 transition-all duration-300 ease-in-out ${isExpanded ? 'is-expanded' : ''}`}>
         <div
           className="flex flex-wrap items-center gap-3 justify-between p-4 cursor-pointer hover:bg-surface-hover transition-colors"
           onClick={onToggleExpand}
@@ -463,43 +544,60 @@ export default function StepCard({
 
             {template.ingredientRules.length > 0 && (
               <StepIngredientTable
-                ingredientRules={template.ingredientRules}
                 ingredientsMeta={safeIngredientsMeta}
                 ingredientCategoriesMeta={ingredientCategoriesMeta} // Pass down
-                ingredientFields={ingredientFields}
-                append={(newIngredientData) => {
-                  const rhfAppend = append; 
-                  let finalIngredientToAdd = { ...newIngredientData };
-                  const flourCategoryRule = template.ingredientRules.find(r => r.ingredientCategory.name === FLOUR_CATEGORY_NAME);
+                ingredientFields={ingredientFields} // Pass the fields from useFieldArray
+                // FIX: The function passed to the 'append' prop must call 'rhfAppend' from useFieldArray.
+                append={(newIngredientData: Partial<RecipeStepIngredient>) => {
+                  const currentFormIngredients = getValues("ingredients") || [];
+                  const flourCategoryRule = template.ingredientRules.find(
+                    (r) => r.ingredientCategory.name === FLOUR_CATEGORY_NAME
+                  );
+                  // FIX: Use the 'safeIngredientsMeta' variable to prevent errors when 'ingredientsMeta' is undefined.
+                  const breadFlourMeta = safeIngredientsMeta.find(
+                    (ing) => ing.name === BREAD_FLOUR_NAME
+                  );
 
-                  if (flourCategoryRule && newIngredientData.ingredientCategoryId === flourCategoryRule.ingredientCategory.id) {
-                    const breadFlourMeta = safeIngredientsMeta.find((im: IngredientMeta) => im.name === BREAD_FLOUR_NAME && im.ingredientCategoryId === flourCategoryRule.ingredientCategory.id);
-                    const currentFormIngredients = getValues("ingredients");
+                  let finalIngredientToAdd: Partial<RecipeStepIngredient> = {
+                    ...newIngredientData,
+                    amount: 0,
+                    calculationMode: IngredientCalculationMode.PERCENTAGE,
+                    // FIX: Explicitly set ingredientId to 0 for new ingredients if not provided.
+                    // This prevents a mismatch between the form state (where it would be undefined)
+                    // and the prop state, which expects a number (0 for new).
+                    ingredientId: newIngredientData.ingredientId || 0,
+                  };
+
+                  if (flourCategoryRule && finalIngredientToAdd.ingredientCategoryId === flourCategoryRule.ingredientCategory.id) {
                     const existingFloursInThisRule = currentFormIngredients.filter(
-                      ing => ing.ingredientCategoryId === flourCategoryRule.ingredientCategory.id
+                      (ing) => ing.ingredientCategoryId === flourCategoryRule.ingredientCategory.id
                     );
 
                     if (existingFloursInThisRule.length === 0) {
-                      if (breadFlourMeta && (newIngredientData.ingredientId === 0 || newIngredientData.ingredientId === breadFlourMeta.id)) {
+                      if (breadFlourMeta && (finalIngredientToAdd.ingredientId === 0 || !finalIngredientToAdd.ingredientId)) {
                         finalIngredientToAdd = {
-                          ...newIngredientData,
+                          ...finalIngredientToAdd,
                           ingredientId: breadFlourMeta.id,
                           amount: 100,
                           calculationMode: IngredientCalculationMode.PERCENTAGE,
                         };
                       } else {
-                        finalIngredientToAdd = { ...newIngredientData, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE };
+                        finalIngredientToAdd = { ...finalIngredientToAdd, amount: 100, calculationMode: IngredientCalculationMode.PERCENTAGE };
                       }
                     }
                   }
-                  rhfAppend(finalIngredientToAdd);
+                  // Deep clone the object before appending to break any potential links
+                  // to read-only state that could "poison" react-hook-form's internal state.
+                  rhfAppend(JSON.parse(JSON.stringify(finalIngredientToAdd)));
                 }}
-                remove={(idx) => removeIngredient(idx)} // Use renamed removeIngredient
+                remove={(idx: number) => removeIngredient(idx)} // Use renamed removeIngredient
+                update={updateIngredient} // Pass update function down
                 control={control}
                 setValue={setValue as UseFormSetValue<StepFormValues>}
                 flourCategoryName={FLOUR_CATEGORY_NAME}
                 recipeStepId={step.id}
                 onFocusNotesRequested={focusNotesField}
+                onIngredientBlur={onIngredientBlur} // FIX: Pass the stable callback.
               />
             )}
 
