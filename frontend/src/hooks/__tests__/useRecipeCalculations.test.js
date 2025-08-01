@@ -1,0 +1,98 @@
+// frontend/src/hooks/__tests__/useRecipeCalculations.test.js
+
+import { renderHook } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
+import { useRecipeCalculations } from '../useRecipeCalculations';
+import { IngredientCalculationMode } from '../../types/recipe';
+
+// --- MOCK DATA ---
+const mockIngredientsMeta = [
+  { id: 1, name: 'Bread Flour', ingredientCategoryId: 10 },
+  { id: 2, name: 'Whole Wheat Flour', ingredientCategoryId: 10 },
+  { id: 3, name: 'Water', ingredientCategoryId: 20 },
+  { id: 4, name: 'Salt', ingredientCategoryId: 30 },
+  { id: 5, name: 'Sourdough Starter', ingredientCategoryId: 99 },
+];
+
+const mockIngredientCategoriesMeta = [
+  { id: 10, name: 'Flour' },
+  { id: 20, name: 'Liquid' },
+  { id: 30, name: 'Salt' },
+  { id: 99, name: 'Other' },
+];
+
+// FIX #1: Provide a non-empty array to pass the hook's initial validation.
+const mockFieldsMeta = [{ id: 900, name: 'A Dummy Field' }];
+const mockStepTemplates = [{ id: 100, name: 'Mix', role: 'MIX' }];
+
+describe('useRecipeCalculations', () => {
+  it('should return empty/zeroed data if recipe is null or invalid', () => {
+    const { result } = renderHook(() =>
+      useRecipeCalculations(
+        null,
+        [],
+        mockIngredientsMeta,
+        mockIngredientCategoriesMeta,
+        mockFieldsMeta,
+        mockStepTemplates
+      )
+    );
+
+    expect(result.current.totals.totalFlour).toBe(0);
+    expect(result.current.totals.water).toBe(0);
+    expect(result.current.totals.salt).toBe(0);
+  });
+
+  it('should calculate totals based on overall recipe percentages', () => {
+    // Arrange
+    const mockRecipe = {
+      id: 1,
+      name: 'Simple Loaf',
+      totalWeight: 935,
+      hydrationPct: 75, // 75% of target flour
+      saltPct: 2,      // 2% of target flour
+    };
+
+    const mockSteps = [
+      {
+        id: 1,
+        stepTemplateId: 100, // MIX step
+        order: 1,
+        // These ingredients' weights will be subtracted from the overall target
+        ingredients: [
+          { ingredientId: 1, amount: 400, calculationMode: IngredientCalculationMode.FIXED_WEIGHT },
+          { ingredientId: 2, amount: 100, calculationMode: IngredientCalculationMode.FIXED_WEIGHT },
+          { ingredientId: 5, amount: 50, calculationMode: IngredientCalculationMode.FIXED_WEIGHT }, // Starter
+        ],
+        fields: [],
+      },
+    ];
+
+    // Act
+    const { result } = renderHook(() =>
+      useRecipeCalculations(
+        mockRecipe,
+        mockSteps,
+        mockIngredientsMeta,
+        mockIngredientCategoriesMeta,
+        mockFieldsMeta,
+        mockStepTemplates
+      )
+    );
+
+    // Assert
+    // FIX #2: Check for the values the hook calculates from the recipe's
+    // overall percentages, not the raw sum of the ingredients.
+    const totals = result.current.totals;
+
+    // The hook calculates target flour from total weight and percentages:
+    // targetFlour = 935g / (1 + 0.75 hydration + 0.02 salt) = ~528.25g
+    expect(totals.totalFlour).toBeCloseTo(528.25);
+
+    // The hook then calculates water and salt based on that target flour:
+    // targetWater = 528.25g * 0.75 = ~396.19g
+    // targetSalt = 528.25g * 0.02 = ~10.57g
+    expect(totals.water).toBeCloseTo(396.19);
+    expect(totals.salt).toBeCloseTo(10.56);
+  });
+});

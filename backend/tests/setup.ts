@@ -1,0 +1,21 @@
+// tests/setup.ts
+import { beforeAll, afterAll, beforeEach, afterEach } from '@jest/globals';
+
+// Global test setup
+beforeAll(async () => {
+  // Setup test database connection or mock services
+  console.log('🧪 Setting up test environment...');
+});
+
+afterAll(async () => {
+  // Cleanup test database or close connections
+  console.log('🧹 Cleaning up test environment...');
+});
+
+beforeEach(() => {
+  // Reset mocks or clear data before each test
+});
+
+afterEach(() => {
+  // Cleanup after each test
+});
