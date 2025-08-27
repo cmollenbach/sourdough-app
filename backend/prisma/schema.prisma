@@ -1,18 +1,371 @@
-// This is the FINAL version of your schema.prisma file
+generator client {
+  provider = "prisma-client-js"
+}
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
+model User {
+  id                Int                    @id @default(autoincrement())
+  email             String?                @unique
+  emailVerified     Boolean                @default(false)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  isActive          Boolean                @default(true)
+  lastLoginAt       DateTime?
+  notes             String?
+  passwordHash      String?
+  role              UserRole               @default(USER)
+  accounts          Account[]
+  bakes             Bake[]
+  reviewedRequests  EntityRequest[]        @relation("ReviewedBy")
+  submittedRequests EntityRequest[]        @relation("SubmittedBy")
+  recipes           Recipe[]
+  sessions          Session[]
+  userActions       UserAction[]
+  userPreferences   UserPreference[]
+  userProfile       UserProfile?
+}
+
+model Account {
+  id                Int       @id @default(autoincrement())
+  userId            Int
+  provider          String
+  providerAccountId String
+  accessToken       String?
+  refreshToken      String?
+  tokenExpiresAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  user              User      @relation(fields: [userId], references: [id])
+}
+
+model Session {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  sessionToken String   @unique
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+  ipAddress    String?
+  userAgent    String?
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model UserProfile {
+  id                     Int     @id @default(autoincrement())
+  userId                 Int     @unique
+  
+  // Basic Profile Info
+  displayName            String
+  avatarUrl              String?
+  bio                    String?
+  
+  // Experience Tracking (merged from UserExperienceProfile)
+  experienceLevel        String    @default("beginner") // "beginner", "intermediate", "advanced"
+  recipesCreated         Int       @default(0)
+  bakesCompleted         Int       @default(0)
+  totalBakeTimeMinutes   Int       @default(0)
+  advancedFeaturesUsed   String[]  @default([])
+  preferredDifficulty    String?   // "simple", "moderate", "complex"
+  averageSessionMinutes  Int       @default(0)
+  lastActiveAt           DateTime  @default(now())
+  
+  // Structured Preferences (replacing JSON blob)
+  showAdvancedFields     Boolean   @default(false)
+  autoSaveEnabled        Boolean   @default(true)
+  defaultHydration       Float     @default(75.0)
+  preferredSaltPct       Float     @default(2.0)
+  expandStepsOnLoad      Boolean   @default(false)
+  showIngredientHelp     Boolean   @default(true)
+  
+  // Legacy JSON preferences (for complex settings migration)
+  preferences            Json?
+  
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actions                UserAction[]
+  userPreferences        UserPreference[]
+}
+
+model StepParameter {
+  id                      Int                        @id @default(autoincrement())
+  name                    String                     @unique
+  type                    ParameterDataType
+  advanced                Boolean                    @default(false)
+  description             String?
+  defaultValue            String?
+  helpText                String?
+  stepTemplateParameters  StepTemplateParameter[]
+  stepParameterValues     RecipeStepParameterValue[]
+  bakeStepParameterValues BakeStepParameterValue[]
+}
+
+model StepType {
+  id          Int            @id @default(autoincrement())
+  name        String         @unique
+  description String?
+  active      Boolean        @default(true)
+  templates   StepTemplate[]
+}
+
+model IngredientCategory {
+  id            Int                              @id @default(autoincrement())
+  name          String                           @unique
+  description   String?
+  active        Boolean                          @default(true)
+  advanced      Boolean                          @default(false)
+  ingredients   Ingredient[]
+  templateRules StepTemplateIngredientRule[]
+}
+
+model Ingredient {
+  id                    Int                        @id @default(autoincrement())
+  name                  String                     @unique
+  ingredientCategoryId  Int
+  advanced              Boolean                    @default(false)
+  description           String?
+  active                Boolean                    @default(true)
+  helpText              String?
+  defaultPreparation    String?
+  category              IngredientCategory         @relation(fields: [ingredientCategoryId], references: [id])
+  recipeStepIngredients RecipeStepIngredient[]
+  bakeStepIngredients   BakeStepIngredient[]
+}
+
+model StepTemplate {
+  id              Int                          @id @default(autoincrement())
+  name            String                       @unique
+  stepTypeId      Int
+  advanced        Boolean                      @default(false)
+  description     String?
+  active          Boolean                      @default(true)
+  order           Int?
+  role            StepRole
+  recipeSteps     RecipeStep[]
+  stepType        StepType                     @relation(fields: [stepTypeId], references: [id])
+  ingredientRules StepTemplateIngredientRule[]
+  parameters      StepTemplateParameter[]
+}
+
+model StepTemplateParameter {
+  id             Int           @id @default(autoincrement())
+  stepTemplateId Int
+  parameterId    Int
+  advanced       Boolean       @default(false)
+  description    String?
+  active         Boolean       @default(true)
+  defaultValue   String?
+  order          Int?
+  helpText       String?
+  visible        Boolean       @default(true)
+  parameter      StepParameter @relation(fields: [parameterId], references: [id])
+  stepTemplate   StepTemplate  @relation(fields: [stepTemplateId], references: [id])
+}
+
+model StepTemplateIngredientRule {
+  id                   Int                @id @default(autoincrement())
+  stepTemplateId       Int
+  ingredientCategoryId Int
+  required             Boolean            @default(false)
+  description          String?
+  active               Boolean            @default(true)
+  advanced             Boolean            @default(false)
+  defaultValue         String?
+  helpText             String?
+  visible              Boolean            @default(true)
+  ingredientCategory   IngredientCategory @relation(fields: [ingredientCategoryId], references: [id])
+  stepTemplate         StepTemplate       @relation(fields: [stepTemplateId], references: [id])
+}
+
+model Recipe {
+  id             Int          @id @default(autoincrement())
+  ownerId        Int
+  active         Boolean      @default(true)
+  parentRecipeId Int?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  isPredefined   Boolean      @default(false)
+  hydrationPct   Float?
+  saltPct        Float?
+  totalWeight    Float?
+  name           String       @unique
+  notes          String?
+  bakes          Bake[]
+  owner          User         @relation(fields: [ownerId], references: [id])
+  parentRecipe   Recipe?      @relation("RecipeVersion", fields: [parentRecipeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  clonedRecipes  Recipe[]     @relation("RecipeVersion")
+  steps          RecipeStep[]
+}
+
+model RecipeStep {
+  id              Int                        @id @default(autoincrement())
+  recipeId        Int
+  stepTemplateId  Int
+  order           Int
+  notes           String?
+  description     String?
+  bakeSteps       BakeStep[]
+  recipe          Recipe                     @relation(fields: [recipeId], references: [id])
+  stepTemplate    StepTemplate               @relation(fields: [stepTemplateId], references: [id])
+  ingredients     RecipeStepIngredient[]
+  parameterValues RecipeStepParameterValue[]
+}
+
+model RecipeStepParameterValue {
+  id           Int           @id @default(autoincrement())
+  recipeStepId Int
+  parameterId  Int
+  value        Json
+  notes        String?
+  parameter    StepParameter @relation(fields: [parameterId], references: [id])
+  recipeStep   RecipeStep    @relation(fields: [recipeStepId], references: [id])
+}
+
+model RecipeStepIngredient {
+  id              Int                       @id @default(autoincrement())
+  recipeStepId    Int
+  ingredientId    Int
+  preparation     String?
+  notes           String?
+  amount          Float
+  calculationMode IngredientCalculationMode @default(PERCENTAGE)
+  ingredient      Ingredient                @relation(fields: [ingredientId], references: [id])
+  recipeStep      RecipeStep                @relation(fields: [recipeStepId], references: [id])
+}
+
+model Bake {
+  id                         Int        @id @default(autoincrement())
+  recipeId                   Int
+  ownerId                    Int
+  startTimestamp             DateTime   @default(now())
+  finishTimestamp            DateTime?
+  active                     Boolean    @default(true)
+  parentBakeId               Int?
+  notes                      String?
+  rating                     Int?
+  updatedAt                  DateTime?  @default(now())
+  recipeHydrationPctSnapshot Float?
+  recipeSaltPctSnapshot      Float?
+  recipeTotalWeightSnapshot  Float?
+  owner                      User       @relation(fields: [ownerId], references: [id])
+  parentBake                 Bake?      @relation("BakeVersion", fields: [parentBakeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  clonedBakes                Bake[]     @relation("BakeVersion")
+  recipe                     Recipe     @relation(fields: [recipeId], references: [id])
+  steps                      BakeStep[]
+}
+
+model BakeStep {
+  id              Int                      @id @default(autoincrement())
+  bakeId          Int
+  recipeStepId    Int
+  order           Int
+  startTimestamp  DateTime?
+  finishTimestamp DateTime?
+  deviations      Json?
+  notes           String?
+  status          StepExecutionStatus      @default(PENDING)
+  updatedAt       DateTime?                @default(now())
+  bake            Bake                     @relation(fields: [bakeId], references: [id])
+  recipeStep      RecipeStep               @relation(fields: [recipeStepId], references: [id])
+  ingredients     BakeStepIngredient[]
+  parameterValues BakeStepParameterValue[]
+}
+
+model BakeStepParameterValue {
+  id           Int           @id @default(autoincrement())
+  bakeStepId   Int
+  parameterId  Int
+  plannedValue Json
+  actualValue  Json?
+  notes        String?
+  bakeStep     BakeStep      @relation(fields: [bakeStepId], references: [id])
+  parameter    StepParameter @relation(fields: [parameterId], references: [id])
+}
+
+model BakeStepIngredient {
+  id                 Int        @id @default(autoincrement())
+  bakeStepId         Int
+  ingredientId       Int
+  plannedPercentage  Float
+  plannedPreparation String?
+  notes              String?
+  bakeStep           BakeStep   @relation(fields: [bakeStepId], references: [id])
+  ingredient         Ingredient @relation(fields: [ingredientId], references: [id])
+}
+
+model EntityRequest {
+  id          Int                 @id @default(autoincrement())
+  userId      Int?
+  name        String
+  description String?
+  extra       Json?
+  reviewerId  Int?
+  reviewedAt  DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  type        EntityRequestType
+  status      EntityRequestStatus @default(PENDING)
+  reviewer    User?               @relation("ReviewedBy", fields: [reviewerId], references: [id])
+  user        User?               @relation("SubmittedBy", fields: [userId], references: [id])
+}
+
+// DEPRECATED: UserExperienceProfile merged into UserProfile for simplification
+// This model will be removed in a future migration after data migration is complete
+/*
+model UserExperienceProfile {
+  id                    Int              @id @default(autoincrement())
+  userId                Int              @unique
+  experienceLevel       String           @default("beginner")
+  recipesCreated        Int              @default(0)
+  bakesCompleted        Int              @default(0)
+  totalBakeTimeMinutes  Int              @default(0)
+  advancedFeaturesUsed  String[]         @default([])
+  preferredDifficulty   String?
+  averageSessionMinutes Int              @default(0)
+  lastActiveAt          DateTime         @default(now())
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  actions               UserAction[]
+  user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preferences           UserPreference[]
+}
+*/
+
+model UserAction {
+  id        Int         @id @default(autoincrement())
+  userId    Int
+  profileId Int
+  action    String
+  details   Json?
+  sessionId String?
+  timestamp DateTime    @default(now())
+  profile   UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserPreference {
+  id        Int         @id @default(autoincrement())
+  userId    Int
+  profileId Int
+  key       String
+  value     String
+  category  String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  profile   UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
 }
 
 enum UserRole {
   USER
   ADMIN
-  MODERATOR // Example of another role
+  // MODERATOR removed - not actively used
 }
 
 enum ParameterDataType {
@@ -21,7 +374,7 @@ enum ParameterDataType {
   BOOLEAN
   JSON
   DATE
-  DURATION // Example for time-based parameters
+  // DURATION removed - not actively used
 }
 
 enum IngredientCalculationMode {
@@ -66,286 +419,4 @@ enum StepRole {
   BAKE
   REST
   OTHER
-}
-
-model User {
-  id                Int             @id @default(autoincrement())
-  email             String?         @unique
-  emailVerified     Boolean         @default(false)
-  passwordHash      String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  isActive          Boolean         @default(true)
-  lastLoginAt       DateTime?
-  role              UserRole        @default(USER)
-  notes             String?
-  accounts          Account[]
-  sessions          Session[]
-  userProfile       UserProfile?
-  recipes           Recipe[]
-  bakes             Bake[]
-  submittedRequests EntityRequest[] @relation("SubmittedBy")
-  reviewedRequests  EntityRequest[] @relation("ReviewedBy")
-}
-
-model Account {
-  id                Int      @id @default(autoincrement())
-  userId            Int
-  provider          String
-  providerAccountId String
-  accessToken       String?
-  refreshToken      String?
-  tokenExpiresAt    DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  user              User     @relation(fields: [userId], references: [id])
-}
-
-model Session {
-  id           Int      @id @default(autoincrement())
-  userId       Int
-  sessionToken String   @unique
-  createdAt    DateTime @default(now())
-  expiresAt    DateTime
-  ipAddress    String?
-  userAgent    String?
-  user         User     @relation(fields: [userId], references: [id])
-}
-
-model UserProfile {
-  id          Int     @id @default(autoincrement())
-  userId      Int     @unique
-  displayName String
-  avatarUrl   String?
-  bio         String?
-  preferences Json?
-  user        User    @relation(fields: [userId], references: [id])
-}
-
-model StepParameter {
-  id                      Int                        @id @default(autoincrement())
-  name                    String                     @unique
-  type                    ParameterDataType
-  advanced                Boolean                    @default(false)
-  description             String?
-  active                  Boolean                    @default(true)
-  defaultValue            String?
-  order                   Int?
-  visible                 Boolean                    @default(true)
-  helpText                String?
-  stepTemplateParameters  StepTemplateParameter[]
-  stepParameterValues     RecipeStepParameterValue[]
-  bakeStepParameterValues BakeStepParameterValue[]
-}
-
-model StepType {
-  id          Int            @id @default(autoincrement())
-  name        String         @unique
-  description String?
-  active      Boolean        @default(true)
-  order       Int?
-  templates   StepTemplate[]
-}
-
-model IngredientCategory {
-  id            Int                          @id @default(autoincrement())
-  name          String                       @unique
-  description   String?
-  active        Boolean                      @default(true)
-  order         Int?
-  ingredients   Ingredient[]
-  templateRules StepTemplateIngredientRule[]
-}
-
-model Ingredient {
-  id                    Int                    @id @default(autoincrement())
-  name                  String                 @unique
-  ingredientCategoryId  Int
-  advanced              Boolean                @default(false)
-  description           String?
-  active                Boolean                @default(true)
-  order                 Int?
-  visible               Boolean                @default(true)
-  helpText              String?
-  defaultValue          String?
-  category              IngredientCategory     @relation(fields: [ingredientCategoryId], references: [id])
-  recipeStepIngredients RecipeStepIngredient[]
-  bakeStepIngredients   BakeStepIngredient[]
-}
-
-model StepTemplate {
-  id              Int                          @id @default(autoincrement())
-  name            String                       @unique
-  stepTypeId      Int
-  advanced        Boolean                      @default(false)
-  description     String?
-  active          Boolean                      @default(true)
-  order           Int?
-  role            StepRole                     // <-- Add this line
-  stepType        StepType                     @relation(fields: [stepTypeId], references: [id])
-  parameters      StepTemplateParameter[]
-  ingredientRules StepTemplateIngredientRule[]
-  recipeSteps     RecipeStep[]
-}
-
-model StepTemplateParameter {
-  id             Int           @id @default(autoincrement())
-  stepTemplateId Int
-  parameterId    Int
-  advanced       Boolean       @default(false)
-  description    String?
-  active         Boolean       @default(true)
-  defaultValue   String?
-  order          Int?
-  visible        Boolean       @default(true)
-  helpText       String?
-  stepTemplate   StepTemplate  @relation(fields: [stepTemplateId], references: [id])
-  parameter      StepParameter @relation(fields: [parameterId], references: [id])
-}
-
-model StepTemplateIngredientRule {
-  id                   Int                @id @default(autoincrement())
-  stepTemplateId       Int
-  ingredientCategoryId Int
-  required             Boolean            @default(false)
-  description          String?
-  active               Boolean            @default(true)
-  visible              Boolean            @default(true)
-  advanced             Boolean            @default(false)
-  helpText             String?
-  defaultValue         String?
-  stepTemplate         StepTemplate       @relation(fields: [stepTemplateId], references: [id])
-  ingredientCategory   IngredientCategory @relation(fields: [ingredientCategoryId], references: [id])
-}
-
-model Recipe {
-  id              Int                    @id @default(autoincrement())
-  name            String                 @unique // Added: Direct field for recipe name, marked as unique
-  ownerId         Int
-  active          Boolean                @default(true)
-  parentRecipeId  Int?
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
-  isPredefined    Boolean                @default(false)
-  totalWeight     Float?
-  hydrationPct    Float?
-  saltPct         Float?
-  notes           String?                // Added: Direct field for recipe notes
-  owner           User                   @relation(fields: [ownerId], references: [id])
-  parentRecipe    Recipe?                @relation("RecipeVersion", fields: [parentRecipeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  clonedRecipes   Recipe[]               @relation("RecipeVersion")
-  steps           RecipeStep[]
-  bakes           Bake[]
-}
-
-model RecipeStep {
-  id              Int                        @id @default(autoincrement())
-  recipeId        Int
-  stepTemplateId  Int
-  order           Int
-  description     String?
-  notes           String?
-  recipe          Recipe                     @relation(fields: [recipeId], references: [id])
-  stepTemplate    StepTemplate               @relation(fields: [stepTemplateId], references: [id])
-  parameterValues RecipeStepParameterValue[]
-  ingredients     RecipeStepIngredient[]
-  bakeSteps       BakeStep[]
-}
-
-model RecipeStepParameterValue {
-  id           Int           @id @default(autoincrement())
-  recipeStepId Int
-  parameterId  Int
-  value        Json
-  notes        String?
-  recipeStep   RecipeStep    @relation(fields: [recipeStepId], references: [id])
-  parameter    StepParameter @relation(fields: [parameterId], references: [id])
-}
-
-model RecipeStepIngredient {
-  id           Int        @id @default(autoincrement())
-  recipeStepId Int
-  ingredientId Int
-  amount       Float // Renamed from percentage as per plan
-  calculationMode IngredientCalculationMode @default(PERCENTAGE) // Added as per plan, with default
-  preparation  String?
-  notes        String?
-  recipeStep   RecipeStep @relation(fields: [recipeStepId], references: [id])
-  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
-}
-
-model Bake {
-  id              Int                  @id @default(autoincrement())
-  recipeId        Int
-  ownerId         Int
-  startTimestamp  DateTime             @default(now())
-  finishTimestamp DateTime?
-  updatedAt       DateTime?            @default(now()) // Temporarily optional with default
-  active          Boolean              @default(true)
-  parentBakeId    Int?
-  notes           String?
-  rating          Int?                 // New field for 1-5 star rating, optional
-  recipeTotalWeightSnapshot Float? // Snapshot of recipe's totalWeight at bake creation
-  recipeHydrationPctSnapshot Float? // Snapshot of recipe's hydrationPct
-  recipeSaltPctSnapshot      Float? // Snapshot of recipe's saltPct
-  recipe          Recipe               @relation(fields: [recipeId], references: [id])
-  owner           User                 @relation(fields: [ownerId], references: [id])
-  parentBake      Bake?                @relation("BakeVersion", fields: [parentBakeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  clonedBakes     Bake[]               @relation("BakeVersion")
-  steps           BakeStep[]
-}
-
-model BakeStep {
-  id              Int                      @id @default(autoincrement())
-  bakeId          Int
-  recipeStepId    Int
-  order           Int
-  status          StepExecutionStatus @default(PENDING)
-  startTimestamp  DateTime?
-  finishTimestamp DateTime?
-  updatedAt       DateTime?            @default(now()) // Temporarily optional with default
-  deviations      Json?
-  notes           String?
-  bake            Bake                     @relation(fields: [bakeId], references: [id])
-  recipeStep      RecipeStep               @relation(fields: [recipeStepId], references: [id])
-  parameterValues BakeStepParameterValue[]
-  ingredients     BakeStepIngredient[]
-}
-
-model BakeStepParameterValue {
-  id           Int           @id @default(autoincrement())
-  bakeStepId   Int
-  parameterId  Int
-  plannedValue Json
-  actualValue  Json?
-  notes        String?
-  bakeStep     BakeStep      @relation(fields: [bakeStepId], references: [id])
-  parameter    StepParameter @relation(fields: [parameterId], references: [id])
-}
-
-model BakeStepIngredient {
-  id                 Int        @id @default(autoincrement())
-  bakeStepId         Int
-  ingredientId       Int
-  plannedPercentage  Float
-  plannedPreparation String?
-  notes              String?
-  bakeStep           BakeStep   @relation(fields: [bakeStepId], references: [id])
-  ingredient         Ingredient @relation(fields: [ingredientId], references: [id])
-}
-
-model EntityRequest {
-  id          Int       @id @default(autoincrement())
-  userId      Int?
-  type        EntityRequestType
-  name        String
-  description String?
-  extra       Json?
-  status      EntityRequestStatus @default(PENDING)
-  reviewerId  Int?
-  reviewedAt  DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  user        User?     @relation("SubmittedBy", fields: [userId], references: [id])
-  reviewer    User?     @relation("ReviewedBy", fields: [reviewerId], references: [id])
 }

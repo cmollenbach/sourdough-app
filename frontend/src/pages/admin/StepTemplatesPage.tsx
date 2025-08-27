@@ -22,7 +22,7 @@ export default function StepTemplatesPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<StepTemplate | null>(null);
   const [isDeleting, setIsDeleting] = useState(false); 
-  const { addToast } = useToast();
+  const { showToast } = useToast();
 
   useEffect(() => {
     fetchAllMetaData();
@@ -50,12 +50,12 @@ export default function StepTemplatesPage() {
 
     try {
       await updateStepTemplate(selectedTemplate.id, updatedData);
-      addToast({ type: 'success', message: 'Template updated successfully!' });
+      showToast('Template updated successfully!', { type: 'success' });
       await fetchAllMetaData(); // Refresh data
       handleCloseModals();
     } catch (error: unknown) {
       const errorMessage = (error as ApiError)?.response?.data?.error || 'Failed to update template.';
-      addToast({ type: 'error', message: errorMessage });
+      showToast(errorMessage, { type: 'error' });
       console.error(error);
       // Do not close modal on error, allow user to retry or see message
     }
@@ -66,12 +66,12 @@ export default function StepTemplatesPage() {
     setIsDeleting(true);
     try {
       await deleteStepTemplate(selectedTemplate.id);
-      addToast({ type: 'success', message: 'Template deleted successfully!' });
+      showToast('Template deleted successfully!', { type: 'success' });
       await fetchAllMetaData(); // Refresh data
       handleCloseModals();
     } catch (error: unknown) {
       const errorMessage = (error as ApiError)?.response?.data?.error || 'Failed to delete template.';
-      addToast({ type: 'error', message: errorMessage });
+      showToast(errorMessage, { type: 'error' });
       console.error(error);
       // Do not close delete modal on error, so user can see the message or retry.
     } finally {
@@ -159,12 +159,12 @@ function EditStepTemplateModal({
   const [name, setName] = useState(template.name);
   const [description, setDescription] = useState(template.description);
   const [isSaving, setIsSaving] = useState(false);
-  const { addToast } = useToast(); 
+  const { showToast } = useToast(); 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      addToast({ type: 'error', message: 'Template name cannot be empty.' });
+      showToast('Template name cannot be empty.', { type: 'error' });
       return;
     }
     setIsSaving(true);

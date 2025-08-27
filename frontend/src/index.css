@@ -110,17 +110,39 @@ body {
   @apply bg-surface-elevated border border-border rounded-2xl shadow-lg;
 }
 
+/* Enhanced mobile-friendly utilities */
+.mobile-safe-bottom {
+  @apply pb-4;
+}
+
+.touch-target {
+  @apply min-h-[44px] min-w-[44px];
+}
+
+.touch-target-large {
+  @apply min-h-[48px] min-w-[48px];
+}
+
+/* Responsive spacing utilities */
+.responsive-padding {
+  @apply p-4 sm:p-6 md:p-4;
+}
+
+.responsive-gap {
+  @apply gap-3 sm:gap-4 md:gap-3;
+}
+
 .btn-primary {
   /* In dark mode, we might want to use a lighter primary color for better contrast */
   @apply bg-primary-500 text-white hover:bg-primary-600 border border-primary-600
-         px-3 py-2 rounded-lg shadow-sm transition;
+         px-3 py-2 rounded-lg shadow-sm transition touch-target;
   .dark & {
     @apply bg-primary-400 text-primary-950 hover:bg-primary-300 border-primary-500;
   }
 }
 .btn-secondary {
   @apply bg-secondary-200 text-secondary-800 hover:bg-secondary-300 border border-secondary-300 
-        px-3 py-2 rounded-lg shadow-sm transition;
+        px-3 py-2 rounded-lg shadow-sm transition touch-target;
   .dark & {
      @apply bg-secondary-700 text-secondary-100 hover:bg-secondary-600 border-secondary-600;
   }
@@ -128,21 +150,21 @@ body {
 
 .btn-danger {
   @apply bg-danger-100 text-danger-700 hover:bg-danger-200 border border-danger-200 
-        px-3 py-2 rounded-lg shadow-sm transition;
+        px-3 py-2 rounded-lg shadow-sm transition touch-target;
   .dark & {
     @apply bg-danger-700 text-danger-100 hover:bg-danger-600 border-danger-600;
   }
 }
 .btn-success {
   @apply bg-success-500 text-white hover:bg-success-600 border border-success-600 
-        px-3 py-1 rounded-md shadow-sm transition-colors disabled:opacity-50;
+        px-3 py-1 rounded-md shadow-sm transition-colors disabled:opacity-50 touch-target;
   .dark & {
      @apply bg-success-600 text-success-50 hover:bg-success-500;
   }
 }
 .btn-skip {
   @apply bg-secondary-200 text-secondary-700 hover:bg-secondary-300 border border-secondary-300 
-        px-3 py-1 rounded-md shadow-sm transition-colors disabled:opacity-50;
+        px-3 py-1 rounded-md shadow-sm transition-colors disabled:opacity-50 touch-target;
   .dark & {
      @apply bg-secondary-700 text-secondary-100 hover:bg-secondary-600 border-secondary-600;
   }

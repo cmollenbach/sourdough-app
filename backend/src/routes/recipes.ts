@@ -291,7 +291,7 @@ router.put("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => {
       // 2. Process Steps
       if (incomingSteps && Array.isArray(incomingSteps)) {
         const existingDbSteps = await tx.recipeStep.findMany({ where: { recipeId: id } });
-        const incomingStepClientIds = incomingSteps.map(s => s.id).filter(stepId => stepId && stepId !== 0); // Actual DB IDs from client
+        const incomingStepClientIds = incomingSteps.map(s => s.id).filter(stepId => stepId && stepId > 0); // Only positive IDs
         // Define types for incoming payload items for clarity
         type IncomingParameterValue = { id?: number; parameterId: number; value: string | number | boolean | null; notes?: string | null };
         type IncomingIngredient = { id?: number; ingredientId: number; amount: number; calculationMode: IngredientCalculationMode; preparation?: string | null; notes?: string | null };
@@ -315,7 +315,7 @@ router.put("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => {
           };
 
           let currentStepId: number;
-          const isNewStep = !stepPayload.id || stepPayload.id === 0;
+          const isNewStep = !stepPayload.id || stepPayload.id <= 0; // Treat undefined, 0, or negative IDs as new steps
 
           if (isNewStep) {
             const newStep = await tx.recipeStep.create({
@@ -333,7 +333,7 @@ router.put("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => {
           // Process ParameterValues (RecipeStepField) for the current step
           const incomingPvs: IncomingParameterValue[] = stepPayload.parameterValues || [];
           const existingDbStepPvs = await tx.recipeStepParameterValue.findMany({ where: { recipeStepId: currentStepId } });
-          const incomingPvClientIds = incomingPvs.map((pv: IncomingParameterValue) => pv.id).filter((pvId?: number) => pvId && pvId !== 0);
+          const incomingPvClientIds = incomingPvs.map((pv: IncomingParameterValue) => pv.id).filter((pvId?: number) => pvId && pvId > 0); // Only positive IDs
 
           const pvsToDelete = existingDbStepPvs.filter(dbPv => !incomingPvClientIds.includes(dbPv.id));
           for (const pvToDelete of pvsToDelete) {
@@ -342,7 +342,7 @@ router.put("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => {
           
           for (const pvPayload of incomingPvs) {
             const pvData = { parameterId: pvPayload.parameterId, value: String(pvPayload.value), notes: pvPayload.notes };
-            if (!pvPayload.id || pvPayload.id === 0) {
+            if (!pvPayload.id || pvPayload.id <= 0) { // Treat undefined, 0, or negative IDs as new
               await tx.recipeStepParameterValue.create({ data: { ...pvData, recipeStepId: currentStepId } });
             } else {
               await tx.recipeStepParameterValue.update({ where: { id: pvPayload.id }, data: pvData });
@@ -352,7 +352,7 @@ router.put("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => {
           // Process Ingredients for the current step
           const incomingIngs: IncomingIngredient[] = stepPayload.ingredients || [];
           const existingDbStepIngs = await tx.recipeStepIngredient.findMany({ where: { recipeStepId: currentStepId } });
-          const incomingIngClientIds = incomingIngs.map((ing: IncomingIngredient) => ing.id).filter((ingId?: number) => ingId && ingId !== 0);
+          const incomingIngClientIds = incomingIngs.map((ing: IncomingIngredient) => ing.id).filter((ingId?: number) => ingId && ingId > 0); // Only positive IDs
 
           const ingsToDelete = existingDbStepIngs.filter(dbIng => !incomingIngClientIds.includes(dbIng.id));
           for (const ingToDelete of ingsToDelete) {
@@ -367,7 +367,7 @@ router.put("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => {
               preparation: ingPayload.preparation,
               notes: ingPayload.notes,
             };
-            if (!ingPayload.id || ingPayload.id === 0) {
+            if (!ingPayload.id || ingPayload.id <= 0) { // Treat undefined, 0, or negative IDs as new
               await tx.recipeStepIngredient.create({ data: { ...ingData, recipeStepId: currentStepId } });
             } else {
               await tx.recipeStepIngredient.update({ where: { id: ingPayload.id }, data: ingData });

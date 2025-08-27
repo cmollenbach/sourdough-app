@@ -23,6 +23,7 @@ import { useEffect } from "react";
 import RegisterPage from "./pages/register";
 import StepTemplatesPage from "./pages/admin/StepTemplatesPage";
 import UserProfilePage from "./pages/user";
+import RecipeListPage from "./pages/recipes";
 
 function AppRoutes() {
   const { user } = useAuth();
@@ -48,8 +49,9 @@ function AppRoutes() {
           
           <Route path="/admin/step-templates" render={() => <RequireAuth adminOnly><StepTemplatesPage /></RequireAuth>} />
 
-          {/* Both /recipes and /recipes/:id will now be handled by RecipeBuilderPage */}
-          <Route path="/recipes/:id?" render={() => <RequireAuth><RecipeBuilderPage /></RequireAuth>} />
+          {/* Recipe Routes - Order matters: more specific routes first */}
+          <Route exact path="/recipes" render={() => <RequireAuth><RecipeListPage /></RequireAuth>} />
+          <Route path="/recipes/:id" render={() => <RequireAuth><RecipeBuilderPage /></RequireAuth>} />
           
           {/* Bake Routes */}
           <Route exact path="/bakes" render={() => <RequireAuth><BakesListPage /></RequireAuth>} />

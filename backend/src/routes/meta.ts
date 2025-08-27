@@ -55,7 +55,7 @@ router.get("/ingredient-categories", async (_req, res) => {
 // Get all StepParameters (formerly Fields)
 router.get("/fields", async (_req, res) => {
   // CHANGED: Use the new 'stepParameter' model name
-  const stepParameters = await prisma.stepParameter.findMany({ orderBy: { order: "asc" } });
+  const stepParameters = await prisma.stepParameter.findMany({ orderBy: { name: "asc" } });
   // The frontend might expect the key 'fields', so we can keep the response shape
   res.json({ fields: stepParameters });
 });

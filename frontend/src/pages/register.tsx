@@ -10,7 +10,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false); // Add loading state
   const { login } = useAuth();
-  const { addToast } = useToast();
+  const { showToast } = useToast();
   const history = useHistory();
   const [error, setError] = useState<string | null>(null);
 
@@ -22,7 +22,7 @@ export default function RegisterPage() {
       // Use apiPost for the registration request
       await apiPost("/auth/register", { email, password });
 
-      addToast({ message: "Registration successful! Logging you in...", type: "success" });
+      showToast("Registration successful! Logging you in...", { type: "success" });
 
       // Auto-login after registration
       await login(email, password);
@@ -34,7 +34,7 @@ export default function RegisterPage() {
         msg = err.message || "An unexpected error occurred during registration.";
       }
       setError(msg);
-      addToast({ message: msg, type: "error" });
+      showToast(msg, { type: "error" });
     } finally {
       setLoading(false); // Set loading to false
     }

@@ -7,6 +7,7 @@ import type { RecipeStep, RecipeStepIngredient, RecipeStepField } from "../../ty
 import { IngredientCalculationMode } from "../../types/recipe";
 import type { StepTemplate, IngredientMeta, IngredientCategoryMeta } from "../../types/recipeLayout";
 import { StepIngredientTable } from "./StepIngredientTable";
+import { TimingScheduleDisplay, useAlarmNotifications } from "./TimingSchedule";
 
 export interface StepCardProps {
   step: RecipeStep;
@@ -15,7 +16,6 @@ export interface StepCardProps {
   showAdvanced: boolean;
   ingredientCategoriesMeta: IngredientCategoryMeta[]; // Added
   onChange: (updated: RecipeStep) => void;
-  onDuplicate: (step: RecipeStep) => void;
   onRemove: (stepId: number) => void;
   dragHandleProps?: React.HTMLAttributes<HTMLSpanElement>;
   isExpanded: boolean;
@@ -162,7 +162,6 @@ export default function StepCard({
   ingredientCategoriesMeta, // Added
   showAdvanced,
   onChange,
-  onDuplicate,
   onRemove,
   dragHandleProps,
   isExpanded,
@@ -181,8 +180,52 @@ export default function StepCard({
     [ingredientsMeta]
   );
   const memoizedStepTemplates = useMemo(
-    () => stepTemplates,
-    [stepTemplates]
+    () => {
+      // Define logical baking process order
+      const processOrder: { [key: string]: number } = {
+        'Preferment': 1,
+        'Autolyse': 2,
+        'Final Mix': 3,
+        'Add Enrichments': 4,
+        'Bulk Ferment': 5,
+        // Note: 'Stretch & Fold' is omitted as it's integrated into Bulk Ferment
+        'Lamination': 6,
+        'Shape': 7,
+        'Final Proof': 8,
+        'Bake': 9,
+        'Rest': 10
+      };
+
+      return stepTemplates
+        .filter(template => {
+          // Hide advanced templates when showAdvanced is false
+          if (template.advanced && !showAdvanced) {
+            return false;
+          }
+          // Hide the separate "Stretch & Fold" template since S&F is integrated into Bulk Ferment
+          if (template.name === 'Stretch & Fold') {
+            return false;
+          }
+          return true;
+        })
+        .sort((a, b) => {
+          // First sort by logical process order
+          const orderA = processOrder[a.name] || 999;
+          const orderB = processOrder[b.name] || 999;
+          if (orderA !== orderB) {
+            return orderA - orderB;
+          }
+          
+          // Then by template order field (for templates with same process step)
+          if (a.order !== b.order) {
+            return (a.order || 999) - (b.order || 999);
+          }
+          
+          // Finally by name for consistency
+          return a.name.localeCompare(b.name);
+        });
+    },
+    [stepTemplates, showAdvanced]
   );
 
   // FIX: Define stringifiedStepContentFromProps to track relevant prop changes for synchronization.
@@ -223,6 +266,24 @@ export default function StepCard({
   const templateSelectRef = useRef<HTMLSelectElement>(null);
   const cardRootRef = useRef<HTMLDivElement>(null); // Ref for the root div of the card
   const template = memoizedStepTemplates.find((t) => t.id === selectedTemplateId);
+  
+  // Handle S&F method when switching between standard/advanced modes
+  useEffect(() => {
+    const currentFormValues = getValues();
+    const currentSFMethod = currentFormValues?.fields ? Object.entries(currentFormValues.fields).find(([fieldId, value]) => {
+      const fieldMeta = template?.fields.find(f => f.fieldId === parseInt(fieldId));
+      return fieldMeta?.field.name === 'S&F Method';
+    })?.[1] : null;
+    
+    // If user exits advanced mode while having "Custom" selected, reset to "Basic"
+    if (!showAdvanced && currentSFMethod === 'Custom') {
+      const sfMethodFieldId = template?.fields.find(f => f.field.name === 'S&F Method')?.fieldId;
+      if (sfMethodFieldId && currentFormValues.fields && sfMethodFieldId in currentFormValues.fields) {
+        setValue(`fields.${sfMethodFieldId}` as any, 'Basic', { shouldDirty: true });
+      }
+    }
+  }, [showAdvanced, setValue, getValues, template]);
+  
   const newlyAddedFocusAttemptedRef = useRef(false); // Ref to track if focus was attempted for this newly added card
 
   // FIX: This block replaces the previous debouncing logic to prevent stale closures.
@@ -289,34 +350,16 @@ export default function StepCard({
       const newFormValuesFromProps = getFormValuesFromStepData(step, memoizedStepTemplates, safeIngredientsMeta);
       const currentFormValues = getValues();
 
-      // --- START DEBUG LOGS ---
-      console.group(`%cStepCard Sync Effect (Step ID: ${step.id})`, 'color: blue; font-weight: bold;');
-      console.log('Prop content changed. Comparing form state with new props.');
-      console.log('%cCurrent Form Values (from getValues()):', 'color: #9E9E9E;', JSON.parse(JSON.stringify(currentFormValues)));
-      console.log('%cNew Prop Values (from getFormValuesFromStepData()):', 'color: #9E9E9E;', newFormValuesFromProps);
-      // --- END DEBUG LOGS ---
-
-      // FIX: Use the new comparison function that ignores the 'rhfId' property.
-      // This correctly identifies when the form is already in sync with the props,
-      // preventing the unnecessary and error-causing reset.
+      // Check if form state matches props (ignoring React Hook Form's rhfId)
       if (areFormValuesEqual(currentFormValues, newFormValuesFromProps)) {
-        console.log('%c✅ States match (ignoring rhfId). Skipping reset.', 'color: green;'); // DEBUG LOG
         prevStringifiedStepRef.current = currentPropContent;
-        console.groupEnd(); // DEBUG LOG
-        return; // Skip the reset, the form is already in sync.
+        return; // Skip reset - form is already in sync
       }
-      
-      // --- START DEBUG LOGS ---
-      console.warn('⚠️ States do NOT match. A reset will be triggered.');
-      console.info('Hint: The mismatch is often due to the `rhfId` property that `useFieldArray` adds to the form state, which is not present in the props.');
-      // --- END DEBUG LOGS ---
 
+      // Reset form with new prop values
       const mutableFormValues = JSON.parse(JSON.stringify(newFormValuesFromProps));
-
       reset(mutableFormValues, { keepDirty: false });
-      console.log('%c🔄 Form has been reset with new prop values.', 'color: blue;'); // DEBUG LOG
       prevStringifiedStepRef.current = currentPropContent;
-      console.groupEnd(); // DEBUG LOG
     }
   }, [
     step, // This dependency ensures the effect runs when the step data changes
@@ -384,11 +427,84 @@ export default function StepCard({
     };
   }, [isNewlyAdded, isExpanded, onNewlyAddedStepHandled, step.id]);
 
-  const visibleFields = (template?.fields || []).filter(
-    (f) => showAdvanced || !f.advanced
-  );
+  // Get current form values to check S&F Method
+  const formValues = watch();
+  const sfMethodValue = formValues?.fields ? Object.entries(formValues.fields).find(([fieldId, value]) => {
+    const fieldMeta = template?.fields.find(f => f.fieldId === parseInt(fieldId));
+    return fieldMeta?.field.name === 'S&F Method';
+  })?.[1] : null;
+
+  const visibleFields = (template?.fields || []).filter((f) => {
+    // First apply the standard advanced field filtering
+    if (f.advanced && !showAdvanced) {
+      return false;
+    }
+    
+    // Apply S&F conditional visibility with ultra-simplified custom mode
+    const sfCustomFields = ['First Fold After (minutes)', 'Interval Between Folds (minutes)', 'Custom Fold Schedule', 'Timing Plan', 'Fold Strength'];
+    
+    // Hide all S&F fields when method is "None" or empty
+    if (sfCustomFields.includes(f.field.name)) {
+      if (!sfMethodValue || sfMethodValue === 'None') {
+        return false;
+      }
+      
+      // Basic mode: No additional inputs needed (predefined schedule)
+      if (sfMethodValue === 'Basic') {
+        return false;
+      }
+      
+      // Custom mode: Only show the Timing Plan field (remove redundant timing fields)
+      if (sfMethodValue === 'Custom') {
+        // Only show Timing Plan, hide the redundant timing fields
+        if (['First Fold After (minutes)', 'Interval Between Folds (minutes)', 'Custom Fold Schedule', 'Fold Strength'].includes(f.field.name)) {
+          return false;
+        }
+        // Custom mode only available in advanced mode
+        if (!showAdvanced) {
+          return false;
+        }
+      }
+    }
+    
+    return true;
+  });
 
   const [visibleHelpFieldId, setVisibleHelpFieldId] = useState<number | null>(null);
+  const { scheduleNotification } = useAlarmNotifications();
+
+  // Get the current timing plan value for display - includes both custom plans and generated basic plans
+  const currentTimingPlan = useMemo(() => {
+    if (!formValues?.fields) return '';
+    
+    // First check for explicit timing plan
+    const explicitPlan = Object.entries(formValues.fields).find(([fieldId, value]) => {
+      const fieldMeta = template?.fields.find(f => f.fieldId === parseInt(fieldId));
+      return fieldMeta?.field.name === 'Timing Plan' || fieldMeta?.field.name === 'Custom Fold Schedule';
+    })?.[1] as string;
+    
+    if (explicitPlan && explicitPlan.trim()) {
+      return explicitPlan;
+    }
+    
+    // Generate timing plan for basic S&F method
+    const sfMethodEntry = Object.entries(formValues.fields).find(([fieldId, value]) => {
+      const fieldMeta = template?.fields.find(f => f.fieldId === parseInt(fieldId));
+      return fieldMeta?.field.name === 'S&F Method';
+    });
+    
+    if (sfMethodEntry?.[1] === 'Basic') {
+      return 'S&F at 30, 60, 90, 120 minutes (Basic - 4 folds every 30 minutes)';
+    }
+    
+    return '';
+  }, [formValues?.fields, template?.fields]);
+
+  // Check if this is a bulk fermentation step that should show timing
+  const shouldShowTiming = template && (
+    template.name?.toLowerCase().includes('bulk') || 
+    template.name?.toLowerCase().includes('ferment')
+  );
 
   if (!template) {
     return <div className="text-red-500 p-4">Step template (ID: {selectedTemplateId}) not found.</div>;
@@ -460,13 +576,20 @@ export default function StepCard({
               />
             </div>
           </div>
+          
+          {/* Show timing preview in collapsed state for bulk fermentation steps */}
+          {!isExpanded && currentTimingPlan && currentTimingPlan.trim() && shouldShowTiming && (
+            <div className="flex-1 min-w-0 px-2">
+              <div className="text-xs text-text-secondary truncate">
+                <span className="inline-flex items-center gap-1">
+                  <span>⏰</span>
+                  <span>{currentTimingPlan.length > 50 ? `${currentTimingPlan.substring(0, 50)}...` : currentTimingPlan}</span>
+                </span>
+              </div>
+            </div>
+          )}
+          
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onDuplicate(step); }}
-              aria-label={`Duplicate step: ${template?.name || 'Unnamed Step'}`}
-              className="btn-primary"
-            >Duplicate</button>
             <button type="button"
               onClick={(e) => { e.stopPropagation(); onRemove(step.id); }}
               aria-label={`Delete step: ${template?.name || 'Unnamed Step'}`}
@@ -523,14 +646,51 @@ export default function StepCard({
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <input
-                            {...field}
-                            id={inputId}
-                            value={typeof field.value === "string" || typeof field.value === "number" ? field.value : ""}
-                            type={meta.field.type === "number" ? "number" : "text"}
-                            className={`border border-border rounded px-3 py-2 w-full bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300 transition ${fieldState.invalid ? "border-red-500" : ""} ${meta.field.type.toUpperCase() === "NUMBER" ? "text-center" : ""}`}
-                            aria-label={meta.field.label || meta.field.name}
-                          />
+                          {meta.field.name === 'S&F Method' ? (
+                            // Special dropdown for S&F Method
+                            <select
+                              {...field}
+                              id={inputId}
+                              value={field.value || 'None'}
+                              className={`border border-border rounded px-3 py-2 w-full bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300 transition ${fieldState.invalid ? "border-red-500" : ""}`}
+                              aria-label={meta.field.label || meta.field.name}
+                            >
+                              <option value="None">None - Just bulk ferment</option>
+                              <option value="Basic">Basic - 4 folds every 30 minutes</option>
+                              {showAdvanced && (
+                                <option value="Custom">Custom - Describe your schedule</option>
+                              )}
+                            </select>
+                          ) : (meta.field.name === 'Custom Fold Schedule' || meta.field.name === 'Timing Plan') ? (
+                            // Enhanced text area for comprehensive planning (timeline will show during active bake)
+                            <textarea
+                              {...field}
+                              id={inputId}
+                              value={field.value || ""}
+                              rows={4}
+                              className={`border border-border rounded px-3 py-2 w-full bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300 transition ${fieldState.invalid ? "border-red-500" : ""}`}
+                              placeholder="Describe your complete timing plan...
+
+Examples:
+• S&F at 30, 60, 90, 120 minutes
+• Folds every 45min for 3hrs, then rest
+• Weekend schedule: Friday mix, Saturday bake
+• Start 8am: bulk 4hrs with hourly folds
+
+Note: Timeline and alarms will be created when you start baking!"
+                              aria-label={meta.field.label || meta.field.name}
+                            />
+                          ) : (
+                            // Regular input for other fields
+                            <input
+                              {...field}
+                              id={inputId}
+                              value={typeof field.value === "string" || typeof field.value === "number" ? field.value : ""}
+                              type={meta.field.type === "number" ? "number" : "text"}
+                              className={`border border-border rounded px-3 py-2 w-full bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300 transition ${fieldState.invalid ? "border-red-500" : ""} ${meta.field.type.toUpperCase() === "NUMBER" ? "text-center" : ""}`}
+                              aria-label={meta.field.label || meta.field.name}
+                            />
+                          )}
                           {fieldState.error && (
                             <div className="text-xs text-red-500 mt-1">{fieldState.error.message}</div>
                           )}
@@ -542,10 +702,26 @@ export default function StepCard({
               })}
             </div>
 
-            {template.ingredientRules.length > 0 && (
+            {/* Show timing schedule preview for bulk fermentation steps with timing plans */}
+            {currentTimingPlan && currentTimingPlan.trim() && shouldShowTiming && (
+              <div className="mt-4 mb-2">
+                <h4 className="text-sm font-semibold text-text-secondary mb-2 flex items-center gap-2">
+                  <span>⏰</span>
+                  Stretch & Fold Schedule
+                </h4>
+                <TimingScheduleDisplay 
+                  timingPlan={currentTimingPlan} 
+                  onSetAlarm={(event, time) => {
+                    scheduleNotification(event, time);
+                  }}
+                />
+              </div>
+            )}            {template.ingredientRules.length > 0 && (
               <StepIngredientTable
                 ingredientsMeta={safeIngredientsMeta}
                 ingredientCategoriesMeta={ingredientCategoriesMeta} // Pass down
+                showAdvanced={showAdvanced} // Pass advanced toggle
+                stepRole={template?.role} // Pass step role for contextual filtering
                 ingredientFields={ingredientFields} // Pass the fields from useFieldArray
                 // FIX: The function passed to the 'append' prop must call 'rhfAppend' from useFieldArray.
                 append={(newIngredientData: Partial<RecipeStepIngredient>) => {

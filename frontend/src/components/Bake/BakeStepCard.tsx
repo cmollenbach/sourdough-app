@@ -4,6 +4,7 @@ import type { BakeStep } from '../../types/bake';
 import { useBakeStore } from '../../store/useBakeStore';
 import { useToast } from '../../context/ToastContext'; // Assuming this is the correct path
 import Spinner from '../Shared/Spinner';
+import { TimingScheduleDisplay, useAlarmNotifications } from '../Recipe/TimingSchedule';
 import type { CalculatedStepColumn, FlourComponent, OtherIngredientDisplay } from '../../hooks/useRecipeCalculations'; // Import calculation types
 
 interface BakeStepCardProps {
@@ -80,7 +81,7 @@ export default function BakeStepCard({
 
 
   const { currentBake, startStep, completeStep, skipStep, updateStepNote, updateStepDeviations, isLoading: isStoreLoading } = useBakeStore();
-  const { addToast } = useToast();
+  const { showToast } = useToast();
 
   const toggleExpand = () => setIsExpanded(!isExpanded);
 
@@ -89,7 +90,7 @@ export default function BakeStepCard({
     if (!isStoreLoading) {
       const updatedStep = await startStep(bakeId, step.id);
       if (updatedStep) {
-        addToast({ type: 'success', message: `Step "${updatedStep.recipeStep?.stepTemplate?.name || 'Step'}" started.` });
+        showToast(`Step "${updatedStep.recipeStep?.stepTemplate?.name || 'Step'}" started.`, { type: 'success' });
         if (!isExpanded) setIsExpanded(true); // Expand if not already
       }
       // Error is handled by the store and displayed on BakeDetailPage
@@ -158,12 +159,12 @@ export default function BakeStepCard({
               break;
             case 'NUMBER': {
                 if (rawValue.trim() === '') {
-                  addToast({ type: 'error', message: `Value for ${paramDefinition.name} cannot be empty.` });
+                  showToast(`Value for ${paramDefinition.name} cannot be empty.`, { type: 'error' });
                   hasError = true;
                 } else {
                   const numValue = parseFloat(rawValue);
                   if (isNaN(numValue)) {
-                    addToast({ type: 'error', message: `Invalid number for ${paramDefinition.name}: ${rawValue}` });
+                    showToast(`Invalid number for ${paramDefinition.name}: ${rawValue}`, { type: 'error' });
                     hasError = true;
                   } else {
                     payloadActualValues[paramId] = numValue;
@@ -177,7 +178,7 @@ export default function BakeStepCard({
             case 'DATE': {
                 const dateObj = new Date(rawValue);
                 if (isNaN(dateObj.getTime())) {
-                   addToast({ type: 'error', message: `Invalid date format for ${paramDefinition.name}: ${rawValue}` });
+                   showToast(`Invalid date format for ${paramDefinition.name}: ${rawValue}`, { type: 'error' });
                    hasError = true;
                 } else {
                   payloadActualValues[paramId] = dateObj.toISOString(); // Backend might expect ISO 8601 string
@@ -194,7 +195,7 @@ export default function BakeStepCard({
               }
           }
         } catch (parseError) {
-          addToast({ type: 'error', message: `Error processing value for ${paramDefinition.name}: ${ (parseError as Error).message }` });
+          showToast(`Error processing value for ${paramDefinition.name}: ${ (parseError as Error).message }`, { type: 'error' });
           hasError = true;
           console.warn(`Error parsing value for param ${paramDefinition.name} (type: ${paramDefinition.type}):`, rawValue, parseError);
         }
@@ -208,7 +209,7 @@ export default function BakeStepCard({
 
       const updatedStep = await completeStep(bakeId, step.id, { actualParameterValues: payloadActualValues });
       if (updatedStep) {
-        addToast({ type: 'success', message: `Step "${updatedStep.recipeStep?.stepTemplate?.name || 'Step'}" completed.` });
+        showToast(`Step "${updatedStep.recipeStep?.stepTemplate?.name || 'Step'}" completed.`, { type: 'success' });
         setIsCompleting(false); // Close the form
       } else {
         // Error might be handled by useBakeStore, but a toast here can be a fallback.
@@ -221,7 +222,7 @@ export default function BakeStepCard({
     e.stopPropagation(); // Prevent card from toggling
     if (!isStoreLoading) {
       const updatedStep = await skipStep(bakeId, step.id);
-      if (updatedStep) addToast({ type: 'success', message: `Step "${updatedStep.recipeStep?.stepTemplate?.name || 'Step'}" skipped.` });
+      if (updatedStep) showToast(`Step "${updatedStep.recipeStep?.stepTemplate?.name || 'Step'}" skipped.`, { type: 'success' });
       // Error handled by store
     }
   };
@@ -246,10 +247,10 @@ export default function BakeStepCard({
       setIsSavingNotes(true);
       const updatedStep = await updateStepNote(bakeId, step.id, editableNotes);
       if (updatedStep) {
-        addToast({ type: 'success', message: 'Notes saved successfully.' });
+        showToast('Notes saved successfully.', { type: 'success' });
         setIsEditingNotes(false);
       } else {
-        addToast({ type: 'error', message: 'Failed to save notes.' });
+        showToast('Failed to save notes.', { type: 'error' });
       }
       setIsSavingNotes(false);
     }
@@ -276,7 +277,7 @@ export default function BakeStepCard({
         } catch (parseError) {
           const errMessage = "Deviations are not valid JSON.";
           console.error("Error parsing deviations JSON:", parseError);
-          addToast({ type: 'error', message: errMessage });
+          showToast(errMessage, { type: 'error' });
           // No need to setIsSavingDeviations(false) here, finally will handle it
           return; // Exit if parsing fails
         }
@@ -284,14 +285,14 @@ export default function BakeStepCard({
       // If parsing was successful or string was empty (deviationsToSave remains null)
       const updatedStep = await updateStepDeviations(bakeId, step.id, deviationsToSave);
       if (updatedStep) {
-        addToast({ type: 'success', message: 'Deviations saved successfully.' });
+        showToast('Deviations saved successfully.', { type: 'success' });
         setIsEditingDeviations(false);
       } else {
         // This else block might be hit if updateStepDeviations returns null/undefined without throwing
-        addToast({ type: 'error', message: 'Failed to save deviations.' });
+        showToast('Failed to save deviations.', { type: 'error' });
       }
     } catch (apiError) { // Catch errors from updateStepDeviations itself or other unexpected errors in the try block
-        addToast({ type: 'error', message: 'An unexpected error occurred while saving deviations.' });
+        showToast('An unexpected error occurred while saving deviations.', { type: 'error' });
         console.error("API error saving deviations:", apiError);
     } finally {
       setIsSavingDeviations(false);
@@ -355,6 +356,28 @@ export default function BakeStepCard({
   };
 
   const isLiveStep = step.status === 'IN_PROGRESS';
+
+  // Check if this is a bulk fermentation step that should show timing
+  const shouldShowTiming = step.recipeStep?.stepTemplate && (
+    step.recipeStep.stepTemplate.name?.toLowerCase().includes('bulk') || 
+    step.recipeStep.stepTemplate.name?.toLowerCase().includes('ferment')
+  );
+
+  // Generate timing plan for bulk fermentation steps during active baking
+  const timingPlan = useMemo(() => {
+    if (!shouldShowTiming || !isActiveBake) return '';
+    
+    // Look for timing plan in step description 
+    const description = step.recipeStep?.description || '';
+    
+    // If there's already a timing plan in the description, use it
+    if (description.match(/\d+\s*(min|minutes|hour|hours|h|m)/i)) {
+      return description;
+    }
+    
+    // Generate a basic S&F schedule for bulk fermentation if none exists
+    return "S&F at 30, 60, 90, 120 minutes";
+  }, [shouldShowTiming, isActiveBake, step.recipeStep?.description]);
 
   const containerClasses = [
     'bg-surface-elevated rounded-2xl shadow-card mb-6 max-w-3xl mx-auto border transition-all duration-300',
@@ -434,6 +457,15 @@ export default function BakeStepCard({
           className="p-4 pt-0 border-t border-border-muted flex flex-col gap-4"
         >
           {step.recipeStep?.description && <p className="text-sm text-text-secondary">{step.recipeStep.description}</p>}
+
+          {/* Timing Schedule Display for bulk fermentation steps during active baking */}
+          {shouldShowTiming && timingPlan && (
+            <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
+              <TimingScheduleDisplay 
+                timingPlan={timingPlan}
+              />
+            </div>
+          )}
 
           {/* Ingredients Section */}
           {stepCalculations ? (

@@ -18,6 +18,7 @@ export interface IngredientMeta {
   id: number;
   name: string;
   ingredientCategoryId: number;
+  advanced?: boolean; // Add advanced property
   defaultCalculationMode?: IngredientCalculationMode; // Added optional property
   // ...other properties...
 }
@@ -32,7 +33,6 @@ export interface RecipeLayoutProps {
   showAdvanced: boolean;         // <-- Add this
   setShowAdvanced: (show: boolean) => void; // <-- Add this
   onRecipeChange: (updatedRecipe: FullRecipe) => void; // For TargetEditor
-  onStepDuplicate: (step: RecipeStep) => void;
   onStepRemove: (stepId: number) => void;
   onStepSave: (step: RecipeStep, isNew: boolean) => void;
   onStepAddHandler: () => void; // For adding a new step to the recipe

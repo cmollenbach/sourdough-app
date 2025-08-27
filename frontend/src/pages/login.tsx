@@ -13,7 +13,7 @@ interface LoginFormInputs {
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { login, setAuthenticatedUser } = useAuth(); // Destructure setAuthenticatedUser
-  const { addToast } = useToast();
+  const { showToast } = useToast();
   const location = useLocation();
   const history = useHistory();
 
@@ -35,7 +35,7 @@ export default function LoginPage() {
       if (err instanceof Error) {
         msg = err.message || msg;
       }
-      addToast({ message: msg, type: "error" });
+      showToast(msg, { type: "error" });
     } finally {
       setLoading(false);
     }
@@ -51,7 +51,7 @@ export default function LoginPage() {
       // Use Vite's way of accessing environment variables
       const apiUrl = import.meta.env.VITE_API_BASE_URL;
       if (!apiUrl) {
-        addToast({ message: "API URL not configured. Please contact support.", type: "error" });
+        showToast("API URL not configured. Please contact support.", { type: "error" });
         setLoading(false); // Ensure loading is set to false if API URL is missing
         return;
       }
@@ -67,14 +67,14 @@ export default function LoginPage() {
         // Use setAuthenticatedUser for social login
         setAuthenticatedUser(user, jwt);
         history.replace(from);
-        addToast({ message: `Welcome back, ${user.displayName || user.email}!`, type: "success" });
+        showToast(`Welcome back, ${user.displayName || user.email}!`, { type: "success" });
       } else {
         const errorData = await res.json().catch(() => ({ message: "Social login failed. Please try again." }));
-        addToast({ message: errorData.error || errorData.message || "Social login failed.", type: "error" });
+        showToast(errorData.error || errorData.message || "Social login failed.", { type: "error" });
       }
     } catch (err) {
       console.error("Social login fetch error:", err); // Log the actual error for debugging
-      addToast({ message: "An unexpected error occurred during social login.", type: "error" });
+      showToast("An unexpected error occurred during social login.", { type: "error" });
     } finally {
       setLoading(false);
     }

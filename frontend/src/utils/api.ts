@@ -80,6 +80,91 @@ export async function login(email: string, password: string) {
   );
 }
 
+// --- USER PROFILE API FUNCTIONS (Unified Schema) ---
+export interface UnifiedUserProfile {
+  id: number;
+  userId: number;
+  displayName: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  experienceLevel: 'beginner' | 'intermediate' | 'advanced';
+  recipesCreated: number;
+  bakesCompleted: number;
+  totalBakeTimeMinutes: number;
+  advancedFeaturesUsed: string[];
+  preferredDifficulty?: string | null;
+  averageSessionMinutes: number;
+  lastActiveAt: string;
+  showAdvancedFields: boolean;
+  autoSaveEnabled: boolean;
+  defaultHydration: number;
+  preferredSaltPct: number;
+  expandStepsOnLoad: boolean;
+  showIngredientHelp: boolean;
+  createdAt: string;
+  updatedAt: string;
+  actions?: UserAction[];
+  userPreferences?: UserPreference[];
+}
+
+export interface UserAction {
+  id: number;
+  userId: number;
+  profileId: number;
+  action: string;
+  details?: any;
+  sessionId?: string | null;
+  timestamp: string;
+}
+
+export interface UserPreference {
+  id: number;
+  userId: number;
+  profileId: number;
+  key: string;
+  value: string;
+  category?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserPreferences {
+  // Structured preferences
+  showAdvancedFields: boolean;
+  autoSaveEnabled: boolean;
+  defaultHydration: number;
+  preferredSaltPct: number;
+  expandStepsOnLoad: boolean;
+  showIngredientHelp: boolean;
+  // Complex preferences as key-value pairs
+  [key: string]: any;
+}
+
+// Get unified user profile (includes experience + preferences)
+export async function getUserProfile(): Promise<UnifiedUserProfile> {
+  return apiGet<UnifiedUserProfile>('/userProfile/profile');
+}
+
+// Update unified user profile
+export async function updateUserProfile(data: Partial<UnifiedUserProfile>): Promise<UnifiedUserProfile> {
+  return apiPut<UnifiedUserProfile>('/userProfile/profile', data);
+}
+
+// Track user action (simplified)
+export async function trackUserAction(action: string, details?: any, sessionId?: string): Promise<UserAction> {
+  return apiPost<UserAction>('/userProfile/actions', { action, details, sessionId });
+}
+
+// Get user preferences (structured + complex)
+export async function getUserPreferences(): Promise<UserPreferences> {
+  return apiGet<UserPreferences>('/userProfile/preferences');
+}
+
+// Update user preferences
+export async function updateUserPreferences(preferences: Partial<UserPreferences>): Promise<{ success: boolean; updated: number }> {
+  return apiPut<{ success: boolean; updated: number }>('/userProfile/preferences', preferences);
+}
+
 // --- Function to get recipe form fields ---
 export async function getRecipeFields(): Promise<FieldMeta[]> {
   // Assuming your backend has an endpoint like '/meta/recipe-fields' or similar

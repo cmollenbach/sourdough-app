@@ -68,7 +68,7 @@ interface RecipeBuilderState {
 }
 
 export const useRecipeBuilderStore = create<RecipeBuilderState>()(
-  immer((set) => ({
+  immer((set, get) => ({
     recipe: null,
     ingredientsMeta: [],
     ingredientCategoriesMeta: [],
@@ -83,8 +83,26 @@ export const useRecipeBuilderStore = create<RecipeBuilderState>()(
     fetchRecipe: async (id: number) => {
       set({ loading: true, error: null });
       try {
-        const recipeData = await apiGet<FullRecipe>(`/recipes/${id}`);
-        set({ recipe: recipeData, loading: false });
+        const recipeData = await apiGet<FullRecipe>(`/recipes/${id}/full`);
+        
+        // Check if the recipe contains any advanced step templates
+        const currentState = get();
+        const hasAdvancedSteps = recipeData.steps.some(step => {
+          const template = currentState.stepTemplates.find((t: StepTemplate) => t.id === step.stepTemplateId);
+          return template?.advanced === true;
+        });
+        
+        // Auto-enable advanced mode if the recipe has advanced step templates
+        const updates: Partial<RecipeBuilderState> = { 
+          recipe: recipeData, 
+          loading: false 
+        };
+        
+        if (hasAdvancedSteps) {
+          updates.showAdvanced = true;
+        }
+        
+        set(updates);
       } catch (err) {
         console.error(`Failed to fetch recipe with id ${id}:`, err);
         set({ error: `Failed to fetch recipe (ID: ${id})`, loading: false });

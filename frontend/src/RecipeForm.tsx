@@ -31,10 +31,16 @@ export default function RecipeForm({ onCreated }: Props) {
     notes: "",
   });
   const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    getRecipeFields().then(setFields);
+    getRecipeFields()
+      .then(setFields)
+      .catch((err) => {
+        setLoadError("Failed to load recipe fields");
+        console.error("Failed to load recipe fields:", err);
+      });
   }, []);
 
   const handleChange = <K extends keyof RecipeFormData>(name: K, value: RecipeFormData[K]) => {
@@ -56,14 +62,26 @@ export default function RecipeForm({ onCreated }: Props) {
         notes: "",
       });
       if (onCreated) onCreated();
-    } catch {
-      setError("Failed to create recipe");
+    } catch (err: any) {
+      // Provide more specific error messages based on the error
+      const errorMessage = err?.message || "Failed to create recipe";
+      if (errorMessage.toLowerCase().includes('timeout') || 
+          errorMessage.toLowerCase().includes('network') ||
+          errorMessage.toLowerCase().includes('connection')) {
+        setError("Network timeout - please check your connection and try again");
+      } else {
+        setError("Failed to create recipe");
+      }
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="mt-6 p-4 border border-border rounded-lg shadow-card bg-surface-elevated flex flex-col gap-4">
       <h2 className="text-xl font-bold text-text-primary">Create Recipe</h2>
+      
+      {/* Show loading error if fields failed to load */}
+      {loadError && <div className="text-danger-600">{loadError}</div>}
+      
       {fields.map(field => (
         <div key={field.name}>
           <label htmlFor={field.name} className="block text-sm font-medium text-text-secondary mb-1">

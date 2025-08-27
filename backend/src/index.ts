@@ -6,6 +6,7 @@ import recipesRouter from "./routes/recipes";
 import stepRoutes from "./routes/steps";
 import metaRouter from "./routes/meta"; // <-- Add this line
 import bakesRoutes from './routes/bakes'; // <-- Add this line
+import userProfileRoutes from './routes/userProfile'; // <-- Add this line
 import helmet from 'helmet'; // <-- Import helmet
 
 dotenv.config();
@@ -65,6 +66,7 @@ app.use("/api", recipesRouter);
 app.use("/api/steps", stepRoutes);
 app.use("/api/meta", metaRouter); // <-- Add this line
 app.use('/api/bakes', bakesRoutes); // <-- Add this line
+app.use('/api/userProfile', userProfileRoutes); // <-- Add this line
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

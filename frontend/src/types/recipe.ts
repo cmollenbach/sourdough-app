@@ -102,5 +102,11 @@ export interface FullRecipe extends Recipe {
 export interface RecipeStub {
   id: number;
   name: string;
-  // You could add other useful info like createdAt, or a short description if available
+  notes?: string;
+  totalWeight?: number;
+  hydrationPct?: number;
+  saltPct?: number;
+  isPredefined?: boolean;
+  isTemplateAdvanced?: boolean;
+  createdAt?: string;
 }

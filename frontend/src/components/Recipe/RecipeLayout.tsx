@@ -5,7 +5,9 @@ import type { DragEndEvent } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import type { RecipeStep } from "../../types/recipe";
 import type { RecipeLayoutProps } from "../../types/recipeLayout";
+import { useRecipeBuilderStore } from "../../store/recipeBuilderStore";
 import RecipeGlobalControls from "./RecipeGlobalControls"; // Import RecipeGlobalControls
+import AdvancedUserFeatures from "./AdvancedUserFeatures"; // Import the enhanced component
 import StepColumn from "./StepColumn";
 import { TargetEditor } from "./TargetEditor";
 import RecipeControls from "./RecipeControls"; // Import the new component
@@ -20,7 +22,6 @@ export default function RecipeLayout({
   showAdvanced,
   setShowAdvanced,
   onRecipeChange,    // New prop
-  onStepDuplicate, // Use the prop
   onStepRemove,    // Use the prop
   onStepSave,      // Use the prop
   onStepAddHandler,  // New prop
@@ -28,11 +29,33 @@ export default function RecipeLayout({
   newlyAddedStepId, // Add this
   onNewlyAddedStepHandled, // Add this
 }: RecipeLayoutProps) {
+  // Access the store for updating recipe details
+  const { updateRecipeDetails } = useRecipeBuilderStore();
 
   const handleStepChange = useCallback((_idx: number, updatedStep: RecipeStep) => {
     // The onStepSave prop now handles this. The _isNew flag might need to be determined.
     onStepSave(updatedStep, updatedStep.id === 0);
   }, [onStepSave]);
+
+  const handleQuickRatio = useCallback((hydration: number) => {
+    if (!recipe) return;
+    
+    if (hydration === 0) {
+      // Custom hydration - prompt user for input
+      const customHydration = prompt(
+        "Enter custom hydration percentage:", 
+        recipe.hydrationPct?.toString() || "75"
+      );
+      
+      if (customHydration && !isNaN(Number(customHydration))) {
+        const hydrationValue = Math.max(50, Math.min(120, Number(customHydration))); // Clamp between 50-120%
+        updateRecipeDetails({ hydrationPct: hydrationValue });
+      }
+    } else {
+      // Preset hydration values
+      updateRecipeDetails({ hydrationPct: hydration });
+    }
+  }, [recipe, updateRecipeDetails]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -61,9 +84,11 @@ export default function RecipeLayout({
         <IonGrid>
           <IonRow>
             <IonCol size="12"> {/* This column will span the full width for the global controls bar */}
-              <RecipeGlobalControls
+              <AdvancedUserFeatures
                 showAdvanced={showAdvanced}
                 onToggleAdvanced={() => setShowAdvanced(!showAdvanced)}
+                currentRecipe={recipe}
+                onQuickRatio={handleQuickRatio}
               />
             </IonCol>
           </IonRow>
@@ -87,7 +112,6 @@ export default function RecipeLayout({
                 showAdvanced={showAdvanced}
                 onStepChange={handleStepChange}
                 onStepAdd={onStepAddHandler} // Pass the new prop handler here
-                onStepDuplicate={onStepDuplicate} // Use prop
                 onStepRemove={onStepRemove}       // Use prop
                 onDragEnd={handleDragEnd} // Changed prop name
                 newlyAddedStepId={newlyAddedStepId} // Pass down

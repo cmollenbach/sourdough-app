@@ -1,12 +1,13 @@
 // RecipeControls.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { useDialog } from '../../context/useDialog'; // Updated import path
+import { useToast } from '../../context/ToastContext'; // Add toast import
 import { useHistory } from 'react-router-dom'; // For react-router-dom v5
 import { useRecipeBuilderStore } from '../../store/recipeBuilderStore';
 import { useBakeStore } from '../../store/useBakeStore'; // Import useBakeStore
 import type { FullRecipe, RecipeFieldValue, RecipeStep, RecipeStepField, RecipeStepIngredient, IngredientCalculationMode } from '../../types/recipe';
 import { apiGet, apiPost, apiPut, apiDelete } from '../../utils/api'; // Import all needed API utils
-import ResponsiveActionBar from './ResponsiveActionBar.tsx'; // Import the new component
+import ResponsiveActionBar from './ResponsiveActionBar'; // Import the new component
 
 // Define RecipeStub based on the Recipe type for the dropdown
 type RecipeStub = {
@@ -75,11 +76,14 @@ async function apiDeleteRecipe(id: number): Promise<void> {
 
 export default function RecipeControls() {
   const { showDialog, hideDialog } = useDialog(); // Get showDialog and hideDialog
+  const { showToast } = useToast(); // Get showToast from toast context
   const currentRecipe = useRecipeBuilderStore(state => state.recipe);
   const setRecipe = useRecipeBuilderStore(state => state.setRecipe);
   const fieldsMeta = useRecipeBuilderStore(state => state.fieldsMeta); // Access fieldsMeta from the store
   // const fetchPredefinedRecipeByNameFromStore = useRecipeBuilderStore(state => state.fetchPredefinedRecipeByName); // No longer directly used here
   const isRecipeDirty = useRecipeBuilderStore(state => state.isRecipeDirty);
+  const stepTemplates = useRecipeBuilderStore(state => state.stepTemplates);
+  const setShowAdvanced = useRecipeBuilderStore(state => state.setShowAdvanced);
   const { startBake: initiateBake, isLoading: isBakeLoading, error: bakeError, clearError: clearBakeError } = useBakeStore(); // Destructure from useBakeStore
 
   const [recipeList, setRecipeList] = useState<RecipeStub[]>([]);
@@ -153,18 +157,43 @@ export default function RecipeControls() {
     }
 
     if (currentRecipe && isRecipeDirty) { // Only confirm if there are unsaved changes
-      // TODO: Replace window.confirm with showDialog
-      if (!window.confirm("You have unsaved changes to the current recipe. Loading a new one will discard these changes. Continue?")) {
-        event.target.value = selectedRecipeId; // Revert dropdown
-        return;
-      }
+      showDialog({
+        title: "Unsaved Changes",
+        content: "You have unsaved changes to the current recipe. Loading a new one will discard these changes. Continue?",
+        confirmText: "Continue",
+        onConfirm: () => {
+          proceedWithRecipeLoad(id);
+          hideDialog();
+        },
+        onCancel: () => {
+          event.target.value = selectedRecipeId; // Revert dropdown
+          hideDialog();
+        }
+      });
+      return;
     }
-    setSelectedRecipeId(event.target.value);
+    
+    proceedWithRecipeLoad(id);
+  };
+
+  const proceedWithRecipeLoad = async (id: number) => {
+    setSelectedRecipeId(id.toString());
     setIsLoading(true);
     setError(null);
     try {
       const fetchedRecipe = await fetchFullRecipe(id); // Use the actual fetching function
       if (fetchedRecipe) {
+        // Check if the recipe contains any advanced step templates
+        const hasAdvancedSteps = fetchedRecipe.steps.some(step => {
+          const template = stepTemplates.find(t => t.id === step.stepTemplateId);
+          return template?.advanced === true;
+        });
+        
+        // Auto-enable advanced mode if the recipe has advanced step templates
+        if (hasAdvancedSteps) {
+          setShowAdvanced(true);
+        }
+        
         setRecipe(fetchedRecipe);
       } else {
         setError(`Recipe with ID ${id} not found.`);
@@ -192,19 +221,19 @@ export default function RecipeControls() {
       })
       .map(fv => ({ parameterId: fv.fieldId, value: fv.value })),
       steps: recipe.steps.map(step => ({
-        id: step.id === 0 ? undefined : step.id, // Send step ID if it exists and is not 0
+        id: step.id <= 0 ? undefined : step.id, // Send step ID if it exists and is positive
         stepTemplateId: step.stepTemplateId,
         order: step.order,
         notes: step.notes,
         description: step.description,
         parameterValues: step.fields.map(f => ({
-            id: f.id === 0 ? undefined : f.id,
+            id: f.id <= 0 ? undefined : f.id, // Send field ID if it exists and is positive
             parameterId: f.fieldId,
             value: f.value,
             notes: f.notes
         })),
         ingredients: step.ingredients.map(ing => ({
-          id: ing.id === 0 ? undefined : ing.id,
+          id: ing.id <= 0 ? undefined : ing.id, // Send ingredient ID if it exists and is positive
           ingredientId: ing.ingredientId,
           amount: ing.amount, // Use amount
           calculationMode: ing.calculationMode, // Use calculationMode
@@ -258,11 +287,11 @@ export default function RecipeControls() {
           setRecipe(savedRecipe);
           await fetchRecipeList();
           setSelectedRecipeId(savedRecipe.id.toString());
-          // TODO: showToast('Recipe saved successfully!', { type: 'success' });
+          showToast('Recipe saved successfully!', { type: 'success' });
           console.log('Success: Recipe saved successfully!'); 
         } catch (_err) {
           setError('Failed to save recipe.');
-          // TODO: showToast('Failed to save recipe.', { type: 'error' });
+          showToast('Failed to save recipe.', { type: 'error' });
           console.error("Failed to save recipe:", _err);
         } finally {
           setIsLoading(false);
@@ -280,7 +309,7 @@ export default function RecipeControls() {
   const handleUpdateOrSave = async () => {
     if (!currentRecipe) {
       setError("No recipe loaded.");
-      // TODO: showToast("No recipe loaded.", { type: 'error' });
+      showToast("No recipe loaded.", { type: 'error' });
       return;
     }
 
@@ -310,11 +339,11 @@ export default function RecipeControls() {
           const updatedRecipe = await apiUpdateExistingRecipe(currentRecipe.id, payload);
           setRecipe(updatedRecipe);
           await fetchRecipeList();
-          // TODO: showToast('Recipe updated successfully!', { type: 'success' });
+          showToast('Recipe updated successfully!', { type: 'success' });
           console.log('Success: Recipe updated successfully!'); 
         } catch (_err) {
           setError('Failed to update recipe.');
-          // TODO: showToast('Failed to update recipe.', { type: 'error' });
+          showToast('Failed to update recipe.', { type: 'error' });
           console.error("Failed to update recipe:", _err);
         } finally {
           setIsLoading(false);
@@ -361,7 +390,7 @@ export default function RecipeControls() {
 
       if (!firstTemplateStub) {
         setError("No predefined templates available to start a new recipe.");
-        // TODO: showToast("No predefined templates available.", { type: 'info' });
+        showToast("No predefined templates available.", { type: 'info' });
         setIsLoading(false);
         return;
       }
@@ -403,11 +432,11 @@ export default function RecipeControls() {
         setSelectedRecipeId(''); // Clear selection as it's a new, unsaved recipe
       } else {
         setError(`Could not load the details for the template: ${firstTemplateStub.name}.`);
-        // TODO: showToast(`Could not load template: ${firstTemplateStub.name}.`, { type: 'error' });
+        showToast(`Could not load template: ${firstTemplateStub.name}.`, { type: 'error' });
       }
     } catch (_err) {
       setError('Failed to create new recipe from template.');
-      // TODO: showToast('Failed to create new recipe.', { type: 'error' });
+      showToast('Failed to create new recipe.', { type: 'error' });
       console.error("Failed to create new recipe from template:", _err);
     } finally {
       setIsLoading(false);
@@ -449,7 +478,7 @@ export default function RecipeControls() {
       setError(null);
       try {
         await apiDeleteRecipe(recipeForDelete.id);
-        // TODO: showToast(`Recipe "${recipeForDelete.name}" deleted successfully.`, { type: 'success' });
+        showToast(`Recipe "${recipeForDelete.name}" deleted successfully.`, { type: 'success' });
         console.log(`Success: Recipe "${recipeForDelete.name}" deleted successfully.`); 
         // Optionally, load the base template or clear the current recipe
         await fetchRecipeList(); // Refresh list first
@@ -457,7 +486,7 @@ export default function RecipeControls() {
         handleNewFromBase(); // Load new from base after delete
       } catch (_err) {
         setError('Failed to delete recipe.');
-        // TODO: showToast('Failed to delete recipe.', { type: 'error' });
+        showToast('Failed to delete recipe.', { type: 'error' });
         console.error("Failed to delete recipe:", _err);
       }
       finally {
@@ -501,7 +530,7 @@ export default function RecipeControls() {
     // if there was a delay (e.g. user interaction with dialog) before this function is called.
     if (!currentRecipe) {
         console.error("Cannot start bake, current recipe is null.");
-        // TODO: showToast('Error: No recipe loaded to start bake.', { type: 'error' });
+        showToast('Error: No recipe loaded to start bake.', { type: 'error' });
         // Optionally show a dialog or set an error state
         return;
     }
@@ -513,7 +542,7 @@ export default function RecipeControls() {
     } else {
       // bakeError will be set in the store, you could display it here or rely on a global error display
       // Replace alert with a toast notification or more integrated error display
-      // TODO: showToast(`Failed to start bake: ${bakeError || 'Unknown error'}`, { type: 'error' });
+      showToast(`Failed to start bake: ${bakeError || 'Unknown error'}`, { type: 'error' });
       console.error(`Failed to start bake: ${bakeError || 'Unknown error'}`); // Placeholder for showToast/setError
     }
   };
@@ -530,24 +559,28 @@ export default function RecipeControls() {
         isSavingOrLoading={isLoading || isBakeLoading}
         canStartBake={canStartBake}
       />
-      <div className="p-4 border border-border rounded-lg shadow-card bg-surface-elevated mt-4 md:mt-6 mb-6"> {/* Added mt-4/md:mt-6 to account for sticky bar */}
-        <h2 className="text-xl font-bold mb-3 text-text-primary">Recipe Management</h2>
-        {isLoading && <div className="text-accent-500">Loading...</div>}
-        {error && <div className="text-danger-700 p-2 my-2 border border-danger-200 rounded bg-danger-50">{error}</div>}
-      {isBakeLoading && <div className="text-accent-500">Starting bake...</div>}
-      {bakeError && <div className="text-danger-700 p-2 my-2 border border-danger-200 rounded bg-danger-50">Bake Error: {bakeError}</div>}
+      <div className="p-4 sm:p-6 border border-border rounded-lg shadow-card bg-surface-elevated mt-4 md:mt-6 mb-6"> {/* Enhanced padding for mobile */}
+        <h2 className="text-xl font-bold mb-4 text-text-primary">Recipe Management</h2>
+        
+        {/* Status indicators with improved mobile spacing */}
+        <div className="space-y-2 mb-4">
+          {isLoading && <div className="text-accent-500 text-sm">Loading...</div>}
+          {error && <div className="text-danger-700 p-3 border border-danger-200 rounded-md bg-danger-50 text-sm">{error}</div>}
+          {isBakeLoading && <div className="text-accent-500 text-sm">Starting bake...</div>}
+          {bakeError && <div className="text-danger-700 p-3 border border-danger-200 rounded-md bg-danger-50 text-sm">Bake Error: {bakeError}</div>}
+        </div>
 
-      <div className="mb-3">
-        <label htmlFor="recipe-select" className="block text-sm font-medium text-text-secondary mb-1">
-          Load Recipe:
-        </label>
-        <select
-          id="recipe-select"
-          value={selectedRecipeId}
-          onChange={handleRecipeSelect}
-          disabled={isLoading || isBakeLoading}
-          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300 transition-colors"
-        >
+        <div className="mb-4">
+          <label htmlFor="recipe-select" className="block text-sm font-medium text-text-secondary mb-2">
+            Load Recipe:
+          </label>
+          <select
+            id="recipe-select"
+            value={selectedRecipeId}
+            onChange={handleRecipeSelect}
+            disabled={isLoading || isBakeLoading}
+            className="mt-1 block w-full pl-3 pr-10 py-3 text-base border border-border rounded-md bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300 transition-colors min-h-[44px]"
+          >
           <option value="">-- Select a Recipe --</option>
           {groupedRecipes.userRecipes.length > 0 && (
             <optgroup label="My Recipes">
@@ -577,25 +610,25 @@ export default function RecipeControls() {
         </select>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:justify-end gap-2 mt-4">
-        {/* "Update / Save" and "Start Bake" buttons are now in ResponsiveActionBar */}
-        <button
-          onClick={handleNewFromBase}
-          disabled={isLoading || isBakeLoading} // Disable if any operation is in progress
-          className="btn-secondary"
-        >
-          New
-        </button>
-        <button
-          onClick={handleDelete}
-          disabled={!canPerformActions || currentRecipe?.isPredefined || currentRecipe?.id === 0}
-          className="btn-danger"
-          aria-label="Delete"
-          title="Delete"
-        >
-          🗑️
-        </button>
-      </div>
+        <div className="flex flex-col sm:flex-row sm:justify-end gap-3 mt-6">
+          {/* Enhanced mobile-friendly buttons with proper touch targets */}
+          <button
+            onClick={handleNewFromBase}
+            disabled={isLoading || isBakeLoading}
+            className="btn-secondary min-h-[44px] px-4 order-2 sm:order-1"
+          >
+            New Recipe
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={!canPerformActions || currentRecipe?.isPredefined || currentRecipe?.id === 0}
+            className="btn-danger min-h-[44px] px-4 flex items-center justify-center gap-2 order-1 sm:order-2"
+            aria-label="Delete Recipe"
+            title="Delete Recipe"
+          >
+            🗑️ <span className="hidden sm:inline">Delete</span>
+          </button>
+        </div>
       </div>
     </>
   );

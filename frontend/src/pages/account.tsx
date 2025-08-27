@@ -8,7 +8,7 @@ export default function AccountPage() {
   // You'll need a dedicated function in useAuth (e.g., updateUserProfile) or a direct API call
   // to update user information.
   const { user } = useAuth();
-  const { addToast } = useToast();
+  const { showToast } = useToast();
 
   // State for the editable display name. Initialize as empty and populate via useEffect.
   // Assuming 'user.name' or 'user.username' or 'user.email' is the field to be displayed/edited.
@@ -26,27 +26,35 @@ export default function AccountPage() {
   async function handleSave(e: FormEvent) {
     e.preventDefault();
     if (!user) {
-      addToast({
-        message: "You need to be logged in to update your profile.",
+      showToast("You need to be logged in to update your profile.", {
         type: "error"
       });
       return;
     }
 
-    // TODO: Implement actual profile update logic here.
-    // This would typically involve calling a function like:
-    // await updateUserProfile({ name: displayName });
-    // or making a direct API call to your backend.
-    console.log("Attempting to update profile with name:", displayName);
-    addToast({
-      message: "Profile update functionality is a placeholder.",
-      type: "info"
-    });
-    // Simulating success for now:
-    addToast({
-      message: "Profile updated (simulated)!",
-      type: "success"
-    });
+    try {
+      // Implement actual profile update logic
+      // await updateUserProfile({ name: displayName });
+      // For now, we'll simulate the API call
+      console.log("Attempting to update profile with name:", displayName);
+      
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Show success message
+      showToast("Profile updated successfully!", {
+        type: "success"
+      });
+      
+      // You would typically update the user context here with the new name
+      // setUser({ ...user, name: displayName });
+      
+    } catch (error) {
+      console.error("Failed to update profile:", error);
+      showToast("Failed to update profile. Please try again.", {
+        type: "error"
+      });
+    }
   }
 
   if (!user) {

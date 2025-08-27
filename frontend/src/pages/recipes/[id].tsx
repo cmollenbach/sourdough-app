@@ -74,28 +74,11 @@ export default function RecipeBuilderPage() {
     updateStep(updatedStep);
   }, [updateStep]);
 
-  const handleStepDuplicate = useCallback((stepToDuplicate: RecipeStep) => {
-    if (recipe) { // Use recipe from destructured store state
-      // const newStep: RecipeStep = { // This variable was unused
-      //   ...stepToDuplicate,
-      //   id: 0, 
-      //   order: recipe.steps.length + 1, 
-      // };
-      // This is a simplified duplication. A more robust one would re-evaluate fields/ingredients
-      // based on the original step's template or data.
-      // For now, let's assume we add a new step based on the duplicated step's template.
-      const templateForDuplicatedStep = stepTemplates.find(t => t.id === stepToDuplicate.stepTemplateId);
-      const newStepId = addStep({ stepTemplateId: stepToDuplicate.stepTemplateId, notes: stepToDuplicate.notes, description: stepToDuplicate.description }, templateForDuplicatedStep);
-      setNewlyAddedStepId(newStepId ?? null); // Use the returned ID, fallback to null
-    }
-  }, [recipe, addStep, stepTemplates]);
-
   const handleRecipeChange = useCallback((updatedRecipe: FullRecipe) => {
     updateRecipeDetails(updatedRecipe);
   }, [updateRecipeDetails]);
   
   const handleNewlyAddedStepHandled = useCallback(() => {
-    // console.log('%cRecipeBuilderPage: handleNewlyAddedStepHandled called. Setting newlyAddedStepId to null.');
     setNewlyAddedStepId(null);
   }, []);
 
@@ -165,8 +148,8 @@ export default function RecipeBuilderPage() {
           }
         } else { // New recipe mode (id is undefined, "new", or "0")
           try {
-            // Fetch the "Base Template" recipe by its name
-            const baseRecipeData = await fetchPredefinedRecipeByName("Base Template");
+            // Fetch the "Basic Sourdough" recipe by its name as a base template
+            const baseRecipeData = await fetchPredefinedRecipeByName("Basic Sourdough");
 
             if (baseRecipeData) {
               // Since availableRecipes is removed, we pass an empty array for unique name generation
@@ -175,11 +158,11 @@ export default function RecipeBuilderPage() {
               if (newRecipe) {
                 setRecipe(newRecipe);
               } else {
-                console.error("\"Base Template\" recipe found but could not be processed into a new recipe.");
+                console.error("\"Basic Sourdough\" recipe found but could not be processed into a new recipe.");
                 setRecipe({id:0, name:"Blank Recipe", notes: '', totalWeight: null, hydrationPct: null, saltPct: null, steps:[], fieldValues:[]}); // Fallback
               }
             } else {
-              console.error("\"Base Template\" could not be fetched. Store error:", useRecipeBuilderStore.getState().error);
+              console.error("\"Basic Sourdough\" could not be fetched. Store error:", useRecipeBuilderStore.getState().error);
               setRecipe({id:0, name:"Blank Recipe", notes: '', totalWeight: null, hydrationPct: null, saltPct: null, steps:[], fieldValues:[]}); // Fallback
             }
           } catch (fetchError) {
@@ -226,7 +209,6 @@ export default function RecipeBuilderPage() {
         showAdvanced={showAdvanced}
         setShowAdvanced={setShowAdvanced}
         onRecipeChange={handleRecipeChange}
-        onStepDuplicate={handleStepDuplicate}
         onStepRemove={handleStepRemove}
         onStepSave={handleStepSave}
         onStepAddHandler={handleStepAdd}

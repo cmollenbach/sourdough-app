@@ -1,7 +1,9 @@
 import { useEffect, useState, useMemo } from 'react'; // Import useMemo
 import { useParams, Link, useHistory } from 'react-router-dom';
 import { useBakeStore } from '../../store/useBakeStore';
-import BakeStepCard from '../../components/Bake/BakeStepCard.tsx'; // Ensure this path is correct
+import BakeStepCard from '../../components/Bake/BakeStepCard'; // Ensure this path is correct
+import { BakeTimelineDisplay } from '../../components/Bake/BakeTimeline';
+import { UnifiedBakeTimeline } from '../../components/Bake/UnifiedBakeTimeline';
 import { useToast } from '../../context/ToastContext'; // Ensure this path is correct
 import { useDialog } from '../../context/useDialog'; // Import useDialog
 import BakeTargetsDisplay from '../../components/Bake/BakeTargetsDisplay'; // Import the new component
@@ -25,7 +27,7 @@ export default function BakeDetailPage() {
     error
   } = useBakeStore();
   const { showDialog, hideDialog } = useDialog(); // Get dialog functions
-  const { addToast } = useToast();
+  const { showToast } = useToast();
   const [isEditingBakeNotes, setIsEditingBakeNotes] = useState(false);
   const [editableBakeNotes, setEditableBakeNotes] = useState('');
   const [isEditingRating, setIsEditingRating] = useState(false);
@@ -201,10 +203,10 @@ export default function BakeDetailPage() {
         hideDialog(); // Close the dialog first
         const success = await cancelBake(currentBake.id);
         if (success) {
-          addToast({ type: 'info', message: 'Bake has been cancelled.' });
+          showToast('Bake has been cancelled.', { type: 'info' });
           history.push('/bakes'); 
         } else {
-          addToast({ type: 'error', message: `Failed to cancel bake: ${error || 'Unknown error'}` });
+          showToast(`Failed to cancel bake: ${error || 'Unknown error'}`, { type: 'error' });
         }
       },
       onCancel: hideDialog,
@@ -222,9 +224,9 @@ export default function BakeDetailPage() {
         hideDialog();
         const updatedBake = await completeBake(currentBake.id);
         if (updatedBake) {
-          addToast({ type: 'success', message: 'Bake marked as complete!' });
+          showToast('Bake marked as complete!', { type: 'success' });
         } else {
-          addToast({ type: 'error', message: `Failed to mark bake as complete: ${error || 'Unknown error'}` });
+          showToast(`Failed to mark bake as complete: ${error || 'Unknown error'}`, { type: 'error' });
         }
       },
       onCancel: hideDialog,
@@ -245,10 +247,10 @@ export default function BakeDetailPage() {
         // Assuming startBake in useBakeStore takes (recipeId: number, notes?: string)
         const newBake = await startBake(currentBake.recipeId!, newBakeNotes); // Added non-null assertion for recipeId as it's checked
         if (newBake && newBake.id) {
-          addToast({ type: 'success', message: 'Bake cloned successfully! New bake started.' });
+          showToast('Bake cloned successfully! New bake started.', { type: 'success' });
           history.push(`/bakes/${newBake.id}`);
         } else {
-          addToast({ type: 'error', message: `Failed to clone bake: ${error || 'Unknown error'}` });
+          showToast(`Failed to clone bake: ${error || 'Unknown error'}`, { type: 'error' });
         }
       },
       onCancel: hideDialog,
@@ -264,10 +266,10 @@ export default function BakeDetailPage() {
     if (currentBake) {
       const updatedBake = await updateBakeNotes(currentBake.id, editableBakeNotes.trim() || null);
       if (updatedBake) {
-        addToast({ type: 'success', message: 'Bake notes updated!' });
+        showToast('Bake notes updated!', { type: 'success' });
         setIsEditingBakeNotes(false);
       } else {
-        addToast({ type: 'error', message: `Failed to update bake notes: ${error || 'Unknown error'}` });
+        showToast(`Failed to update bake notes: ${error || 'Unknown error'}`, { type: 'error' });
       }
     }
   };
@@ -276,10 +278,10 @@ export default function BakeDetailPage() {
     if (currentBake && selectedRating !== undefined) { // selectedRating can be null
       const updatedBake = await updateBakeRating(currentBake.id, selectedRating);
       if (updatedBake) {
-        addToast({ type: 'success', message: 'Rating saved!' });
+        showToast('Rating saved!', { type: 'success' });
         setIsEditingRating(false);
       } else {
-        addToast({ type: 'error', message: `Failed to save rating: ${error || 'Unknown error'}` });
+        showToast(`Failed to save rating: ${error || 'Unknown error'}`, { type: 'error' });
       }
     }
   };
@@ -381,28 +383,43 @@ export default function BakeDetailPage() {
         </div>
       )}
       
-      <h2 className="text-2xl font-semibold mb-3 text-text-primary">Steps:</h2>
-      {sortedSteps.length > 0 ? (
-        <div>
-          {sortedSteps.map((bakeStep, index) => { 
-            // Retrieve pre-calculated data for this specific step from the map
-            // Assumes bakeStep.recipeStep and bakeStep.recipeStep.id are valid.
-            // Use bakeStep.recipeStepId as the key, which corresponds to the original RecipeStep.id
-            const stepCalculations = typeof bakeStep.recipeStepId === 'number' ? stepCalculationsMap.get(bakeStep.recipeStepId) : undefined;
-
-            return (
-              <BakeStepCard 
-                key={bakeStep.id} 
-                step={bakeStep} 
-                bakeId={currentBake.id} 
-                isActiveBake={currentBake.active}
-                isInitiallyExpanded={index === activeStepIndex}
-                stepCalculations={stepCalculations} />
-            );
-          })}
+      {/* Unified Timeline and Steps for Active Bakes */}
+      {currentBake?.active && currentBake.startTimestamp ? (
+        <div className="mb-8">
+          <UnifiedBakeTimeline 
+            bakeSteps={sortedSteps} 
+            bakeStartTime={new Date(currentBake.startTimestamp)}
+            bakeId={currentBake.id}
+            stepCalculationsMap={stepCalculationsMap}
+          />
         </div>
       ) : (
-        <p className="text-text-secondary">No steps defined for this bake.</p>
+        /* Traditional Step Cards for Completed/Inactive Bakes */
+        <>
+          <h2 className="text-2xl font-semibold mb-3 text-text-primary">Steps:</h2>
+          {sortedSteps.length > 0 ? (
+            <div>
+              {sortedSteps.map((bakeStep, index) => { 
+                // Retrieve pre-calculated data for this specific step from the map
+                // Assumes bakeStep.recipeStep and bakeStep.recipeStep.id are valid.
+                // Use bakeStep.recipeStepId as the key, which corresponds to the original RecipeStep.id
+                const stepCalculations = typeof bakeStep.recipeStepId === 'number' ? stepCalculationsMap.get(bakeStep.recipeStepId) : undefined;
+
+                return (
+                  <BakeStepCard 
+                    key={bakeStep.id} 
+                    step={bakeStep} 
+                    bakeId={currentBake.id} 
+                    isActiveBake={currentBake.active}
+                    isInitiallyExpanded={index === activeStepIndex}
+                    stepCalculations={stepCalculations} />
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-text-secondary">No steps defined for this bake.</p>
+          )}
+        </>
       )}
 
       <div className="mt-6">

@@ -27,7 +27,6 @@ interface StepColumnProps {
   ingredientsMeta: IngredientMeta[];
   showAdvanced: boolean;
   onStepChange: (idx: number, updated: RecipeStep) => void;
-  onStepDuplicate: (step: RecipeStep) => void;
   onStepRemove: (stepId: number) => void;
   onDragEnd: (event: DragEndEvent) => void; // Changed from onReorder to match dnd-kit
   onStepAdd: () => void; // New prop for adding a step
@@ -42,13 +41,21 @@ export default function StepColumn({
   ingredientsMeta,
   showAdvanced,
   onStepChange,
-  onStepDuplicate,
   onStepRemove,
   onDragEnd,
   onStepAdd,
   newlyAddedStepId,
   onNewlyAddedStepHandled,
 }: StepColumnProps) {
+  // Debug logging
+  console.log('StepColumn rendered with:', {
+    stepsCount: steps.length,
+    stepTemplatesCount: stepTemplates.length,
+    showAdvanced,
+    firstStepId: steps[0]?.id,
+    firstStepTemplateId: steps[0]?.stepTemplateId
+  });
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -93,7 +100,6 @@ export default function StepColumn({
                 ingredientCategoriesMeta={ingredientCategoriesMeta} // Pass down
                 showAdvanced={showAdvanced}
                 onChange={(updated: RecipeStep) => onStepChange(idx, updated)}
-                onDuplicate={onStepDuplicate}
                 onRemove={onStepRemove}
                 isExpanded={expandedStepId === step.id} // Pass expanded state
                 onToggleExpand={() => handleToggleExpand(step.id)} // Pass toggle handler
