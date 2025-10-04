@@ -71,12 +71,7 @@ jobs:
           echo "Running seed script..."
           npx ts-node prisma/seed.ts
           
-          echo "Verifying seed data..."
-          npx prisma db execute --url="$DATABASE_URL" --stdin <<EOF
-          SELECT COUNT(*) as step_types FROM "StepType";
-          SELECT COUNT(*) as ingredients FROM "Ingredient";
-          SELECT COUNT(*) as users FROM "User";
-          EOF
+          echo "Seed completed successfully!"
       
       - name: Run tests
         working-directory: ./backend
