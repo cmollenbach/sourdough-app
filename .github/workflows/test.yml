@@ -46,19 +46,13 @@ jobs:
           DATABASE_URL: postgresql://postgres:test_password@localhost:5432/sourdough_test
         run: npx prisma generate
       
-      - name: Run Prisma migrations
-        working-directory: ./backend
-        env:
-          DATABASE_URL: postgresql://postgres:test_password@localhost:5432/sourdough_test
-        run: npx prisma migrate deploy
-      
-      - name: Build and seed database
+      - name: Reset database and seed
         working-directory: ./backend
         env:
           DATABASE_URL: postgresql://postgres:test_password@localhost:5432/sourdough_test
         run: |
           npx tsc --project tsconfig.json
-          npx prisma db seed
+          npx prisma migrate reset --force --skip-generate
       
       - name: Run tests
         working-directory: ./backend
