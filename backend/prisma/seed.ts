@@ -16,9 +16,17 @@ async function main() {
     console.log(`   DATABASE_URL: ${process.env.DATABASE_URL?.substring(0, 50)}...`);
 
     // --- SAFETY CHECK: Skip if data already exists ---
+    console.log('🔍 Checking for existing data...');
     const existingUsers = await prisma.user.count();
-    if (existingUsers > 0) {
-      console.log(`⚠️  Database already has ${existingUsers} users. Skipping seed to avoid duplicates.`);
+    const existingStepTypes = await prisma.stepType.count();
+    const existingIngredientCategories = await prisma.ingredientCategory.count();
+    
+    console.log(`   Users: ${existingUsers}`);
+    console.log(`   StepTypes: ${existingStepTypes}`);
+    console.log(`   IngredientCategories: ${existingIngredientCategories}`);
+    
+    if (existingUsers > 0 || existingStepTypes > 0 || existingIngredientCategories > 0) {
+      console.log(`⚠️  Database already has data. Skipping seed to avoid duplicates.`);
       console.log(`   If you want to re-seed, drop and recreate the database first.`);
       return;
     }
