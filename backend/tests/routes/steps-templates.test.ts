@@ -92,6 +92,18 @@ describe('Step Template Admin Routes', () => {
       const testTemplateIds = testTemplates.map(t => t.id);
       
       if (testTemplateIds.length > 0) {
+        // Delete recipe steps that reference these templates FIRST
+        await prisma.recipeStepIngredient.deleteMany({
+          where: { recipeStep: { stepTemplateId: { in: testTemplateIds } } },
+        });
+        await prisma.recipeStepParameterValue.deleteMany({
+          where: { recipeStep: { stepTemplateId: { in: testTemplateIds } } },
+        });
+        await prisma.recipeStep.deleteMany({
+          where: { stepTemplateId: { in: testTemplateIds } },
+        });
+        
+        // Now safe to delete template relations and templates
         await prisma.stepTemplateParameter.deleteMany({
           where: { stepTemplateId: { in: testTemplateIds } },
         });
@@ -121,20 +133,47 @@ describe('Step Template Admin Routes', () => {
   });
 
   afterAll(async () => {
-    // Clean up test data
-    await prisma.recipeStepIngredient.deleteMany({});
-    await prisma.recipeStepParameterValue.deleteMany({});
-    await prisma.recipeStep.deleteMany({ where: { recipe: { ownerId: { in: [adminUserId, regularUserId] } } } });
-    await prisma.recipe.deleteMany({ where: { ownerId: { in: [adminUserId, regularUserId] } } });
-    await prisma.account.deleteMany({ where: { userId: { in: [adminUserId, regularUserId] } } });
-    await prisma.user.deleteMany({ where: { id: { in: [adminUserId, regularUserId] } } });
+    // Clean up test data in correct order for foreign keys
     
-    // Clean up test templates (only those created in tests, not seed data)
-    await prisma.stepTemplate.deleteMany({
+    // First, find all test templates we're about to delete
+    const testTemplatesToDelete = await prisma.stepTemplate.findMany({
       where: {
         name: { in: ['Test Template', 'Updated Template', 'Template to Delete'] },
       },
+      select: { id: true },
     });
+    const testTemplateIds = testTemplatesToDelete.map(t => t.id);
+    
+    // Delete recipe steps that reference these templates (regardless of owner)
+    if (testTemplateIds.length > 0) {
+      await prisma.recipeStepIngredient.deleteMany({
+        where: { recipeStep: { stepTemplateId: { in: testTemplateIds } } },
+      });
+      await prisma.recipeStepParameterValue.deleteMany({
+        where: { recipeStep: { stepTemplateId: { in: testTemplateIds } } },
+      });
+      await prisma.recipeStep.deleteMany({
+        where: { stepTemplateId: { in: testTemplateIds } },
+      });
+    }
+    
+    // Now safe to delete the templates and their relations
+    if (testTemplateIds.length > 0) {
+      await prisma.stepTemplateParameter.deleteMany({
+        where: { stepTemplateId: { in: testTemplateIds } },
+      });
+      await prisma.stepTemplateIngredientRule.deleteMany({
+        where: { stepTemplateId: { in: testTemplateIds } },
+      });
+      await prisma.stepTemplate.deleteMany({
+        where: { id: { in: testTemplateIds } },
+      });
+    }
+    
+    // Clean up test recipes and users
+    await prisma.recipe.deleteMany({ where: { ownerId: { in: [adminUserId, regularUserId] } } });
+    await prisma.account.deleteMany({ where: { userId: { in: [adminUserId, regularUserId] } } });
+    await prisma.user.deleteMany({ where: { id: { in: [adminUserId, regularUserId] } } });
   });
 
   // =====================================================
