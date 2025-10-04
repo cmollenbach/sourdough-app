@@ -19,24 +19,24 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: sourdough-app/backend/package-lock.json
+          cache-dependency-path: backend/package-lock.json
       
       - name: Install dependencies
-        working-directory: ./sourdough-app/backend
+        working-directory: ./backend
         run: npm ci
       
       - name: Generate Prisma Client
-        working-directory: ./sourdough-app/backend
+        working-directory: ./backend
         env:
           DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
         run: npx prisma generate
       
       - name: TypeScript type check
-        working-directory: ./sourdough-app/backend
+        working-directory: ./backend
         run: npx tsc --noEmit
       
       - name: Build backend
-        working-directory: ./sourdough-app/backend
+        working-directory: ./backend
         env:
           DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
         run: npm run build
@@ -45,7 +45,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-dist
-          path: sourdough-app/backend/dist/
+          path: backend/dist/
           retention-days: 7
 
   build-frontend:
@@ -60,20 +60,20 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: sourdough-app/frontend/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
       
       - name: Install dependencies
-        working-directory: ./sourdough-app/frontend
+        working-directory: ./frontend
         run: npm ci
       
       - name: Build frontend
-        working-directory: ./sourdough-app/frontend
+        working-directory: ./frontend
         env:
           VITE_API_BASE_URL: https://api.example.com/api
         run: npm run build
       
       - name: Check bundle size
-        working-directory: ./sourdough-app/frontend
+        working-directory: ./frontend
         run: |
           if [ -d "dist" ]; then
             SIZE=$(du -sb dist | cut -f1)
@@ -96,5 +96,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: frontend-dist
-          path: sourdough-app/frontend/dist/
+          path: frontend/dist/
           retention-days: 7
