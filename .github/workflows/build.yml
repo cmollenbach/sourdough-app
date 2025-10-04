@@ -1,0 +1,100 @@
+name: Build
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build-backend:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: sourdough-app/backend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./sourdough-app/backend
+        run: npm ci
+      
+      - name: Generate Prisma Client
+        working-directory: ./sourdough-app/backend
+        env:
+          DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
+        run: npx prisma generate
+      
+      - name: TypeScript type check
+        working-directory: ./sourdough-app/backend
+        run: npx tsc --noEmit
+      
+      - name: Build backend
+        working-directory: ./sourdough-app/backend
+        env:
+          DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
+        run: npm run build
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-dist
+          path: sourdough-app/backend/dist/
+          retention-days: 7
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: sourdough-app/frontend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./sourdough-app/frontend
+        run: npm ci
+      
+      - name: Build frontend
+        working-directory: ./sourdough-app/frontend
+        env:
+          VITE_API_BASE_URL: https://api.example.com/api
+        run: npm run build
+      
+      - name: Check bundle size
+        working-directory: ./sourdough-app/frontend
+        run: |
+          if [ -d "dist" ]; then
+            SIZE=$(du -sb dist | cut -f1)
+            SIZE_MB=$(echo "scale=2; $SIZE / 1048576" | bc)
+            echo "📦 Bundle size: ${SIZE_MB}MB"
+            
+            # Warn if bundle is larger than 5MB
+            if [ $SIZE -gt 5242880 ]; then
+              echo "⚠️ Warning: Bundle size (${SIZE_MB}MB) exceeds 5MB"
+              echo "Consider code splitting or optimizing assets"
+            else
+              echo "✅ Bundle size is within acceptable limits"
+            fi
+          else
+            echo "❌ dist directory not found"
+            exit 1
+          fi
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: sourdough-app/frontend/dist/
+          retention-days: 7

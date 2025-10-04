@@ -1,0 +1,102 @@
+name: Documentation Check
+
+# Run on PRs and pushes to main to ensure docs are updated
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  check-docs:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch full history to compare changes
+      
+      - name: Check if code changed without docs update
+        run: |
+          # Get list of changed files
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          else
+            CHANGED_FILES=$(git diff --name-only HEAD~1...HEAD)
+          fi
+          
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          
+          # Check if backend code changed
+          BACKEND_CHANGED=$(echo "$CHANGED_FILES" | grep -E "^backend/src/(routes|middleware)" || true)
+          
+          # Check if frontend features changed
+          FRONTEND_CHANGED=$(echo "$CHANGED_FILES" | grep -E "^frontend/src/(pages|components)" || true)
+          
+          # Check if database schema changed
+          SCHEMA_CHANGED=$(echo "$CHANGED_FILES" | grep -E "^backend/prisma/schema.prisma" || true)
+          
+          # Check if docs were updated
+          DOCS_UPDATED=$(echo "$CHANGED_FILES" | grep -E "^docs/" || true)
+          
+          # If code changed but docs didn't, warn (but don't fail)
+          if [ -n "$BACKEND_CHANGED" ] || [ -n "$FRONTEND_CHANGED" ] || [ -n "$SCHEMA_CHANGED" ]; then
+            if [ -z "$DOCS_UPDATED" ]; then
+              echo "⚠️  WARNING: Code changes detected but documentation was not updated."
+              echo "📝 Consider updating:"
+              [ -n "$BACKEND_CHANGED" ] && echo "  - docs/API.md (if API endpoints changed)"
+              [ -n "$SCHEMA_CHANGED" ] && echo "  - docs/DataModel.md (if database models changed)"
+              [ -n "$FRONTEND_CHANGED" ] && echo "  - docs/README.md or feature-specific docs"
+              echo ""
+              echo "If this change doesn't require documentation updates, you can ignore this warning."
+              # Don't fail the build, just warn
+              exit 0
+            else
+              echo "✅ Documentation was updated alongside code changes."
+            fi
+          else
+            echo "ℹ️  No significant code changes requiring documentation updates."
+          fi
+      
+      - name: Check for required documentation files
+        run: |
+          REQUIRED_DOCS=(
+            "docs/README.md"
+            "docs/Authentication.md"
+            "docs/BakeFeature.md"
+            "docs/RecipeBuilder.md"
+          )
+          
+          MISSING_DOCS=()
+          
+          for doc in "${REQUIRED_DOCS[@]}"; do
+            if [ ! -f "$doc" ]; then
+              MISSING_DOCS+=("$doc")
+            fi
+          done
+          
+          if [ ${#MISSING_DOCS[@]} -eq 0 ]; then
+            echo "✅ All required documentation files exist."
+          else
+            echo "❌ Missing required documentation files:"
+            printf '%s\n' "${MISSING_DOCS[@]}"
+            exit 1
+          fi
+      
+      - name: Check for TODO comments in code
+        run: |
+          # Find TODO/FIXME comments but don't fail, just report
+          TODO_COUNT=$(grep -r "TODO\|FIXME" backend/src frontend/src 2>/dev/null | wc -l || echo "0")
+          
+          if [ "$TODO_COUNT" -gt 0 ]; then
+            echo "ℹ️  Found $TODO_COUNT TODO/FIXME comments in code:"
+            grep -rn "TODO\|FIXME" backend/src frontend/src 2>/dev/null | head -10 || true
+            if [ "$TODO_COUNT" -gt 10 ]; then
+              echo "... and $((TODO_COUNT - 10)) more"
+            fi
+            echo ""
+            echo "Consider creating issues for these items."
+          else
+            echo "✅ No TODO/FIXME comments found."
+          fi
