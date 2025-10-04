@@ -12,37 +12,13 @@ const prisma = new PrismaClient();
 async function main() {
   try {
     console.log(`🌱 Start seeding comprehensive dataset...`);
+    console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
+    console.log(`   Assuming database is already clean from migrate reset or fresh start`);
 
-    // --- 1. CLEANUP (only in development, CI uses migrate reset) ---
-    if (process.env.NODE_ENV !== 'test') {
-      console.log('🧹 Cleaning up existing data...');
-      const userEmailsToDelete = ['system@sourdough.app', 'christoffer@mollenbach.com'];
-
-      // Clean up in proper order
-      await prisma.recipeStepParameterValue.deleteMany({});
-      await prisma.recipeStepIngredient.deleteMany({});
-      await prisma.bakeStepParameterValue.deleteMany({});
-      await prisma.bakeStepIngredient.deleteMany({});
-      await prisma.bakeStep.deleteMany({});
-      await prisma.recipeStep.deleteMany({});
-      await prisma.bake.deleteMany({});
-      await prisma.recipe.deleteMany({});
-      await prisma.stepTemplateParameter.deleteMany({});
-      await prisma.stepTemplateIngredientRule.deleteMany({});
-      await prisma.stepTemplate.deleteMany({});
-      await prisma.stepType.deleteMany({});
-      await prisma.stepParameter.deleteMany({});
-      await prisma.account.deleteMany({});
-      await prisma.session.deleteMany({});
-      await prisma.userProfile.deleteMany({});
-      await prisma.entityRequest.deleteMany({});
-      await prisma.ingredient.deleteMany({});
-      await prisma.ingredientCategory.deleteMany({});
-      await prisma.user.deleteMany({});
-      console.log('✅ Cleanup complete.');
-    } else {
-      console.log('⏭️  Skipping cleanup in test environment (assuming clean database from migrate reset)');
-    }
+    // --- CLEANUP REMOVED ---
+    // When using 'prisma migrate reset', the database is dropped and recreated
+    // so no cleanup is needed. For manual seeding in development, run
+    // 'prisma migrate reset' first, or manually clean the database.
 
     // --- 2. SEED USERS ---
     console.log('👤 Creating users...');
