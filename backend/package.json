@@ -47,7 +47,9 @@
   "scripts": {
     "clean": "npx rimraf dist",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "build": "npm run clean && npx prisma migrate deploy && npx prisma generate && tsc && npx prisma db seed",
+    "build": "npm run clean && npx prisma generate && tsc",
+    "build:seed": "npm run build && npx prisma db seed",
+    "deploy": "npx prisma migrate deploy && npm run build",
     "start": "node dist/src/index.js",
     "test": "jest",
     "test:watch": "jest --watch",
