@@ -73,9 +73,10 @@ describe('Step Template Admin Routes', () => {
 
   beforeEach(async () => {
     // Clean up any existing test templates (delete by name pattern to catch all test templates)
-    // Wrapped in try-catch because templates may be in use from previous test runs
+    // First delete related records to avoid foreign key constraints
     try {
-      await prisma.stepTemplate.deleteMany({
+      // Delete parameters and ingredient rules for test templates first
+      const testTemplates = await prisma.stepTemplate.findMany({
         where: {
           OR: [
             { name: { startsWith: 'Test' } },
@@ -85,9 +86,25 @@ describe('Step Template Admin Routes', () => {
             { name: { startsWith: 'Long Description' } },
           ],
         },
+        select: { id: true },
       });
+      
+      const testTemplateIds = testTemplates.map(t => t.id);
+      
+      if (testTemplateIds.length > 0) {
+        await prisma.stepTemplateParameter.deleteMany({
+          where: { stepTemplateId: { in: testTemplateIds } },
+        });
+        await prisma.stepTemplateIngredientRule.deleteMany({
+          where: { stepTemplateId: { in: testTemplateIds } },
+        });
+        await prisma.stepTemplate.deleteMany({
+          where: { id: { in: testTemplateIds } },
+        });
+      }
     } catch (error) {
-      // Ignore cleanup errors (foreign key constraints from previous test runs)
+      // Ignore cleanup errors
+      console.log('Cleanup warning:', error);
     }
 
     // Create a test template for each test with unique name to avoid conflicts
