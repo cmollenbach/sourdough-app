@@ -13,12 +13,17 @@ async function main() {
   try {
     console.log(`🌱 Start seeding comprehensive dataset...`);
     console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
-    console.log(`   Assuming database is already clean from migrate reset or fresh start`);
+    console.log(`   DATABASE_URL: ${process.env.DATABASE_URL?.substring(0, 50)}...`);
 
-    // --- CLEANUP REMOVED ---
-    // When using 'prisma migrate reset', the database is dropped and recreated
-    // so no cleanup is needed. For manual seeding in development, run
-    // 'prisma migrate reset' first, or manually clean the database.
+    // --- SAFETY CHECK: Skip if data already exists ---
+    const existingUsers = await prisma.user.count();
+    if (existingUsers > 0) {
+      console.log(`⚠️  Database already has ${existingUsers} users. Skipping seed to avoid duplicates.`);
+      console.log(`   If you want to re-seed, drop and recreate the database first.`);
+      return;
+    }
+
+    console.log(`✅ Database is empty. Proceeding with seed...`);
 
     // --- 2. SEED USERS ---
     console.log('👤 Creating users...');
