@@ -1,16 +1,19 @@
 import express, { Request, Response } from 'express';
-import { PrismaClient, StepExecutionStatus, Prisma } from '@prisma/client'; // Added Prisma
+import { StepExecutionStatus, Prisma } from '@prisma/client'; // Added Prisma
 import { authenticateJWT, AuthRequest } from '../middleware/authMiddleware'; // Corrected import names
+import prisma from '../lib/prisma';
+import logger from '../lib/logger';
+import { validateParams, validateBody } from '../middleware/validation';
+import { bakeIdParamSchema, updateBakeNotesSchema, updateBakeRatingSchema } from '../validation/recipeSchemas';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // All routes in this file will be protected
 router.use(authenticateJWT); // Corrected usage
 
 // --- Define Endpoint Logic Below ---
 // GET /api/bakes/active: Fetches all bakes for the logged-in user where active = true.
-router.get('/active', async (req: AuthRequest, res: Response) => { // Corrected type to AuthRequest
+router.get('/active', async (req: AuthRequest, res: Response, next) => { // Corrected type to AuthRequest
   const ownerId = req.user?.userId; // Corrected to use userId
   if (!ownerId) {
     return res.status(401).json({ message: 'User not authenticated.' }); // Changed to 401 for unauthenticated
@@ -39,13 +42,12 @@ router.get('/active', async (req: AuthRequest, res: Response) => { // Corrected 
     });
     res.json(activeBakes);
   } catch (error) {
-    console.error('Failed to fetch active bakes:', error);
-    res.status(500).json({ message: 'Failed to fetch active bakes.' });
+    next(error);
   }
 });
 
 // GET /api/bakes: Fetches all bakes (active and inactive) for the logged-in user.
-router.get('/', async (req: AuthRequest, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response, next) => {
   const ownerId = req.user?.userId;
   if (!ownerId) {
     return res.status(401).json({ message: 'User not authenticated.' });
@@ -74,13 +76,12 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     }));
     res.json(bakesWithStepCount);
   } catch (error) {
-    console.error('Failed to fetch all bakes:', error);
-    res.status(500).json({ message: 'Failed to fetch all bakes.' });
+    next(error);
   }
 });
 
 // GET /api/bakes/:bakeId: Fetches a single bake by its ID for the logged-in user.
-router.get('/:bakeId', async (req: AuthRequest, res: Response) => {
+router.get('/:bakeId', async (req: AuthRequest, res: Response, next) => {
   const ownerId = req.user?.userId;
   const { bakeId } = req.params;
 
@@ -115,13 +116,12 @@ router.get('/:bakeId', async (req: AuthRequest, res: Response) => {
     }
     res.json(bake);
   } catch (error) {
-    console.error(`Failed to fetch bake ${bakeId}:`, error);
-    res.status(500).json({ message: 'Failed to fetch bake.' });
+    next(error);
   }
 });
 
 // POST /api/bakes: Creates a new bake and snapshots the recipe steps.
-router.post('/', async (req: AuthRequest, res: Response) => { // Corrected type to AuthRequest
+router.post('/', async (req: AuthRequest, res: Response, next) => { // Corrected type to AuthRequest
   const { recipeId, notes: bakeNotes } = req.body;
   const ownerId = req.user?.userId; // Corrected to use userId
   if (!ownerId) {
@@ -216,20 +216,15 @@ router.post('/', async (req: AuthRequest, res: Response) => { // Corrected type 
 
     return res.status(201).json(detailedBake);
   } catch (error) {
-    console.error('Failed to create bake:', error);
-    return res.status(500).json({ message: 'Failed to create bake.', details: (error as Error).message });
+    next(error);
   }
 });
 
 // PUT /api/bakes/:bakeId/notes: Updates the notes for a specific bake.
-router.put('/:bakeId/notes', async (req: AuthRequest, res: Response) => {
+router.put('/:bakeId/notes', validateParams(bakeIdParamSchema), validateBody(updateBakeNotesSchema), async (req: AuthRequest, res: Response, next) => {
   const ownerId = req.user?.userId;
   const { bakeId } = req.params;
   const { notes } = req.body; // Expecting new notes string
-
-  if (notes === undefined) {
-    return res.status(400).json({ message: 'Notes field is required.' });
-  }
 
   try {
     const bake = await prisma.bake.findFirst({ where: { id: Number(bakeId), ownerId: ownerId } });
@@ -243,25 +238,15 @@ router.put('/:bakeId/notes', async (req: AuthRequest, res: Response) => {
     });
     res.json(updatedBake); // Return the updated bake object
   } catch (error) {
-    console.error(`Failed to update notes for bake ${bakeId}:`, error);
-    res.status(500).json({ message: 'Failed to update bake notes.' });
+    next(error);
   }
 });
 
 // PUT /api/bakes/:bakeId/rating: Updates the rating for a specific bake.
-router.put('/:bakeId/rating', async (req: AuthRequest, res: Response) => {
+router.put('/:bakeId/rating', validateParams(bakeIdParamSchema), validateBody(updateBakeRatingSchema), async (req: AuthRequest, res: Response, next) => {
   const ownerId = req.user?.userId;
   const { bakeId } = req.params;
-  let { rating } = req.body; // Expecting new rating (number 1-5 or null)
-
-  if (rating !== undefined && rating !== null) {
-    rating = Number(rating);
-    if (isNaN(rating) || rating < 1 || rating > 5) {
-      return res.status(400).json({ message: 'Rating must be a number between 1 and 5, or null.' });
-    }
-  } else if (rating === undefined) { // Allow explicitly setting rating to null
-      rating = null;
-  }
+  const { rating } = req.body; // Expecting new rating (number 1-5)
 
   try {
     const bake = await prisma.bake.findFirst({ where: { id: Number(bakeId), ownerId: ownerId } });
@@ -272,13 +257,12 @@ router.put('/:bakeId/rating', async (req: AuthRequest, res: Response) => {
     const updatedBake = await prisma.bake.update({ where: { id: Number(bakeId) }, data: { rating } });
     res.json(updatedBake);
   } catch (error) {
-    console.error(`Failed to update rating for bake ${bakeId}:`, error);
-    res.status(500).json({ message: 'Failed to update bake rating.' });
+    next(error);
   }
 });
 
 // PUT /api/bakes/:bakeId/complete: Marks a bake as complete (sets active to false and records finishTimestamp).
-router.put('/:bakeId/complete', async (req: AuthRequest, res: Response) => {
+router.put('/:bakeId/complete', async (req: AuthRequest, res: Response, next) => {
   const ownerId = req.user?.userId;
   const { bakeId } = req.params;
 
@@ -297,13 +281,12 @@ router.put('/:bakeId/complete', async (req: AuthRequest, res: Response) => {
     });
     res.json(updatedBake);
   } catch (error) {
-    console.error(`Failed to complete bake ${bakeId}:`, error);
-    res.status(500).json({ message: 'Failed to complete bake.' });
+    next(error);
   }
 });
 
 // PUT /api/bakes/:bakeId/cancel: Sets the bake active to false and records finishTimestamp.
-router.put('/:bakeId/cancel', async (req: AuthRequest, res: Response) => { // Corrected type
+router.put('/:bakeId/cancel', async (req: AuthRequest, res: Response, next) => { // Corrected type
   const ownerId = req.user?.userId; // Corrected to use userId
   const { bakeId } = req.params;
 
@@ -319,13 +302,12 @@ router.put('/:bakeId/cancel', async (req: AuthRequest, res: Response) => { // Co
     });
     res.json(updatedBake);
   } catch (error) {
-    console.error(`Failed to cancel bake ${bakeId}:`, error);
-    res.status(500).json({ message: 'Failed to cancel bake.' });
+    next(error);
   }
 });
 
 // PUT /api/bakes/:bakeId/steps/:stepId/start: Sets step status to IN_PROGRESS and records startTimestamp.
-router.put('/:bakeId/steps/:stepId/start', async (req: AuthRequest, res: Response) => { // Corrected type
+router.put('/:bakeId/steps/:stepId/start', async (req: AuthRequest, res: Response, next) => { // Corrected type
   const ownerId = req.user?.userId; // Corrected to use userId
   const { bakeId: bakeIdStr, stepId: stepIdStr } = req.params;
   const bakeId = Number(bakeIdStr);
@@ -349,14 +331,13 @@ router.put('/:bakeId/steps/:stepId/start', async (req: AuthRequest, res: Respons
     });
     res.json(updatedStep);
   } catch (error) {
-    console.error(`Failed to start step ${stepId} for bake ${bakeId}:`, error);
-    res.status(500).json({ message: 'Failed to start step.' });
+    next(error);
   }
 });
 
 // PUT /api/bakes/:bakeId/steps/:stepId/complete: Sets step status to COMPLETED, records finishTimestamp.
 // Also handles recording actualParameterValues, notes, deviations for the BakeStep.
-router.put('/:bakeId/steps/:stepId/complete', async (req: AuthRequest, res: Response) => { // Corrected type
+router.put('/:bakeId/steps/:stepId/complete', async (req: AuthRequest, res: Response, next) => { // Corrected type
   const ownerId = req.user?.userId; // Corrected to use userId
   const { bakeId: bakeIdStr, stepId: stepIdStr } = req.params;
   const bakeId = Number(bakeIdStr);
@@ -402,7 +383,11 @@ router.put('/:bakeId/steps/:stepId/complete', async (req: AuthRequest, res: Resp
                 data: { actualValue: value === null ? Prisma.JsonNull : value }, // Handle null for JSON
             });
         } else {
-            console.warn(`BakeStepParameterValue not found for step ${stepId}, parameter ${paramId} to record actual value.`);
+            logger.warn('BakeStepParameterValue not found when recording actual value', { 
+              stepId, 
+              parameterId: paramId,
+              bakeId: req.params.bakeId 
+            });
         }
       }
     }
@@ -414,13 +399,12 @@ router.put('/:bakeId/steps/:stepId/complete', async (req: AuthRequest, res: Resp
 
     res.json(finalUpdatedStep);
   } catch (error) {
-    console.error(`Failed to complete step ${stepId} for bake ${bakeId}:`, error);
-    res.status(500).json({ message: 'Failed to complete step.', details: (error as Error).message });
+    next(error);
   }
 });
 
 // PUT /api/bakes/:bakeId/steps/:stepId/skip: Sets step status to SKIPPED.
-router.put('/:bakeId/steps/:stepId/skip', async (req: AuthRequest, res: Response) => { // Corrected type
+router.put('/:bakeId/steps/:stepId/skip', async (req: AuthRequest, res: Response, next) => { // Corrected type
   const ownerId = req.user?.userId; // Corrected to use userId
   const { bakeId: bakeIdStr, stepId: stepIdStr } = req.params;
   const bakeId = Number(bakeIdStr);
@@ -437,13 +421,12 @@ router.put('/:bakeId/steps/:stepId/skip', async (req: AuthRequest, res: Response
     });
     res.json(updatedStep);
   } catch (error) {
-    console.error(`Failed to skip step ${stepId} for bake ${bakeId}:`, error);
-    res.status(500).json({ message: 'Failed to skip step.' });
+    next(error);
   }
 });
 
 // PUT /api/bakes/:bakeId/steps/:stepId/parameters/:parameterValueId/actual: Updates actualValue for a specific BakeStepParameterValue.
-router.put('/:bakeId/steps/:stepId/parameters/:parameterValueId/actual', async (req: AuthRequest, res: Response) => { // Corrected type
+router.put('/:bakeId/steps/:stepId/parameters/:parameterValueId/actual', async (req: AuthRequest, res: Response, next) => { // Corrected type
   const ownerId = req.user?.userId; // Corrected to use userId
   const { bakeId: bakeIdStr, stepId: stepIdStr, parameterValueId: bspvIdStr } = req.params;
   const bakeId = Number(bakeIdStr);
@@ -473,13 +456,12 @@ router.put('/:bakeId/steps/:stepId/parameters/:parameterValueId/actual', async (
     });
     res.json(updatedParamValue);
   } catch (error) {
-    console.error(`Failed to update actual value for parameter value ${bspvId}:`, error);
-    res.status(500).json({ message: 'Failed to update actual parameter value.' });
+    next(error);
   }
 });
 
 // PUT /api/bakes/:bakeId/steps/:stepId/note: Updates the notes field for a BakeStep.
-router.put('/:bakeId/steps/:stepId/note', async (req: AuthRequest, res: Response) => { // Corrected type
+router.put('/:bakeId/steps/:stepId/note', async (req: AuthRequest, res: Response, next) => { // Corrected type
   const ownerId = req.user?.userId; // Corrected to use userId
   const { bakeId: bakeIdStr, stepId: stepIdStr } = req.params;
   const bakeId = Number(bakeIdStr);
@@ -500,13 +482,12 @@ router.put('/:bakeId/steps/:stepId/note', async (req: AuthRequest, res: Response
     });
     res.json(updatedStep);
   } catch (error) {
-    console.error(`Failed to update notes for step ${stepId}:`, error);
-    res.status(500).json({ message: 'Failed to update notes.' });
+    next(error);
   }
 });
 
 // PUT /api/bakes/:bakeId/steps/:stepId/deviations: Updates the deviations field for a BakeStep.
-router.put('/:bakeId/steps/:stepId/deviations', async (req: AuthRequest, res: Response) => {
+router.put('/:bakeId/steps/:stepId/deviations', async (req: AuthRequest, res: Response, next) => {
   const ownerId = req.user?.userId;
   const { bakeId: bakeIdStr, stepId: stepIdStr } = req.params;
   const bakeId = Number(bakeIdStr);
@@ -527,15 +508,13 @@ router.put('/:bakeId/steps/:stepId/deviations', async (req: AuthRequest, res: Re
     });
     res.json(updatedStep);
   } catch (error) {
-    console.error(`Failed to update deviations for step ${stepId}:`, error);
-    // Consider checking for Prisma.PrismaClientKnownRequestError if `deviations` is not valid JSON for the DB
-    res.status(500).json({ message: 'Failed to update deviations.' });
+    next(error);
   }
 });
 
 // PUT /api/bakes/:bakeId/steps/:stepId/parameter-values/:parameterValueId/planned
 // Updates the plannedValue for a specific BakeStepParameterValue.
-router.put('/:bakeId/steps/:stepId/parameter-values/:parameterValueId/planned', async (req: AuthRequest, res: Response) => {
+router.put('/:bakeId/steps/:stepId/parameter-values/:parameterValueId/planned', async (req: AuthRequest, res: Response, next) => {
   const ownerId = req.user?.userId;
   const { bakeId: bakeIdStr, stepId: stepIdStr, parameterValueId: bspvIdStr } = req.params;
   const bakeId = Number(bakeIdStr);
@@ -563,8 +542,7 @@ router.put('/:bakeId/steps/:stepId/parameter-values/:parameterValueId/planned', 
     });
     res.json(updatedParamValue);
   } catch (error) {
-    console.error(`Failed to update planned value for parameter value ${bspvId}:`, error);
-    res.status(500).json({ message: 'Failed to update planned parameter value.' });
+    next(error);
   }
 });
 

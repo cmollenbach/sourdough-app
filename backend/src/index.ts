@@ -1,16 +1,54 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import helmet from 'helmet';
+import logger from './lib/logger';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { apiLimiter, authLimiter } from './middleware/rateLimiter';
 import authRoutes from "./routes/auth";
 import recipesRouter from "./routes/recipes";
 import stepRoutes from "./routes/steps";
-import metaRouter from "./routes/meta"; // <-- Add this line
-import bakesRoutes from './routes/bakes'; // <-- Add this line
-import userProfileRoutes from './routes/userProfile'; // <-- Add this line
-import helmet from 'helmet'; // <-- Import helmet
+import metaRouter from "./routes/meta";
+import bakesRoutes from './routes/bakes';
+import userProfileRoutes from './routes/userProfile';
 
+// Load environment variables
 dotenv.config();
 
+// ============================================
+// Environment Variable Validation
+// ============================================
+// Validate required environment variables at startup
+// This prevents the app from running with invalid configuration
+const requiredEnvVars = [
+  'DATABASE_URL',
+  'JWT_SECRET',
+  'PORT',
+];
+
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+  console.error('❌ FATAL ERROR: Missing required environment variables:');
+  missingEnvVars.forEach(varName => {
+    console.error(`   - ${varName}`);
+  });
+  console.error('\nPlease set these variables in your .env file.');
+  process.exit(1);
+}
+
+// Validate JWT_SECRET is not a default/insecure value
+if (process.env.JWT_SECRET === 'dev_secret' || process.env.JWT_SECRET === 'your_jwt_secret_here') {
+  console.error('❌ FATAL ERROR: JWT_SECRET is set to an insecure default value.');
+  console.error('   Please set a strong, unique JWT_SECRET in your .env file.');
+  process.exit(1);
+}
+
+logger.info('✅ Environment variables validated successfully');
+
+// ============================================
+// Express App Setup
+// ============================================
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
 
 const app = express();
@@ -55,7 +93,17 @@ app.use(cors({
 
 app.use(express.json());
 
+// ============================================
+// Rate Limiting
+// ============================================
+// Apply rate limiting before routes
+// Auth endpoints have stricter limits (5 req/15min) than general API (100 req/15min)
+app.use('/api/auth', authLimiter);
+app.use('/api', apiLimiter);
 
+// ============================================
+// Routes
+// ============================================
 // Health check route
 app.get("/api/health", (_req, res) => {
   res.json({ status: "Backend is running!" });
@@ -64,11 +112,25 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api", recipesRouter);
 app.use("/api/steps", stepRoutes);
-app.use("/api/meta", metaRouter); // <-- Add this line
-app.use('/api/bakes', bakesRoutes); // <-- Add this line
-app.use('/api/userProfile', userProfileRoutes); // <-- Add this line
+app.use("/api/meta", metaRouter);
+app.use('/api/bakes', bakesRoutes);
+app.use('/api/userProfile', userProfileRoutes);
 
+// ============================================
+// Error Handling
+// ============================================
+// Handle 404 for undefined routes (must be after all routes)
+app.use(notFoundHandler);
+
+// Global error handler (must be last)
+app.use(errorHandler);
+
+// ============================================
+// Start Server
+// ============================================
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  logger.info(`🚀 Server running on http://localhost:${PORT}`);
+  logger.info(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`🌐 CORS allowed origins: ${allowedOrigins.join(', ')}`);
 });

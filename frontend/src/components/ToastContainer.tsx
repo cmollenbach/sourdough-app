@@ -69,7 +69,7 @@ const ToastItem: React.FC<{
             onClick={toast.action.onClick}
             className={`
               mt-2 text-xs font-semibold underline
-              hover:no-underline focus:outline-none
+              hover:no-underline focus:ring-2 focus:ring-primary-400 focus:ring-opacity-50
               ${textColorMap[toast.type]}
             `}
           >
@@ -82,7 +82,7 @@ const ToastItem: React.FC<{
         onClick={() => onDismiss(toast.id)}
         className={`
           flex-shrink-0 p-1 rounded-full
-          hover:bg-black/10 focus:outline-none focus:bg-black/10
+          hover:bg-text-primary/10 focus:ring-2 focus:ring-primary-400 focus:ring-opacity-50
           transition-colors duration-200
         `}
         aria-label="Dismiss notification"

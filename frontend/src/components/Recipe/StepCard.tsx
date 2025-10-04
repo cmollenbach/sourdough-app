@@ -628,7 +628,7 @@ export default function StepCard({
                               <button
                                 type="button"
                                 onClick={() => setVisibleHelpFieldId(visibleHelpFieldId === meta.fieldId ? null : meta.fieldId)}
-                                className="text-primary-500 hover:text-primary-600 focus:outline-none flex items-center justify-center"
+                                className="text-primary-500 hover:text-primary-600 focus:ring-2 focus:ring-primary-400 focus:ring-opacity-50 flex items-center justify-center"
                                 aria-label={`Help for ${meta.field.label || meta.field.name}`}
                                 aria-expanded={visibleHelpFieldId === meta.fieldId}
                               >
@@ -637,9 +637,9 @@ export default function StepCard({
                                 </svg>
                               </button>
                               {visibleHelpFieldId === meta.fieldId && (
-                                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 p-2.5 bg-gray-700 text-white text-xs rounded-md shadow-lg z-20 w-max max-w-[280px]" role="tooltip">
+                                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 p-2.5 bg-text-primary text-text-inverse text-xs rounded-md shadow-lg z-20 w-max max-w-[280px]" role="tooltip">
                                   {meta.helpText || meta.field.helpText}
-                                  <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-[6px] border-x-transparent border-t-[6px] border-t-gray-700"></div>
+                                  <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-[6px] border-x-transparent border-t-[6px] border-t-text-primary"></div>
                                 </div>
                               )}
                             </div>

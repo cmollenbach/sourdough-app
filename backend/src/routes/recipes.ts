@@ -1,18 +1,19 @@
 import express from "express";
-import { PrismaClient, IngredientCalculationMode } from "@prisma/client"; // Removed RecipeParameter import
+import { IngredientCalculationMode } from "@prisma/client"; // Removed RecipeParameter import
 import { authenticateJWT, AuthRequest } from "../middleware/authMiddleware";
+import prisma from "../lib/prisma";
+import logger from "../lib/logger";
+import { validateBody, validateParams } from "../middleware/validation";
+import { createRecipeSchema, updateRecipeSchema, recipeIdParamSchema } from "../validation/recipeSchemas";
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // --- Create a recipe ---
-router.post("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
+router.post("/recipes", authenticateJWT, validateBody(createRecipeSchema), async (req: AuthRequest, res, next) => {
   try {
     const { id: _id, name, notes, steps, totalWeight, hydrationPct, saltPct, parameterValues: _pv, ...otherBodyProps } = req.body; // Destructure and ignore 'id' and 'parameterValues' from top-level body
 
-    if (!name) { // Name is now a required direct field
-      return res.status(400).json({ error: "Recipe name is required" });
-    }
+    // Validation now handled by middleware
     // Validate steps if provided
     if (steps && !Array.isArray(steps)) {
       return res.status(400).json({ error: "Steps must be an array" });
@@ -64,13 +65,12 @@ router.post("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
     });
     res.status(201).json(recipe);
   } catch (err) {
-    console.error("Error in POST /api/recipes:", err);
-    res.status(500).json({ error: "Failed to create recipe", details: err instanceof Error ? err.message : err });
+    next(err);
   }
 });
 
 // --- Get all recipes for the logged-in user (and templates) ---
-router.get("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
+router.get("/recipes", authenticateJWT, async (req: AuthRequest, res, next) => {
   try {
     const recipes = await prisma.recipe.findMany({
       where: {
@@ -123,13 +123,12 @@ router.get("/recipes", authenticateJWT, async (req: AuthRequest, res) => {
     });
     res.json(transformedRecipes);
   } catch (err) {
-    console.error("Error in GET /api/recipes:", err);
-    res.status(500).json({ error: "Failed to fetch recipes" });
+    next(err);
   }
 });
 
 // --- Get a single full recipe by ID (user or template) ---
-router.get("/recipes/:id/full", authenticateJWT, async (req: AuthRequest, res) => {
+router.get("/recipes/:id/full", authenticateJWT, async (req: AuthRequest, res, next) => {
   const id = Number(req.params.id);
   if (isNaN(id)) {
     return res.status(400).json({ error: "Invalid recipe id" });
@@ -194,13 +193,12 @@ router.get("/recipes/:id/full", authenticateJWT, async (req: AuthRequest, res) =
     };
     res.json(transformedRecipe);
   } catch (err) {
-    console.error("Error in GET /api/recipes/:id/full:", err);
-    res.status(500).json({ error: "Failed to fetch full recipe" });
+    next(err);
   }
 });
 
 // --- Get a predefined recipe template by name ---
-router.get("/recipes/predefined/by-name", authenticateJWT, async (req: AuthRequest, res) => {
+router.get("/recipes/predefined/by-name", authenticateJWT, async (req: AuthRequest, res, next) => {
   const { name } = req.query;
 
   if (!name || typeof name !== 'string') {
@@ -247,17 +245,13 @@ router.get("/recipes/predefined/by-name", authenticateJWT, async (req: AuthReque
     };
     res.json(transformedRecipe);
   } catch (err) {
-    console.error(`Error in GET /api/recipes/predefined/by-name for name "${name}":`, err);
-    res.status(500).json({ error: "Failed to fetch predefined recipe by name" });
+    next(err);
   }
 });
 
 // --- Update a recipe ---
-router.put("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => {
+router.put("/recipes/:id", authenticateJWT, validateParams(recipeIdParamSchema), validateBody(updateRecipeSchema), async (req: AuthRequest, res, next) => {
   const id = Number(req.params.id);
-  if (isNaN(id)) {
-    return res.status(400).json({ error: "Invalid recipe id" });
-  }
   try {
     const { name, notes, totalWeight, hydrationPct, saltPct, steps: incomingSteps } = req.body;
 
@@ -437,13 +431,12 @@ router.put("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => {
     res.json({ message: "Recipe updated successfully", recipe: transformedRecipe });
 
   } catch (err) {
-    console.error("Error in PUT /api/recipes/:id:", err);
-    res.status(500).json({ error: "Failed to update recipe" });
+    next(err);
   }
 });
 
 // --- Soft-delete a recipe ---
-router.delete("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => {
+router.delete("/recipes/:id", authenticateJWT, async (req: AuthRequest, res, next) => {
   const id = Number(req.params.id);
   if (isNaN(id)) {
     return res.status(400).json({ error: "Invalid recipe id" });
@@ -456,13 +449,12 @@ router.delete("/recipes/:id", authenticateJWT, async (req: AuthRequest, res) => 
     if (recipe.count === 0) return res.status(404).json({ error: "Recipe not found or not yours" });
     res.json({ message: "Recipe deleted (soft)" });
   } catch (err) {
-    console.error("Error in DELETE /api/recipes/:id:", err);
-    res.status(500).json({ error: "Failed to delete recipe" });
+    next(err);
   }
 });
 
 // --- Clone a recipe (template) ---
-router.post("/recipes/:id/clone", authenticateJWT, async (req: AuthRequest, res) => {
+router.post("/recipes/:id/clone", authenticateJWT, async (req: AuthRequest, res, next) => {
   const id = Number(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: "Invalid recipe id" });
 
@@ -519,8 +511,7 @@ router.post("/recipes/:id/clone", authenticateJWT, async (req: AuthRequest, res)
     });
     res.status(201).json(newRecipe);
   } catch (err) {
-    console.error("Error in POST /api/recipes/:id/clone:", err);
-    res.status(500).json({ error: "Failed to clone recipe" });
+    next(err);
   }
 });
 

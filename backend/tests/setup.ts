@@ -1,6 +1,10 @@
 // tests/setup.ts
 import { beforeAll, afterAll, beforeEach, afterEach } from '@jest/globals';
 
+// Set test environment variables BEFORE any modules are imported
+process.env.JWT_SECRET = 'test-jwt-secret-key-for-testing-purposes';
+process.env.NODE_ENV = 'test';
+
 // Global test setup
 beforeAll(async () => {
   // Setup test database connection or mock services

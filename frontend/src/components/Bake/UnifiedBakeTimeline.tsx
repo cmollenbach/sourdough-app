@@ -568,7 +568,7 @@ export const UnifiedBakeTimeline: React.FC<UnifiedBakeTimelineProps> = ({
                           placeholder="°F" 
                           className="w-16 px-2 py-1 border rounded text-center"
                         />
-                        <button className="bg-blue-500 text-white px-2 py-1 rounded text-xs">Log</button>
+                        <button className="btn-primary text-xs touch-target">Log</button>
                       </div>
                       <div className="flex items-center space-x-2 text-sm">
                         <span>✋ Folds:</span>
@@ -582,7 +582,7 @@ export const UnifiedBakeTimeline: React.FC<UnifiedBakeTimelineProps> = ({
                             </button>
                           ))}
                         </div>
-                        <button className="bg-green-500 text-white px-2 py-1 rounded text-xs">Reset</button>
+                        <button className="btn-success text-xs touch-target">Reset</button>
                       </div>
                       <div className="text-sm">
                         <textarea 

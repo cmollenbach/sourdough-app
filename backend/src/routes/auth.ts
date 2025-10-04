@@ -1,21 +1,26 @@
 import express, { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { PrismaClient } from "@prisma/client";
 import axios from "axios";
+import prisma from "../lib/prisma";
+import logger from "../lib/logger";
+import { AppError } from "../middleware/errorHandler";
+import { validateBody } from "../middleware/validation";
+import { registerSchema, loginSchema, googleOAuthSchema } from "../validation/authSchemas";
 
 const router = express.Router();
-const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || "dev_secret"; // Use env var in production
+// JWT_SECRET is validated at startup in index.ts, so we can safely use it here
+const JWT_SECRET = process.env.JWT_SECRET!;
 
 // Register
-router.post("/register", async (req: Request, res: Response) => {
+router.post("/register", validateBody(registerSchema), async (req: Request, res: Response, next) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: "Email and password required" });
 
     const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) return res.status(409).json({ error: "Email already registered" });
+    if (existing) {
+      throw new AppError(409, "Email already registered");
+    }
 
     const hash = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
@@ -23,30 +28,38 @@ router.post("/register", async (req: Request, res: Response) => {
     });
 
     const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
+    
+    logger.info('User registered successfully', { userId: user.id, email: user.email });
+    
     res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
   } catch (err) {
-    console.error("Register error:", err);
-    res.status(500).json({ error: "Internal server error" });
+    next(err);
   }
 });
 
 // Login
-router.post("/login", async (req: Request, res: Response) => {
+router.post("/login", validateBody(loginSchema), async (req: Request, res: Response, next) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: "Email and password required" });
 
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !user.passwordHash) return res.status(401).json({ error: "Invalid credentials" });
+    if (!user || !user.passwordHash) {
+      // Don't reveal whether email exists - generic message
+      throw new AppError(401, "Invalid credentials");
+    }
 
     const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) return res.status(401).json({ error: "Invalid credentials" });
+    if (!valid) {
+      throw new AppError(401, "Invalid credentials");
+    }
 
     const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
+    
+    logger.info('User logged in successfully', { userId: user.id, email: user.email });
+    
     res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
   } catch (err) {
-    console.error("Login error:", err);
-    res.status(500).json({ error: "Internal server error" });
+    next(err);
   }
 });
 
@@ -60,21 +73,18 @@ type GoogleTokenInfo = {
 };
 
 // Google OAuth
-router.post('/oauth/google', async (req, res) => {
+router.post('/oauth/google', validateBody(googleOAuthSchema), async (req, res, next) => {
   const { idToken } = req.body;
-  if (!idToken) {
-    return res.status(400).json({ error: "Missing idToken" });
-  }
 
   try {
     // Step 1: Verify the ID token with Google
     const googleTokenInfoUrl = `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`;
-    console.log(`[Google OAuth] Verifying token with URL: ${googleTokenInfoUrl}`);
+    logger.debug('Verifying Google ID token', { url: googleTokenInfoUrl });
 
     const googleRes = await axios.get<GoogleTokenInfo>(googleTokenInfoUrl);
     const { sub: googleId, email, name, picture, email_verified } = googleRes.data;
 
-    console.log('[Google OAuth] Token info received:', googleRes.data);
+    logger.debug('Google token verified', { email, googleId, email_verified });
 
     // Consider also checking 'aud' (audience) and 'iss' (issuer) claims for stricter validation
     // if not implicitly handled by the tokeninfo endpoint for your client ID.
@@ -89,7 +99,7 @@ router.post('/oauth/google', async (req, res) => {
 
     if (user && !account) {
       // User exists with this email but not linked to this Google account yet. Link it.
-      console.log(`[Google OAuth] User ${email} exists, linking Google account.`);
+      logger.info('Linking existing user to Google account', { email, userId: user.id });
       account = await prisma.account.create({
         data: {
           userId: user.id,
@@ -134,7 +144,7 @@ router.post('/oauth/google', async (req, res) => {
       }
     } else if (!user) {
       // New user: create user, account, and profile
-      console.log(`[Google OAuth] New user ${email}, creating account.`);
+      logger.info('Creating new user via Google OAuth', { email });
       user = await prisma.user.create({
         data: {
           email,
@@ -158,16 +168,18 @@ router.post('/oauth/google', async (req, res) => {
       });
       account = user.accounts.find(acc => acc.provider === 'google');
     } else {
-      console.log(`[Google OAuth] User ${email} and Google account already linked.`);
+      logger.debug('User already linked to Google account', { email, userId: user.id });
     }
 
     if (!user || !account) {
-      console.error("[Google OAuth] Critical error: User or account is null after processing.");
-      return res.status(500).json({ error: "User processing failed after Google auth." });
+      logger.error('Critical error: User or account null after Google OAuth processing', { email });
+      throw new AppError(500, "User processing failed after Google auth.");
     }
 
     // Step 3: Create a session token (JWT) for your application
     const token = jwt.sign({ userId: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
+
+    logger.info('User authenticated via Google OAuth', { userId: user.id, email: user.email });
 
     res.json({
       token,
@@ -181,23 +193,23 @@ router.post('/oauth/google', async (req, res) => {
     });
 
   } catch (err: any) {
-    console.error("[Google OAuth] Main error caught:", err.message);
+    // Handle axios errors from Google API
     if (err.response) {
-      // Error from axios (e.g., Google API returned an error)
-      console.error("[Google OAuth] Google API Error Data:", err.response.data);
-      console.error("[Google OAuth] Google API Error Status:", err.response.status);
-      return res.status(err.response.status || 401).json({
-        error: "Invalid Google credentials or failed to verify with Google.",
-        details: err.response.data
+      logger.error('Google API error during OAuth', { 
+        status: err.response.status, 
+        data: err.response.data 
       });
+      throw new AppError(
+        err.response.status || 401,
+        "Invalid Google credentials or failed to verify with Google.",
+        { details: err.response.data }
+      );
     } else if (err.request) {
-      // Request was made but no response received
-      console.error("[Google OAuth] Google API No Response:", err.request);
-      return res.status(500).json({ error: "No response from Google verification service." });
+      logger.error('No response from Google verification service', { request: err.request });
+      throw new AppError(500, "No response from Google verification service.");
     } else {
-      // Other errors (e.g., Prisma, JWT signing)
-      console.error("[Google OAuth] Internal OAuth Error:", err);
-      return res.status(500).json({ error: "Social login failed due to an internal server error." });
+      // Pass other errors to error handler (Prisma, JWT, etc.)
+      next(err);
     }
   }
 });

@@ -2,14 +2,14 @@
 // backend/src/routes/userProfile.ts
 
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
 import { authenticateJWT, AuthRequest } from '../middleware/authMiddleware';
+import prisma from '../lib/prisma';
+import logger from '../lib/logger';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // Get unified user profile (includes experience + preferences)
-router.get('/profile', authenticateJWT, async (req: AuthRequest, res) => {
+router.get('/profile', authenticateJWT, async (req: AuthRequest, res, next) => {
   try {
     const userId = req.user?.userId;
     if (!userId) {
@@ -55,13 +55,12 @@ router.get('/profile', authenticateJWT, async (req: AuthRequest, res) => {
 
     res.json(profile);
   } catch (error) {
-    console.error('Failed to get user profile:', error);
-    res.status(500).json({ error: 'Failed to get user profile' });
+    next(error);
   }
 });
 
 // Update unified user profile
-router.put('/profile', authenticateJWT, async (req: AuthRequest, res) => {
+router.put('/profile', authenticateJWT, async (req: AuthRequest, res, next) => {
   try {
     const userId = req.user?.userId;
     if (!userId) {
@@ -91,13 +90,12 @@ router.put('/profile', authenticateJWT, async (req: AuthRequest, res) => {
 
     res.json(profile);
   } catch (error) {
-    console.error('Failed to update user profile:', error);
-    res.status(500).json({ error: 'Failed to update user profile' });
+    next(error);
   }
 });
 
 // Track user action (simplified)
-router.post('/actions', authenticateJWT, async (req: AuthRequest, res) => {
+router.post('/actions', authenticateJWT, async (req: AuthRequest, res, next) => {
   try {
     const userId = req.user?.userId;
     if (!userId) {
@@ -172,13 +170,12 @@ router.post('/actions', authenticateJWT, async (req: AuthRequest, res) => {
 
     res.json(userAction);
   } catch (error) {
-    console.error('Failed to track user action:', error);
-    res.status(500).json({ error: 'Failed to track user action' });
+    next(error);
   }
 });
 
 // Get structured preferences (now part of profile)
-router.get('/preferences', authenticateJWT, async (req: AuthRequest, res) => {
+router.get('/preferences', authenticateJWT, async (req: AuthRequest, res, next) => {
   try {
     const userId = req.user?.userId;
     if (!userId) {
@@ -219,13 +216,12 @@ router.get('/preferences', authenticateJWT, async (req: AuthRequest, res) => {
 
     res.json({ ...structuredPrefs, ...complexPrefs });
   } catch (error) {
-    console.error('Failed to get user preferences:', error);
-    res.status(500).json({ error: 'Failed to get user preferences' });
+    next(error);
   }
 });
 
 // Update preferences (structured + complex)
-router.put('/preferences', authenticateJWT, async (req: AuthRequest, res) => {
+router.put('/preferences', authenticateJWT, async (req: AuthRequest, res, next) => {
   try {
     const userId = req.user?.userId;
     if (!userId) {
@@ -287,8 +283,7 @@ router.put('/preferences', authenticateJWT, async (req: AuthRequest, res) => {
 
     res.json({ success: true, updated: Object.keys(preferences).length });
   } catch (error) {
-    console.error('Failed to update preferences:', error);
-    res.status(500).json({ error: 'Failed to update preferences' });
+    next(error);
   }
 });
 

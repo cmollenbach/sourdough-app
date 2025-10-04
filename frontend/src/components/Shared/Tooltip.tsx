@@ -20,7 +20,7 @@ export default function Tooltip({ content, children }: TooltipProps) {
     >
       {children}
       {visible && (
-        <span className="absolute left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-black text-white text-xs rounded shadow z-50 whitespace-nowrap">
+        <span className="absolute left-1/2 -translate-x-1/2 mt-2 px-2 py-1 bg-text-primary text-text-inverse text-xs rounded shadow z-50 whitespace-nowrap">
           {content}
         </span>
       )}

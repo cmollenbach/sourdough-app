@@ -1,7 +1,6 @@
 import express from "express";
-import { PrismaClient } from "@prisma/client";
+import prisma from "../lib/prisma";
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // Step templates (with fields/groups)
 router.get("/step-templates", async (_req, res) => {

@@ -40,6 +40,9 @@ model Account {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   user              User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([provider, providerAccountId])
 }
 
 model Session {
@@ -51,6 +54,9 @@ model Session {
   ipAddress    String?
   userAgent    String?
   user         User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model UserProfile {
@@ -199,6 +205,10 @@ model Recipe {
   parentRecipe   Recipe?      @relation("RecipeVersion", fields: [parentRecipeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   clonedRecipes  Recipe[]     @relation("RecipeVersion")
   steps          RecipeStep[]
+
+  @@index([ownerId, active])
+  @@index([isPredefined, active])
+  @@index([createdAt])
 }
 
 model RecipeStep {
@@ -213,6 +223,9 @@ model RecipeStep {
   stepTemplate    StepTemplate               @relation(fields: [stepTemplateId], references: [id])
   ingredients     RecipeStepIngredient[]
   parameterValues RecipeStepParameterValue[]
+
+  @@index([recipeId])
+  @@index([stepTemplateId])
 }
 
 model RecipeStepParameterValue {
@@ -223,6 +236,9 @@ model RecipeStepParameterValue {
   notes        String?
   parameter    StepParameter @relation(fields: [parameterId], references: [id])
   recipeStep   RecipeStep    @relation(fields: [recipeStepId], references: [id])
+
+  @@index([recipeStepId])
+  @@index([parameterId])
 }
 
 model RecipeStepIngredient {
@@ -235,6 +251,9 @@ model RecipeStepIngredient {
   calculationMode IngredientCalculationMode @default(PERCENTAGE)
   ingredient      Ingredient                @relation(fields: [ingredientId], references: [id])
   recipeStep      RecipeStep                @relation(fields: [recipeStepId], references: [id])
+
+  @@index([recipeStepId])
+  @@index([ingredientId])
 }
 
 model Bake {
@@ -256,6 +275,11 @@ model Bake {
   clonedBakes                Bake[]     @relation("BakeVersion")
   recipe                     Recipe     @relation(fields: [recipeId], references: [id])
   steps                      BakeStep[]
+
+  @@index([ownerId, active])
+  @@index([recipeId])
+  @@index([startTimestamp])
+  @@index([active, startTimestamp])
 }
 
 model BakeStep {
@@ -273,6 +297,10 @@ model BakeStep {
   recipeStep      RecipeStep               @relation(fields: [recipeStepId], references: [id])
   ingredients     BakeStepIngredient[]
   parameterValues BakeStepParameterValue[]
+
+  @@index([bakeId])
+  @@index([recipeStepId])
+  @@index([bakeId, status])
 }
 
 model BakeStepParameterValue {
@@ -284,6 +312,10 @@ model BakeStepParameterValue {
   notes        String?
   bakeStep     BakeStep      @relation(fields: [bakeStepId], references: [id])
   parameter    StepParameter @relation(fields: [parameterId], references: [id])
+
+  @@index([bakeStepId])
+  @@index([parameterId])
+  @@index([bakeStepId, parameterId])
 }
 
 model BakeStepIngredient {
@@ -295,6 +327,9 @@ model BakeStepIngredient {
   notes              String?
   bakeStep           BakeStep   @relation(fields: [bakeStepId], references: [id])
   ingredient         Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@index([bakeStepId])
+  @@index([ingredientId])
 }
 
 model EntityRequest {

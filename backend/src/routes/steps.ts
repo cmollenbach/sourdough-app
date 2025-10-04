@@ -1,35 +1,39 @@
 import express from "express";
-import { PrismaClient } from "@prisma/client";
 import { authenticateJWT, requireAdmin, AuthRequest } from "../middleware/authMiddleware";
+import prisma from "../lib/prisma";
+import logger from "../lib/logger";
+import { AppError } from "../middleware/errorHandler";
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // --- NEW ---
 
 // Update a Step Template (Admin only)
-router.put("/templates/:id", authenticateJWT, requireAdmin, async (req, res) => {
+router.put("/templates/:id", authenticateJWT, requireAdmin, async (req: AuthRequest, res, next) => {
   try {
     const templateId = Number(req.params.id);
     const { name, description } = req.body;
 
-    if (typeof name !== 'string' || typeof description !== 'string') {
-      return res.status(400).json({ error: "Invalid data: name and description are required." });
+    if (typeof name !== 'string' || typeof description !== 'string' || 
+        name.trim().length === 0 || description.trim().length === 0) {
+      throw new AppError(400, "Invalid data: name and description are required.");
     }
 
     const updatedTemplate = await prisma.stepTemplate.update({
       where: { id: templateId },
       data: { name, description },
     });
+    
+    logger.info('Step template updated', { templateId, userId: req.user?.userId });
+    
     res.json(updatedTemplate);
   } catch (err) {
-    console.error("Failed to update step template:", err);
-    res.status(500).json({ error: "Failed to update step template" });
+    next(err);
   }
 });
 
 // Delete a Step Template (Admin only)
-router.delete("/templates/:id", authenticateJWT, requireAdmin, async (req, res) => {
+router.delete("/templates/:id", authenticateJWT, requireAdmin, async (req: AuthRequest, res, next) => {
   try {
     const templateId = Number(req.params.id);
 
@@ -38,19 +42,18 @@ router.delete("/templates/:id", authenticateJWT, requireAdmin, async (req, res) 
     });
 
     if (templateInUse) {
-      return res.status(400).json({ 
-        error: "Cannot delete template because it is currently used by at least one recipe." 
-      });
+      throw new AppError(400, "Cannot delete template because it is currently used by at least one recipe.");
     }
 
     await prisma.stepTemplate.delete({
       where: { id: templateId },
     });
     
+    logger.info('Step template deleted', { templateId, userId: req.user?.userId });
+    
     res.status(204).send();
   } catch (err) {
-    console.error("Failed to delete step template:", err);
-    res.status(500).json({ error: "Failed to delete step template" });
+    next(err);
   }
 });
 

@@ -460,11 +460,11 @@ export default function BakeStepCard({
 
           {/* Timing Schedule Display for bulk fermentation steps during active baking */}
           {shouldShowTiming && timingPlan && (
-            <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
-              <TimingScheduleDisplay 
-                timingPlan={timingPlan}
-              />
-            </div>
+            <TimingScheduleDisplay 
+              timingPlan={timingPlan}
+              initialStartTime={step.startTimestamp ? new Date(step.startTimestamp) : undefined}
+              isActive={step.status === 'IN_PROGRESS'}
+            />
           )}
 
           {/* Ingredients Section */}

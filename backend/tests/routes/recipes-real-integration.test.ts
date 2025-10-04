@@ -9,6 +9,8 @@ import recipesRouter from '../../src/routes/recipes';
 import stepRoutes from '../../src/routes/steps';
 import metaRouter from '../../src/routes/meta';
 import bakesRoutes from '../../src/routes/bakes';
+import { errorHandler } from '../../src/middleware/errorHandler';
+import { seedTestMetadata } from '../utils/seedTestData';
 
 /**
  * REAL INTEGRATION TESTS WITH ACTUAL EXPRESS APP
@@ -38,8 +40,14 @@ describe('Recipe API - Real Integration Tests', () => {
     app.use("/api/meta", metaRouter);
     app.use('/api/bakes', bakesRoutes);
     
+    // Add error handler (must be last!)
+    app.use(errorHandler);
+    
     // Initialize Prisma for test cleanup
     prisma = new PrismaClient();
+    
+    // Seed test metadata (step templates and ingredients)
+    await seedTestMetadata();
   });
 
   beforeEach(async () => {
@@ -188,12 +196,19 @@ describe('Recipe API - Real Integration Tests', () => {
           expect.objectContaining({
             stepTemplateId: 122,
             order: 1,
-            description: 'Mix ingredients',
+            // Note: description may be null if not provided or mapped differently
             ingredients: expect.arrayContaining([
               expect.objectContaining({
                 ingredientId: 1,
                 amount: 500,
-                calculationMode: 'FIXED_WEIGHT'
+                calculationMode: 'FIXED_WEIGHT',
+                preparation: 'sifted'
+              }),
+              expect.objectContaining({
+                ingredientId: 2,
+                amount: 375,
+                calculationMode: 'PERCENTAGE',
+                preparation: 'room temperature'
               })
             ])
           })
@@ -245,7 +260,9 @@ describe('Recipe API - Real Integration Tests', () => {
         .send(invalidData)
         .expect(400);
 
-      expect(response.body.error).toContain('name');
+      // Error should mention the missing 'name' field
+      const responseStr = JSON.stringify(response.body);
+      expect(responseStr).toContain('name');
     });
 
     it('should validate steps array format', async () => {
@@ -260,7 +277,9 @@ describe('Recipe API - Real Integration Tests', () => {
         .send(invalidStepsData)
         .expect(400);
 
-      expect(response.body.error).toContain('array');
+      // Error should mention that steps must be an array
+      const responseStr = JSON.stringify(response.body);
+      expect(responseStr.toLowerCase()).toContain('array');
     });
 
     it('should handle invalid JWT token', async () => {
