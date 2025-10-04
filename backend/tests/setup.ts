@@ -1,10 +1,15 @@
 // tests/setup.ts
 import { beforeAll, afterAll, beforeEach, afterEach } from '@jest/globals';
+import dotenv from 'dotenv';
+import path from 'path';
 import prisma from '../src/lib/prisma';
 import { seedEssentialData } from './helpers/seedTestData';
 
+// Load test environment variables from .env.test
+dotenv.config({ path: path.resolve(__dirname, '../.env.test') });
+
 // Set test environment variables BEFORE any modules are imported
-process.env.JWT_SECRET = 'test-jwt-secret-key-for-testing-purposes';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-key-for-testing-purposes';
 process.env.NODE_ENV = 'test';
 
 // Global test setup

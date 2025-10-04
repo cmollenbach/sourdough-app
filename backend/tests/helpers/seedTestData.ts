@@ -13,7 +13,7 @@ export async function seedEssentialData() {
   console.log('Seeding essential test data...');
 
   // Create only the essential step types (needed for recipe/step tests)
-  const stepTypes = await prisma.stepType.createMany({
+  await prisma.stepType.createMany({
     data: [
       { name: 'Preferments', description: 'Preferment steps' },
       { name: 'Preparation', description: 'Preparation steps' },
@@ -22,6 +22,7 @@ export async function seedEssentialData() {
       { name: 'Shaping & Proofing', description: 'Shaping and proofing steps' },
       { name: 'Baking', description: 'Baking steps' },
     ],
+    skipDuplicates: true,
   });
 
   // Create essential parameters
@@ -30,6 +31,7 @@ export async function seedEssentialData() {
       { name: 'Duration (minutes)', type: ParameterDataType.NUMBER, defaultValue: '60' },
       { name: 'Temperature (°C)', type: ParameterDataType.NUMBER, defaultValue: '24' },
     ],
+    skipDuplicates: true,
   });
 
   // Create essential ingredient categories
@@ -40,6 +42,7 @@ export async function seedEssentialData() {
       { name: 'Salt', description: 'Salt category' },
       { name: 'Preferment', description: 'Preferment category' },
     ],
+    skipDuplicates: true,
   });
 
   // Create a few essential ingredients
@@ -52,6 +55,7 @@ export async function seedEssentialData() {
         { name: 'Bread Flour', ingredientCategoryId: flourCat.id },
         { name: 'Water', ingredientCategoryId: liquidCat.id },
       ],
+      skipDuplicates: true,
     });
   }
 

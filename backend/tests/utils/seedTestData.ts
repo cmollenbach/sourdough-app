@@ -13,23 +13,25 @@ import { StepRole } from '@prisma/client';
  */
 export async function seedStepTypes() {
   const stepTypes = [
-    { id: 1, name: 'Test Preparation', description: 'Preparation steps' },
-    { id: 2, name: 'Test Mixing', description: 'Mixing and combining ingredients' },
-    { id: 3, name: 'Test Fermentation', description: 'Fermentation and proofing' },
-    { id: 4, name: 'Test Shaping', description: 'Shaping the dough' },
-    { id: 5, name: 'Test Baking', description: 'Baking the bread' },
+    { name: 'Test Preparation', description: 'Preparation steps' },
+    { name: 'Test Mixing', description: 'Mixing and combining ingredients' },
+    { name: 'Test Fermentation', description: 'Fermentation and proofing' },
+    { name: 'Test Shaping', description: 'Shaping the dough' },
+    { name: 'Test Baking', description: 'Baking the bread' },
   ];
 
+  const results = [];
   for (const stepType of stepTypes) {
     // Use upsert with unique name constraint
-    await prisma.stepType.upsert({
+    const result = await prisma.stepType.upsert({
       where: { name: stepType.name }, // Upsert by name (unique field)
-      update: stepType,
+      update: { description: stepType.description },
       create: stepType,
     });
+    results.push(result);
   }
 
-  return stepTypes;
+  return results;
 }
 
 /**
@@ -37,11 +39,16 @@ export async function seedStepTypes() {
  * Creates common step templates that tests can reference by ID
  */
 export async function seedStepTemplates() {
-  // Ensure step types exist first
-  await seedStepTypes();
+  // Ensure step types exist first and get their IDs
+  const stepTypes = await seedStepTypes();
+  
+  // Find step type IDs by name
+  const preparationId = stepTypes.find(st => st.name === 'Test Preparation')!.id;
+  const mixingId = stepTypes.find(st => st.name === 'Test Mixing')!.id;
+  const fermentationId = stepTypes.find(st => st.name === 'Test Fermentation')!.id;
+  const shapingId = stepTypes.find(st => st.name === 'Test Shaping')!.id;
 
   const templates: Array<{
-    id: number;
     name: string;
     stepTypeId: number;
     role: StepRole;
@@ -50,54 +57,48 @@ export async function seedStepTemplates() {
     advanced: boolean;
   }> = [
     {
-      id: 122,
       name: 'Test Autolyse',
-      stepTypeId: 1,
+      stepTypeId: preparationId,
       role: StepRole.AUTOLYSE,
       description: 'Mix flour and water, rest before adding salt and starter',
       order: 1,
       advanced: false,
     },
     {
-      id: 123,
       name: 'Test Mix',
-      stepTypeId: 2,
+      stepTypeId: mixingId,
       role: StepRole.MIX,
       description: 'Combine all ingredients',
       order: 2,
       advanced: false,
     },
     {
-      id: 124,
       name: 'Test Bulk Fermentation',
-      stepTypeId: 3,
+      stepTypeId: fermentationId,
       role: StepRole.BULK,
       description: 'Let dough rise and develop',
       order: 3,
       advanced: false,
     },
     {
-      id: 125,
       name: 'Test Stretch & Fold',
-      stepTypeId: 2,
+      stepTypeId: mixingId,
       role: StepRole.MIX,
       description: 'Build dough strength through folding',
       order: 4,
       advanced: false,
     },
     {
-      id: 126,
       name: 'Test Shape',
-      stepTypeId: 4,
+      stepTypeId: shapingId,
       role: StepRole.SHAPE,
       description: 'Form the final loaf shape',
       order: 5,
       advanced: false,
     },
     {
-      id: 127,
       name: 'Test Proof',
-      stepTypeId: 3,
+      stepTypeId: fermentationId,
       role: StepRole.PROOF,
       description: 'Final rise before baking',
       order: 6,
@@ -106,8 +107,9 @@ export async function seedStepTemplates() {
   ];
 
   //  Use upsert to avoid conflicts if templates already exist
+  const results = [];
   for (const template of templates) {
-    await prisma.stepTemplate.upsert({
+    const result = await prisma.stepTemplate.upsert({
       where: { name: template.name }, // Upsert by name (unique field)
       update: {
         stepTypeId: template.stepTypeId,
@@ -118,9 +120,10 @@ export async function seedStepTemplates() {
       },
       create: template,
     });
+    results.push(result);
   }
 
-  return templates;
+  return results;
 }
 
 /**
@@ -128,22 +131,24 @@ export async function seedStepTemplates() {
  */
 export async function seedIngredientCategories() {
   const categories = [
-    { id: 1, name: 'Test Flour', description: 'Flour products' },
-    { id: 2, name: 'Test Liquid', description: 'Liquids and hydration' },
-    { id: 3, name: 'Test Seasoning', description: 'Salt, sugar, spices' },
-    { id: 4, name: 'Test Leavening', description: 'Yeast, sourdough starter' },
+    { name: 'Test Flour', description: 'Flour products' },
+    { name: 'Test Liquid', description: 'Liquids and hydration' },
+    { name: 'Test Seasoning', description: 'Salt, sugar, spices' },
+    { name: 'Test Leavening', description: 'Yeast, sourdough starter' },
   ];
 
+  const results = [];
   for (const category of categories) {
     // Use upsert with unique name constraint
-    await prisma.ingredientCategory.upsert({
+    const result = await prisma.ingredientCategory.upsert({
       where: { name: category.name },
-      update: category,
+      update: { description: category.description },
       create: category,
     });
+    results.push(result);
   }
 
-  return categories;
+  return results;
 }
 
 /**
@@ -151,45 +156,47 @@ export async function seedIngredientCategories() {
  * Creates common ingredients that tests can reference by ID
  */
 export async function seedIngredients() {
-  // Ensure categories exist first
-  await seedIngredientCategories();
+  // Ensure categories exist first and get their IDs
+  const categories = await seedIngredientCategories();
+  
+  // Find category IDs by name
+  const flourCat = categories.find(c => c.name === 'Test Flour');
+  const liquidCat = categories.find(c => c.name === 'Test Liquid');
+  const seasoningCat = categories.find(c => c.name === 'Test Seasoning');
+  const leaveningCat = categories.find(c => c.name === 'Test Leavening');
 
   const ingredients = [
     {
-      id: 1,
       name: 'Test Bread Flour',
-      ingredientCategoryId: 1,
+      ingredientCategoryId: flourCat!.id,
       description: 'High protein flour for bread baking',
     },
     {
-      id: 2,
       name: 'Test Water',
-      ingredientCategoryId: 2,
+      ingredientCategoryId: liquidCat!.id,
       description: 'Filtered or tap water',
     },
     {
-      id: 3,
       name: 'Test Salt',
-      ingredientCategoryId: 3,
+      ingredientCategoryId: seasoningCat!.id,
       description: 'Fine sea salt or kosher salt',
     },
     {
-      id: 4,
       name: 'Test Sourdough Starter',
-      ingredientCategoryId: 4,
+      ingredientCategoryId: leaveningCat!.id,
       description: 'Active, fed sourdough starter',
     },
     {
-      id: 5,
       name: 'Test Whole Wheat Flour',
-      ingredientCategoryId: 1,
+      ingredientCategoryId: flourCat!.id,
       description: 'Stone-ground whole wheat flour',
     },
   ];
 
   // Use upsert to avoid conflicts if ingredients already exist
+  const results = [];
   for (const ingredient of ingredients) {
-    await prisma.ingredient.upsert({
+    const result = await prisma.ingredient.upsert({
       where: { name: ingredient.name }, // Upsert by name (unique field)
       update: {
         ingredientCategoryId: ingredient.ingredientCategoryId,
@@ -197,9 +204,10 @@ export async function seedIngredients() {
       },
       create: ingredient,
     });
+    results.push(result);
   }
 
-  return ingredients;
+  return results;
 }
 
 /**
@@ -209,7 +217,6 @@ export async function seedIngredients() {
 export async function seedParameters() {
   const parameters = [
     {
-      id: 1,
       name: 'Test Temperature',
       type: 'NUMBER' as const,
       description: 'Target dough temperature',
@@ -217,7 +224,6 @@ export async function seedParameters() {
       advanced: false,
     },
     {
-      id: 2,
       name: 'Test Duration',
       type: 'NUMBER' as const,
       description: 'Time duration for step',
@@ -225,7 +231,6 @@ export async function seedParameters() {
       advanced: false,
     },
     {
-      id: 3,
       name: 'Test Humidity',
       type: 'NUMBER' as const,
       description: 'Ambient humidity level',
@@ -235,8 +240,9 @@ export async function seedParameters() {
   ];
 
   // Use upsert to avoid conflicts if parameters already exist
+  const results = [];
   for (const parameter of parameters) {
-    await prisma.stepParameter.upsert({
+    const result = await prisma.stepParameter.upsert({
       where: { name: parameter.name }, // Upsert by name (unique field)
       update: {
         type: parameter.type,
@@ -246,9 +252,10 @@ export async function seedParameters() {
       },
       create: parameter,
     });
+    results.push(result);
   }
 
-  return parameters;
+  return results;
 }
 
 /**
