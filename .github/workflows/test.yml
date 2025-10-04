@@ -72,7 +72,7 @@ jobs:
           npx ts-node prisma/seed.ts
           
           echo "Verifying seed data..."
-          npx prisma db execute --stdin <<EOF
+          npx prisma db execute --url="$DATABASE_URL" --stdin <<EOF
           SELECT COUNT(*) as step_types FROM "StepType";
           SELECT COUNT(*) as ingredients FROM "Ingredient";
           SELECT COUNT(*) as users FROM "User";
