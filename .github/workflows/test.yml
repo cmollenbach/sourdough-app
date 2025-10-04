@@ -57,7 +57,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:test_password@localhost:5432/sourdough_test
         run: |
-          npx tsc prisma/seed.ts --outDir dist/prisma --esModuleInterop
+          npx tsc --project tsconfig.json
           npx prisma db seed
       
       - name: Run tests
