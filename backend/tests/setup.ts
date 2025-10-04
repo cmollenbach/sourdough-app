@@ -1,5 +1,6 @@
 // tests/setup.ts
 import { beforeAll, afterAll, beforeEach, afterEach } from '@jest/globals';
+import prisma from '../src/lib/prisma';
 
 // Set test environment variables BEFORE any modules are imported
 process.env.JWT_SECRET = 'test-jwt-secret-key-for-testing-purposes';
@@ -14,6 +15,7 @@ beforeAll(async () => {
 afterAll(async () => {
   // Cleanup test database or close connections
   console.log('🧹 Cleaning up test environment...');
+  await prisma.$disconnect();
 });
 
 beforeEach(() => {
