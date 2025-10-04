@@ -8,7 +8,7 @@ import authRoutes from '../../src/routes/auth';
 import recipesRouter from '../../src/routes/recipes';
 import bakesRoutes from '../../src/routes/bakes';
 import { errorHandler } from '../../src/middleware/errorHandler';
-import { seedTestMetadata } from '../utils/seedTestData';
+import { seedTestMetadata, getTestTemplateIds, getIngredientIdByName } from '../utils/seedTestData';
 
 /**
  * COMPREHENSIVE BAKE CRUD TESTS
@@ -31,6 +31,8 @@ describe('Bake CRUD Operations', () => {
   let authToken2: string;
   let testUserId2: number;
   let testRecipeId: number;
+  let templateIds: Awaited<ReturnType<typeof getTestTemplateIds>>;
+  let ingredientIds: { flour: number; water: number; salt: number };
 
   beforeAll(async () => {
     // Create Express app
@@ -44,6 +46,14 @@ describe('Bake CRUD Operations', () => {
 
     prisma = new PrismaClient();
     await seedTestMetadata();
+    
+    // Get template and ingredient IDs for tests
+    templateIds = await getTestTemplateIds();
+    ingredientIds = {
+      flour: await getIngredientIdByName('Test Bread Flour'),
+      water: await getIngredientIdByName('Test Water'),
+      salt: await getIngredientIdByName('Test Salt'),
+    };
   });
 
   beforeEach(async () => {
@@ -147,29 +157,29 @@ describe('Bake CRUD Operations', () => {
         saltPct: 2,
         steps: [
           {
-            stepTemplateId: 122, // Autolyse
+            stepTemplateId: templateIds.autolyse,
             order: 1,
             notes: 'Mix flour and water',
             ingredients: [
               {
-                ingredientId: 1, // Flour
+                ingredientId: ingredientIds.flour,
                 amount: 100,
                 calculationMode: IngredientCalculationMode.PERCENTAGE
               },
               {
-                ingredientId: 2, // Water
+                ingredientId: ingredientIds.water,
                 amount: 75,
                 calculationMode: IngredientCalculationMode.PERCENTAGE
               }
             ]
           },
           {
-            stepTemplateId: 123, // Mix
+            stepTemplateId: templateIds.mix,
             order: 2,
             notes: 'Add salt and starter',
             ingredients: [
               {
-                ingredientId: 3, // Salt
+                ingredientId: ingredientIds.salt,
                 amount: 2,
                 calculationMode: IngredientCalculationMode.PERCENTAGE
               }

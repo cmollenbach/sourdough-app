@@ -10,7 +10,7 @@ import stepRoutes from '../../src/routes/steps';
 import metaRouter from '../../src/routes/meta';
 import bakesRoutes from '../../src/routes/bakes';
 import { errorHandler } from '../../src/middleware/errorHandler';
-import { seedTestMetadata } from '../utils/seedTestData';
+import { seedTestMetadata, getTestTemplateIds } from '../utils/seedTestData';
 
 /**
  * REAL INTEGRATION TESTS WITH ACTUAL EXPRESS APP
@@ -24,6 +24,7 @@ describe('Recipe API - Real Integration Tests', () => {
   let prisma: PrismaClient;
   let authToken: string;
   let testUserId: number;
+  let templateIds: Awaited<ReturnType<typeof getTestTemplateIds>>;
 
   beforeAll(async () => {
     // Create the actual Express app (similar to your index.ts)
@@ -48,6 +49,9 @@ describe('Recipe API - Real Integration Tests', () => {
     
     // Seed test metadata (step templates and ingredients)
     await seedTestMetadata();
+    
+    // Get template IDs for tests
+    templateIds = await getTestTemplateIds();
   });
 
   beforeEach(async () => {
@@ -158,7 +162,7 @@ describe('Recipe API - Real Integration Tests', () => {
         notes: 'Recipe with steps',
         steps: [
           {
-            stepTemplateId: 122,
+            stepTemplateId: templateIds.autolyse,
             order: 1,
             description: 'Mix ingredients',
             notes: 'Mix thoroughly',
@@ -194,7 +198,7 @@ describe('Recipe API - Real Integration Tests', () => {
         // ownerId is included but we don't validate it as it could vary
         steps: expect.arrayContaining([
           expect.objectContaining({
-            stepTemplateId: 122,
+            stepTemplateId: templateIds.autolyse,
             order: 1,
             // Note: description may be null if not provided or mapped differently
             ingredients: expect.arrayContaining([
@@ -426,7 +430,7 @@ describe('Recipe API - Real Integration Tests', () => {
         saltPct: 2,
         notes: 'A'.repeat(1000), // 1KB of notes
         steps: Array(10).fill(null).map((_, stepIndex) => ({
-          stepTemplateId: 122 + (stepIndex % 5), // Cycle through available templates
+          stepTemplateId: templateIds.autolyse + (stepIndex % 5), // Cycle through available templates
           order: stepIndex + 1,
           description: `Step ${stepIndex + 1} - ${'B'.repeat(100)}`, // Large descriptions
           notes: `Step notes ${stepIndex + 1}`,

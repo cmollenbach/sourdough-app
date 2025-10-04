@@ -7,7 +7,7 @@ import { PrismaClient, IngredientCalculationMode } from '@prisma/client';
 import authRoutes from '../../src/routes/auth';
 import recipesRouter from '../../src/routes/recipes';
 import { errorHandler } from '../../src/middleware/errorHandler';
-import { seedTestMetadata } from '../utils/seedTestData';
+import { seedTestMetadata, getTestTemplateIds, getIngredientIdByName } from '../utils/seedTestData';
 
 /**
  * COMPREHENSIVE RECIPE CRUD TESTS
@@ -29,6 +29,7 @@ describe('Recipe CRUD Operations', () => {
   let testUserId: number;
   let authToken2: string;
   let testUserId2: number;
+  let templateIds: Awaited<ReturnType<typeof getTestTemplateIds>>;
 
   beforeAll(async () => {
     // Create Express app
@@ -41,6 +42,9 @@ describe('Recipe CRUD Operations', () => {
 
     prisma = new PrismaClient();
     await seedTestMetadata();
+    
+    // Get template IDs for tests
+    templateIds = await getTestTemplateIds();
   });
 
   beforeEach(async () => {
@@ -172,12 +176,12 @@ describe('Recipe CRUD Operations', () => {
           name: 'Recipe with Steps',
           steps: [
             {
-              stepTemplateId: 122, // Autolyse template
+              stepTemplateId: templateIds.autolyse, // Autolyse template
               order: 1,
               notes: 'Mix flour and water'
             },
             {
-              stepTemplateId: 123, // Mix template
+              stepTemplateId: templateIds.mix, // Mix template
               order: 2,
               notes: 'Add salt and starter'
             }
@@ -186,9 +190,9 @@ describe('Recipe CRUD Operations', () => {
 
       expect(response.status).toBe(201);
       expect(response.body.steps).toHaveLength(2);
-      expect(response.body.steps[0].stepTemplateId).toBe(122);
+      expect(response.body.steps[0].stepTemplateId).toBe(templateIds.autolyse);
       expect(response.body.steps[0].order).toBe(1);
-      expect(response.body.steps[1].stepTemplateId).toBe(123);
+      expect(response.body.steps[1].stepTemplateId).toBe(templateIds.mix);
       expect(response.body.steps[1].order).toBe(2);
     });
 
@@ -202,7 +206,7 @@ describe('Recipe CRUD Operations', () => {
           hydrationPct: 70,
           steps: [
             {
-              stepTemplateId: 122,
+              stepTemplateId: templateIds.autolyse,
               order: 1,
               ingredients: [
                 {
@@ -238,7 +242,7 @@ describe('Recipe CRUD Operations', () => {
           name: 'Recipe with Parameters',
           steps: [
             {
-              stepTemplateId: 124, // Bulk fermentation
+              stepTemplateId: templateIds.bulk, // Bulk fermentation
               order: 1,
               parameterValues: [
                 {
@@ -460,7 +464,7 @@ describe('Recipe CRUD Operations', () => {
           totalWeight: 1000,
           steps: [
             {
-              stepTemplateId: 122,
+              stepTemplateId: templateIds.autolyse,
               order: 1,
               ingredients: [
                 {
@@ -569,9 +573,9 @@ describe('Recipe CRUD Operations', () => {
         .send({
           name: 'Ordered Recipe',
           steps: [
-            { stepTemplateId: 124, order: 3 },
-            { stepTemplateId: 122, order: 1 },
-            { stepTemplateId: 123, order: 2 }
+            { stepTemplateId: templateIds.bulk, order: 3 },
+            { stepTemplateId: templateIds.autolyse, order: 1 },
+            { stepTemplateId: templateIds.mix, order: 2 }
           ]
         });
 
@@ -687,7 +691,7 @@ describe('Recipe CRUD Operations', () => {
         .send({
           name: 'Recipe with Steps',
           steps: [
-            { stepTemplateId: 122, order: 1 }
+            { stepTemplateId: templateIds.autolyse, order: 1 }
           ]
         });
 
@@ -701,12 +705,12 @@ describe('Recipe CRUD Operations', () => {
           steps: [
             {
               id: stepId,
-              stepTemplateId: 122,
+              stepTemplateId: templateIds.autolyse,
               order: 1,
               notes: 'Updated step notes'
             },
             {
-              stepTemplateId: 123,
+              stepTemplateId: templateIds.mix,
               order: 2,
               notes: 'New step'
             }
@@ -726,8 +730,8 @@ describe('Recipe CRUD Operations', () => {
         .send({
           name: 'Recipe',
           steps: [
-            { stepTemplateId: 122, order: 1 },
-            { stepTemplateId: 123, order: 2 }
+            { stepTemplateId: templateIds.autolyse, order: 1 },
+            { stepTemplateId: templateIds.mix, order: 2 }
           ]
         });
 
@@ -741,7 +745,7 @@ describe('Recipe CRUD Operations', () => {
           steps: [
             {
               id: firstStepId,
-              stepTemplateId: 122,
+              stepTemplateId: templateIds.autolyse,
               order: 1
             }
           ]
@@ -826,7 +830,7 @@ describe('Recipe CRUD Operations', () => {
           name: 'Recipe',
           steps: [
             {
-              stepTemplateId: 122,
+              stepTemplateId: templateIds.autolyse,
               order: 1,
               ingredients: [
                 {
@@ -850,7 +854,7 @@ describe('Recipe CRUD Operations', () => {
           steps: [
             {
               id: stepId,
-              stepTemplateId: 122,
+              stepTemplateId: templateIds.autolyse,
               order: 1,
               ingredients: [
                 {
@@ -990,7 +994,7 @@ describe('Recipe CRUD Operations', () => {
           steps: {
             create: [
               {
-                stepTemplateId: 122,
+                stepTemplateId: templateIds.autolyse,
                 order: 1,
                 notes: 'Step notes'
               }
@@ -1057,7 +1061,7 @@ describe('Recipe CRUD Operations', () => {
           steps: {
             create: [
               {
-                stepTemplateId: 122,
+                stepTemplateId: templateIds.autolyse,
                 order: 1,
                 notes: 'Template step notes',
                 ingredients: {
@@ -1154,7 +1158,7 @@ describe('Recipe CRUD Operations', () => {
 
     it('should handle recipe with many steps', async () => {
       const steps = Array.from({ length: 20 }, (_, i) => ({
-        stepTemplateId: 122 + (i % 3), // Rotate through template IDs
+        stepTemplateId: templateIds.autolyse + (i % 3), // Rotate through template IDs
         order: i + 1,
         notes: `Step ${i + 1}`
       }));

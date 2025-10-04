@@ -259,6 +259,47 @@ export async function seedParameters() {
 }
 
 /**
+ * Get step template ID by name
+ * Use this instead of hardcoded IDs in tests
+ */
+export async function getStepTemplateIdByName(name: string): Promise<number> {
+  const template = await prisma.stepTemplate.findUnique({ where: { name } });
+  if (!template) {
+    throw new Error(`StepTemplate with name "${name}" not found. Did you run seedTestMetadata()?`);
+  }
+  return template.id;
+}
+
+/**
+ * Get ingredient ID by name
+ * Use this instead of hardcoded IDs in tests
+ */
+export async function getIngredientIdByName(name: string): Promise<number> {
+  const ingredient = await prisma.ingredient.findUnique({ where: { name } });
+  if (!ingredient) {
+    throw new Error(`Ingredient with name "${name}" not found. Did you run seedTestMetadata()?`);
+  }
+  return ingredient.id;
+}
+
+/**
+ * Get all test template IDs by name
+ * Returns object with common template IDs for easy access
+ */
+export async function getTestTemplateIds() {
+  const [autolyse, mix, bulk, stretchFold, shape, proof] = await Promise.all([
+    getStepTemplateIdByName('Test Autolyse'),
+    getStepTemplateIdByName('Test Mix'),
+    getStepTemplateIdByName('Test Bulk Fermentation'),
+    getStepTemplateIdByName('Test Stretch & Fold'),
+    getStepTemplateIdByName('Test Shape'),
+    getStepTemplateIdByName('Test Proof'),
+  ]);
+
+  return { autolyse, mix, bulk, stretchFold, shape, proof };
+}
+
+/**
  * Seed all test metadata (step templates + ingredients + parameters)
  * Call this in beforeAll() to prepare database for tests
  */
