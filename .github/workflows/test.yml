@@ -59,47 +59,14 @@ jobs:
           # Create fresh database
           psql -h localhost -U postgres -c "CREATE DATABASE sourdough_test;"
       
-      - name: Run migrations
+      - name: Setup database and run migrations
         working-directory: ./backend
         env:
           DATABASE_URL: postgresql://postgres:test_password@localhost:5432/sourdough_test
         run: |
           echo "Running migrations..."
           npx prisma migrate deploy
-          
-      - name: Seed database
-        working-directory: ./backend
-        env:
-          DATABASE_URL: postgresql://postgres:test_password@localhost:5432/sourdough_test
-        run: |
-          echo "Checking database state..."
-          npx ts-node -e "
-            import prisma from './src/lib/prisma';
-            async function check() {
-              const users = await prisma.user.count();
-              const stepTypes = await prisma.stepType.count();
-              console.log('Before seed - Users:', users, 'StepTypes:', stepTypes);
-              await prisma.\$disconnect();
-            }
-            check();
-          "
-          
-          echo "Running seed script..."
-          npx ts-node prisma/seed.ts
-          
-          echo "Verifying seed completed..."
-          npx ts-node -e "
-            import prisma from './src/lib/prisma';
-            async function verify() {
-              const users = await prisma.user.count();
-              const stepTypes = await prisma.stepType.count();
-              console.log('After seed - Users:', users, 'StepTypes:', stepTypes);
-              await prisma.\$disconnect();
-            }
-            verify();
-          "
-          
-          echo "Seed completed successfully!"
+          echo "Migrations completed. Tests will seed their own required data."
       
       - name: Run tests
         working-directory: ./backend

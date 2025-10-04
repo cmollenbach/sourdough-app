@@ -1,6 +1,7 @@
 // tests/setup.ts
 import { beforeAll, afterAll, beforeEach, afterEach } from '@jest/globals';
 import prisma from '../src/lib/prisma';
+import { seedEssentialData } from './helpers/seedTestData';
 
 // Set test environment variables BEFORE any modules are imported
 process.env.JWT_SECRET = 'test-jwt-secret-key-for-testing-purposes';
@@ -10,6 +11,9 @@ process.env.NODE_ENV = 'test';
 beforeAll(async () => {
   // Setup test database connection or mock services
   console.log('🧪 Setting up test environment...');
+  
+  // Seed essential data once for all tests
+  await seedEssentialData();
 });
 
 afterAll(async () => {
