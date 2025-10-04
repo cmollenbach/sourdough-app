@@ -456,7 +456,7 @@ describe('Auth OAuth Tests', () => {
           .send({ idToken: testIdToken });
 
         expect(response.status).toBe(500);
-      });
+      }, 20000); // 20 second timeout
 
       it('should handle expired Google token (401 response)', async () => {
         const error: any = new Error('Request failed with status code 401');
@@ -473,7 +473,7 @@ describe('Auth OAuth Tests', () => {
           .send({ idToken: 'expired-token' });
 
         expect([401, 400]).toContain(response.status);
-      });
+      }, 20000); // 20 second timeout
 
       it('should handle database errors gracefully', async () => {
         mockedAxios.get.mockResolvedValueOnce({

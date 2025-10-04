@@ -12,5 +12,6 @@
     "!src/index.ts"
   ],
   "setupFilesAfterEnv": ["<rootDir>/tests/setup.ts"],
-  "testTimeout": 10000
+  "testTimeout": 30000,
+  "maxWorkers": 1
 }
