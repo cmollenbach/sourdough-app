@@ -13,32 +13,36 @@ async function main() {
   try {
     console.log(`🌱 Start seeding comprehensive dataset...`);
 
-    // --- 1. CLEANUP ---
-    console.log('🧹 Cleaning up existing data...');
-    const userEmailsToDelete = ['system@sourdough.app', 'christoffer@mollenbach.com'];
+    // --- 1. CLEANUP (only in development, CI uses migrate reset) ---
+    if (process.env.NODE_ENV !== 'test') {
+      console.log('🧹 Cleaning up existing data...');
+      const userEmailsToDelete = ['system@sourdough.app', 'christoffer@mollenbach.com'];
 
-    // Clean up in proper order
-    await prisma.recipeStepParameterValue.deleteMany({});
-    await prisma.recipeStepIngredient.deleteMany({});
-    await prisma.bakeStepParameterValue.deleteMany({});
-    await prisma.bakeStepIngredient.deleteMany({});
-    await prisma.bakeStep.deleteMany({});
-    await prisma.recipeStep.deleteMany({});
-    await prisma.bake.deleteMany({});
-    await prisma.recipe.deleteMany({});
-    await prisma.stepTemplateParameter.deleteMany({});
-    await prisma.stepTemplateIngredientRule.deleteMany({});
-    await prisma.stepTemplate.deleteMany({});
-    await prisma.stepType.deleteMany({});
-    await prisma.stepParameter.deleteMany({});
-    await prisma.account.deleteMany({});
-    await prisma.session.deleteMany({});
-    await prisma.userProfile.deleteMany({});
-    await prisma.entityRequest.deleteMany({});
-    await prisma.ingredient.deleteMany({});
-    await prisma.ingredientCategory.deleteMany({});
-    await prisma.user.deleteMany({});
-    console.log('✅ Cleanup complete.');
+      // Clean up in proper order
+      await prisma.recipeStepParameterValue.deleteMany({});
+      await prisma.recipeStepIngredient.deleteMany({});
+      await prisma.bakeStepParameterValue.deleteMany({});
+      await prisma.bakeStepIngredient.deleteMany({});
+      await prisma.bakeStep.deleteMany({});
+      await prisma.recipeStep.deleteMany({});
+      await prisma.bake.deleteMany({});
+      await prisma.recipe.deleteMany({});
+      await prisma.stepTemplateParameter.deleteMany({});
+      await prisma.stepTemplateIngredientRule.deleteMany({});
+      await prisma.stepTemplate.deleteMany({});
+      await prisma.stepType.deleteMany({});
+      await prisma.stepParameter.deleteMany({});
+      await prisma.account.deleteMany({});
+      await prisma.session.deleteMany({});
+      await prisma.userProfile.deleteMany({});
+      await prisma.entityRequest.deleteMany({});
+      await prisma.ingredient.deleteMany({});
+      await prisma.ingredientCategory.deleteMany({});
+      await prisma.user.deleteMany({});
+      console.log('✅ Cleanup complete.');
+    } else {
+      console.log('⏭️  Skipping cleanup in test environment (assuming clean database from migrate reset)');
+    }
 
     // --- 2. SEED USERS ---
     console.log('👤 Creating users...');

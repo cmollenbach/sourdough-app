@@ -50,6 +50,7 @@ jobs:
         working-directory: ./backend
         env:
           DATABASE_URL: postgresql://postgres:test_password@localhost:5432/sourdough_test
+          NODE_ENV: test
         run: |
           npx tsc --project tsconfig.json
           npx prisma migrate reset --force --skip-generate
