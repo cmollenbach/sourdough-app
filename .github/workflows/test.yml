@@ -50,17 +50,33 @@ jobs:
         env:
           PGPASSWORD: test_password
         run: |
+          # Terminate any existing connections to the database
+          psql -h localhost -U postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'sourdough_test' AND pid <> pg_backend_pid();" || true
+          
           # Drop and recreate database to ensure clean slate
           psql -h localhost -U postgres -c "DROP DATABASE IF EXISTS sourdough_test;"
           psql -h localhost -U postgres -c "CREATE DATABASE sourdough_test;"
+          
+          # Verify database was created
+          psql -h localhost -U postgres -c "\l sourdough_test"
       
       - name: Run migrations and seed
         working-directory: ./backend
         env:
           DATABASE_URL: postgresql://postgres:test_password@localhost:5432/sourdough_test
         run: |
+          echo "Running migrations..."
           npx prisma migrate deploy
+          
+          echo "Running seed script..."
           npx ts-node prisma/seed.ts
+          
+          echo "Verifying seed data..."
+          npx prisma db execute --stdin <<EOF
+          SELECT COUNT(*) as step_types FROM "StepType";
+          SELECT COUNT(*) as ingredients FROM "Ingredient";
+          SELECT COUNT(*) as users FROM "User";
+          EOF
       
       - name: Run tests
         working-directory: ./backend
