@@ -1,5 +1,5 @@
 [build]
-  command = "npm install --include=optional && npm run build:frontend"
+  command = "npm install && npm rebuild rollup && npm run build:frontend"
   publish = "frontend/dist"
 
 [build.environment]
