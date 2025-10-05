@@ -37,7 +37,9 @@ function createAuthTestApp() {
 
 describe('Auth OAuth Tests', () => {
   let app: express.Application;
-  const testEmail = 'oauth-test@example.com';
+  // Use unique emails per test run to avoid conflicts
+  const testEmailBase = `oauth-test-${Date.now()}`;
+  const testEmail = `${testEmailBase}@example.com`;
   const testGoogleId = 'google-oauth-123456';
   const testIdToken = 'mock-google-id-token';
 
@@ -49,17 +51,17 @@ describe('Auth OAuth Tests', () => {
     // Reset axios mocks before each test
     mockedAxios.get.mockReset();
     
-    // Clean up test users and accounts
+    // Clean up test users and accounts (using the test email prefix)
     await prisma.account.deleteMany({ where: { provider: 'google' } });
     await prisma.userProfile.deleteMany({});
-    await prisma.user.deleteMany({ where: { email: { contains: 'oauth-test' } } });
+    await prisma.user.deleteMany({ where: { email: { contains: testEmailBase } } });
   });
 
   afterAll(async () => {
-    // Final cleanup
+    // Final cleanup (using the test email prefix)
     await prisma.account.deleteMany({ where: { provider: 'google' } });
     await prisma.userProfile.deleteMany({});
-    await prisma.user.deleteMany({ where: { email: { contains: 'oauth-test' } } });
+    await prisma.user.deleteMany({ where: { email: { contains: testEmailBase } } });
     await prisma.$disconnect();
   });
 
