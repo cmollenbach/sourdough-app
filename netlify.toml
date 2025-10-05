@@ -1,0 +1,11 @@
+[build]
+  command = "npm install --include=optional && npm run build:frontend"
+  publish = "frontend/dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
