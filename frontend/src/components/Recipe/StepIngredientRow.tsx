@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Controller, useFormContext, type Control, type FieldArrayWithId, type UseFormSetValue, type UseFieldArrayUpdate } from "react-hook-form";
-import type { IngredientMeta } from "../../types/recipeLayout";
-import { IngredientCalculationMode, type IngredientCategory } from "../../types/recipe";
+import type { IngredientMeta } from '@sourdough/shared';
+import { IngredientCalculationMode, type IngredientCategory } from '@sourdough/shared';
 import type { StepFormValues } from "./StepCard";
 import { useRecipeBuilderStore } from '../../store/recipeBuilderStore';
 

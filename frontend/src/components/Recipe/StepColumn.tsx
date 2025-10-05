@@ -16,8 +16,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import StepCard from "./StepCard";
-import type { RecipeStep } from "../../types/recipe";
-import type { StepTemplate, IngredientMeta, IngredientCategoryMeta } from "../../types/recipeLayout";
+import type { RecipeStep } from '@sourdough/shared';
+import type { StepTemplate, IngredientMeta, IngredientCategoryMeta } from '@sourdough/shared';
 import type { StepCardProps } from "./StepCard";
 
 interface StepColumnProps {

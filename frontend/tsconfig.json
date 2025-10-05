@@ -15,15 +15,10 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    // You can add path aliases here if you like
-    // "paths": {
-    //   "@components/*": ["components/*"],
-    //   "@utils/*": ["utils/*"],
-    //   "@hooks/*": ["hooks/*"],
-    //   "@pages/*": ["pages/*"],
-    //   "@store/*": ["store/*"],
-    //   "@types/*": ["types/*"]
-    // }
+    "paths": {
+      "@sourdough/shared": ["../shared/index.ts"],
+      "@sourdough/shared/*": ["../shared/*"]
+    }
   },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }] // If you have a tsconfig.node.json for Vite config

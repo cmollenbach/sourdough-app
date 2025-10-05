@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useBakeStore } from '../../store/useBakeStore';
-import type { Bake } from '../../types/bake';
+import type { Bake } from '@sourdough/shared';
 import ActiveBakeIndicator from '../../components/Bake/ActiveBakeIndicator'; // For displaying status
 
 export default function BakeHistoryPage() {

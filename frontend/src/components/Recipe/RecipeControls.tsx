@@ -5,7 +5,7 @@ import { useToast } from '../../context/ToastContext'; // Add toast import
 import { useHistory } from 'react-router-dom'; // For react-router-dom v5
 import { useRecipeBuilderStore } from '../../store/recipeBuilderStore';
 import { useBakeStore } from '../../store/useBakeStore'; // Import useBakeStore
-import type { FullRecipe, RecipeFieldValue, RecipeStep, RecipeStepField, RecipeStepIngredient, IngredientCalculationMode } from '../../types/recipe';
+import type { FullRecipe, RecipeFieldValue, RecipeStep, RecipeStepField, RecipeStepIngredient, IngredientCalculationMode } from '@sourdough/shared';
 import { apiGet, apiPost, apiPut, apiDelete } from '../../utils/api'; // Import all needed API utils
 import ResponsiveActionBar from './ResponsiveActionBar'; // Import the new component
 

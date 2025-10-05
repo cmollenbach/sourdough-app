@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { IngredientCalculationMode, type FullRecipe, type RecipeStep } from "../types/recipe";
-import type { IngredientMeta, IngredientCategoryMeta, FieldMeta, StepTemplate as StepTemplateMeta } from "../types/recipeLayout"; // Corrected IngredientCategory to IngredientCategoryMeta, aliased StepTemplate
+import { IngredientCalculationMode, type FullRecipe, type RecipeStep } from "@sourdough/shared";
+import type { IngredientMeta, IngredientCategoryMeta, FieldMeta, StepTemplate as StepTemplateMeta } from "@sourdough/shared";
 
 const PREFERMENT_CONTRIB_PARAM_NAME = 'Contribution (pct)';
 const PREFERMENT_HYDRATION_PARAM_NAME = 'Hydration';

@@ -8,16 +8,12 @@ import {
   type StepType,
   type IngredientCategory as RecipeIngredientCategory,
   type RecipeStep,
-  type RecipeStepIngredient, // Corrected: Use RecipeStepIngredient
-  // RecipeFieldValue was removed as it was unused in this file
-} from '../types/recipe';
-
-import type {
-  StepTemplate,
-  IngredientCategoryMeta,
-  IngredientMeta as RecipeLayoutIngredientMeta,
-  FieldMeta as RecipeLayoutFieldMeta
-} from '../types/recipeLayout';
+  type RecipeStepIngredient,
+  type StepTemplate,
+  type IngredientCategoryMeta,
+  type IngredientMeta as RecipeLayoutIngredientMeta,
+  type FieldMeta as RecipeLayoutFieldMeta
+} from '@sourdough/shared';
 
 interface ApiErrorData {
   error?: string;

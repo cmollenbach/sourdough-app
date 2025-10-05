@@ -1,0 +1,17 @@
+{
+  "name": "@sourdough/shared",
+  "version": "1.0.0",
+  "description": "Shared code between web and mobile Sourdough app",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["sourdough", "shared", "monorepo"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

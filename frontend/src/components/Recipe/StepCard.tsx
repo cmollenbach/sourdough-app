@@ -3,9 +3,9 @@
 import { useMemo, useEffect, useRef, useState, useCallback } from "react"; // Ensure useCallback is imported
 import debounce from 'lodash.debounce';
 import { useForm, Controller, useFieldArray, type UseFormSetValue, FormProvider } from "react-hook-form";
-import type { RecipeStep, RecipeStepIngredient, RecipeStepField } from "../../types/recipe";
-import { IngredientCalculationMode } from "../../types/recipe";
-import type { StepTemplate, IngredientMeta, IngredientCategoryMeta } from "../../types/recipeLayout";
+import type { RecipeStep, RecipeStepIngredient, RecipeStepField } from '@sourdough/shared';
+import { IngredientCalculationMode } from '@sourdough/shared';
+import type { StepTemplate, IngredientMeta, IngredientCategoryMeta } from '@sourdough/shared';
 import { StepIngredientTable } from "./StepIngredientTable";
 import { TimingScheduleDisplay, useAlarmNotifications } from "./TimingSchedule";
 

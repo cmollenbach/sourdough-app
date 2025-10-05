@@ -1,4 +1,5 @@
-import type { Bake } from '../../types/bake';
+import type { Bake } from '@sourdough/shared';
+
 
 interface BakeTargetsDisplayProps {
   bake: Bake;

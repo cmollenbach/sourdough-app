@@ -1,7 +1,7 @@
 // bakeTimingUtils.ts - Enhanced timing system for active bakes
 
 import { TimingParser, type FoldEvent, type TimingSchedule } from './timingParser';
-import type { BakeStep } from '../types/bake';
+import type { BakeStep } from '@sourdough/shared';
 
 export interface BakeTimingEvent {
   id: string;

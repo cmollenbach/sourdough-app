@@ -1,5 +1,5 @@
-import type { FullRecipe } from "../../types/recipe";
-import type { FieldMeta } from "../../types/recipeLayout";
+import type { FullRecipe } from '@sourdough/shared';
+import type { FieldMeta } from '@sourdough/shared';
 
 interface RecipeTargetsProps {
   recipe: FullRecipe;

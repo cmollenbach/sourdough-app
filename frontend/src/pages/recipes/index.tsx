@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchRecipeList } from '../../utils/api'; // We'll ensure this exists
-import type { RecipeStub } from '../../types/recipe'; // We'll ensure this type exists
+import type { RecipeStub } from '@sourdough/shared'; // We'll ensure this type exists
 
 const RecipeListPage: React.FC = () => {
   const [recipes, setRecipes] = useState<RecipeStub[]>([]);

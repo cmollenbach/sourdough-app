@@ -1,4 +1,4 @@
-import type { FullRecipe } from "../../types/recipe";
+import type { FullRecipe } from '@sourdough/shared';
 
 interface TargetEditorProps {
   recipe: FullRecipe;

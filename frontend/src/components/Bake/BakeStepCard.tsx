@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import type { BakeStep } from '../../types/bake'; 
+import type { BakeStep } from '@sourdough/shared'; 
 
 import { useBakeStore } from '../../store/useBakeStore';
 import { useToast } from '../../context/ToastContext'; // Assuming this is the correct path

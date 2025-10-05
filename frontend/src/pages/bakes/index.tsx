@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom'; // Assuming you use react-router-dom for navigation
 import { useBakeStore } from '../../store/useBakeStore';
-import type { Bake } from '../../types/bake'; // Ensure Bake type is correctly imported
+import type { Bake } from '@sourdough/shared'; // Ensure Bake type is correctly imported
 import ActiveBakeIndicator from '../../components/Bake/ActiveBakeIndicator'; // Adjust path if needed
 
 export default function BakesListPage() {

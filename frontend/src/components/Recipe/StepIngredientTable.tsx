@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react'; // Added React import for JSX
 /* Controller and Path were unused after refactoring to StepIngredientRow */
 import type { Control, FieldArrayWithId, UseFormSetValue, UseFieldArrayUpdate } from "react-hook-form";
-import type { StepTemplateIngredientRuleMeta, IngredientMeta } from "../../types/recipeLayout";
-import type { RecipeStepIngredient, IngredientCategory } from "../../types/recipe";
+import type { StepTemplateIngredientRuleMeta, IngredientMeta } from '@sourdough/shared';
+import type { RecipeStepIngredient, IngredientCategory } from '@sourdough/shared';
 // import { enforceFlourPercentage } from "../../utils/flourPercentage"; // We'll inline this logic for clarity
 import { StepIngredientRow } from "./StepIngredientRow"; // Import the new component
-import { IngredientCalculationMode } from "../../types/recipe";
+import { IngredientCalculationMode } from '@sourdough/shared';
 import type { StepFormValues } from "./StepCard"; // Import the shared type
 
 // Type for elements in categoryIngredientFields (after mapping idx from RHF's useFieldArray)

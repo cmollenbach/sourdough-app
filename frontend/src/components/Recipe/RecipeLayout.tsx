@@ -3,8 +3,8 @@ import { useCallback } from "react";
 import { IonGrid, IonRow, IonCol } from "@ionic/react";
 import type { DragEndEvent } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
-import type { RecipeStep } from "../../types/recipe";
-import type { RecipeLayoutProps } from "../../types/recipeLayout";
+import type { RecipeStep } from '@sourdough/shared';
+import type { RecipeLayoutProps } from '@sourdough/shared';
 import { useRecipeBuilderStore } from "../../store/recipeBuilderStore";
 import RecipeGlobalControls from "./RecipeGlobalControls"; // Import RecipeGlobalControls
 import AdvancedUserFeatures from "./AdvancedUserFeatures"; // Import the enhanced component

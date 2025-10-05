@@ -2,7 +2,8 @@
 import React, { useMemo, useCallback } from "react"; // Added useCallback
 import { useRecipeBuilderStore } from "../../store/recipeBuilderStore";
 import { useRecipeCalculations, type OtherIngredientDisplay } from "../../hooks/useRecipeCalculations";
-import { IngredientCalculationMode } from "../../types/recipe"; // Import directly from its source
+import { IngredientCalculationMode } from "@sourdough/shared";
+ // Import directly from its source
 
 // Helper function to format numbers with a thousands separator
 function formatNumberWithCommas(num: number): string {

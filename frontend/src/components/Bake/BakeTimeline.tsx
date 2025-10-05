@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BakeTimingManager, type BakeTimeline, type BakeTimingEvent } from '../../utils/bakeTimingUtils';
 import { useAlarmNotifications } from '../Recipe/TimingSchedule';
-import type { BakeStep } from '../../types/bake';
+import type { BakeStep } from '@sourdough/shared';
+
 
 interface BakeTimelineProps {
   bakeSteps: BakeStep[];

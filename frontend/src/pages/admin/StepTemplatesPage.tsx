@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useRecipeBuilderStore } from '../../store/recipeBuilderStore';
 // Ensure this StepTemplate type matches the structure from /meta/step-templates
 // It might need to be StepTemplate from '.../types/recipeLayout' or recipe.ts needs to be adjusted
-import type { StepTemplate } from '../../types/recipeLayout'; // Changed to recipeLayout.ts
+import type { StepTemplate } from '@sourdough/shared'; // Changed to recipeLayout.ts
 import Modal from '../../components/Shared/Modal'; // Assuming this component exists
 import { updateStepTemplate, deleteStepTemplate } from '../../utils/api';
 import { useToast } from '../../context/ToastContext';

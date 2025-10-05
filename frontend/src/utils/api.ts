@@ -1,6 +1,5 @@
 import axios from "axios";
-import type { StepTemplate } from "../types/recipeLayout"; // Changed to recipeLayout
-import type { RecipeStub } from "../types/recipe"; // Added for recipe list
+import type { StepTemplate, RecipeStub } from "@sourdough/shared";
 
 // Types for RecipeForm - ideally, these would be in a shared types file
 export interface FieldMeta { // Exporting in case other components might need it

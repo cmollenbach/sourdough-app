@@ -3,7 +3,7 @@ import { useParams, useHistory } from "react-router-dom";
 import RecipeLayout from "../../components/Recipe/RecipeLayout";
 // import { fetchRecipeList } from "../../utils/api"; // No longer needed here
 import { useRecipeBuilderStore } from "../../store/recipeBuilderStore";
-import type { FullRecipe, RecipeStep } from "../../types/recipe"; // Removed RecipeStub
+import type { FullRecipe, RecipeStep } from '@sourdough/shared'; // Removed RecipeStub
 
 function createNewRecipeFromBaseTemplate(baseRecipe: FullRecipe | null, existingRecipeNames: string[] = []): FullRecipe | null {
   if (!baseRecipe) return null;

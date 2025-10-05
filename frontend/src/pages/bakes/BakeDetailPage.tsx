@@ -9,8 +9,8 @@ import { useDialog } from '../../context/useDialog'; // Import useDialog
 import BakeTargetsDisplay from '../../components/Bake/BakeTargetsDisplay'; // Import the new component
 import { useRecipeBuilderStore } from '../../store/recipeBuilderStore'; // For metadata
 import { useRecipeCalculations, type CalculatedStepColumn } from '../../hooks/useRecipeCalculations'; // For calculations, CalculatedStepColumn is used for typing stepCalculationsMap. OtherIngredientDisplay is not directly used here.
-import { type FullRecipe, type RecipeStep, IngredientCalculationMode } from '../../types/recipe'; // For type definitions, IngredientCalculationMode is now a value import
-// import type { StepTemplate as StepTemplateMeta } from '../../types/recipeLayout'; // StepTemplateMeta is used as a type, not a variable
+import { type FullRecipe, type RecipeStep, IngredientCalculationMode } from '@sourdough/shared'; // For type definitions, IngredientCalculationMode is now a value import
+// import type { StepTemplate as StepTemplateMeta } from '@sourdough/shared'; // StepTemplateMeta is used as a type, not a variable
 
 export default function BakeDetailPage() {
   const { bakeId } = useParams<{ bakeId: string }>();

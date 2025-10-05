@@ -22,19 +22,15 @@ export interface StepTemplate {
   isDefault: boolean;
   fields: FieldMeta[];
   ingredients: IngredientMeta[];
-  role: string; // <-- Add this line
+  role: string;
 }
 
-// Added: Basic definition for IngredientCategory.
-// You may need to expand this based on your actual data structure.
 export interface IngredientCategory {
   id: number;
   name: string;
   description?: string | null;
 }
 
-// Added: Basic definition for StepType.
-// You may need to expand this based on your actual data structure.
 export interface StepType {
   id: number;
   name: string;

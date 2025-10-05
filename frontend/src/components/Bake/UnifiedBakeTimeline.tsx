@@ -5,7 +5,8 @@ import { BakeTimingManager, type BakeTimeline, type BakeTimingEvent } from '../.
 import { useAlarmNotifications } from '../Recipe/TimingSchedule';
 import { useBakeStore } from '../../store/useBakeStore';
 import { useToast } from '../../context/ToastContext';
-import type { BakeStep } from '../../types/bake';
+import type { BakeStep } from '@sourdough/shared';
+
 import type { CalculatedStepColumn } from '../../hooks/useRecipeCalculations';
 
 interface UnifiedBakeTimelineProps {
