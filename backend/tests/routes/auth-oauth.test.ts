@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, jest } from '@jest/globals';
 import request from 'supertest';
 import express from 'express';
+import { randomUUID } from 'crypto';
 
 // Mock axios BEFORE importing anything that uses it
 jest.mock('axios', () => ({
@@ -61,10 +62,9 @@ describe('Auth OAuth Tests', () => {
       console.warn(`⚠️ Warning: ${remainingUsers} oauth-test users still exist after cleanup`);
     }
     
-    // Generate HIGHLY unique email for EACH test to avoid conflicts even with parallel execution
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 15);
-    const testId = `${timestamp}-${random}-${Math.random().toString(36).substring(2, 9)}`;
+    // Generate GUARANTEED unique email using UUID (eliminates ALL collision risk)
+    // Includes: timestamp, process ID, and cryptographically secure UUID
+    const testId = `${Date.now()}-${process.pid}-${randomUUID()}`;
     testEmailBase = `oauth-test-${testId}`;
     testEmail = `${testEmailBase}@example.com`;
     
