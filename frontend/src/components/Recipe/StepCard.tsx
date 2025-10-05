@@ -28,12 +28,13 @@ export interface StepCardProps {
 function getDefaultFields(template: StepTemplate) {
   const fields: Record<number, string | number> = {};
   for (const f of template.fields) {
+    const fieldId = f.fieldId ?? f.id; // Use fieldId or fallback to id
     if (f.defaultValue !== undefined && f.defaultValue !== null) {
-      fields[f.fieldId] = f.defaultValue;
+      fields[fieldId] = f.defaultValue;
     } else if (f.field?.type === "number") {
-      fields[f.fieldId] = 0;
+      fields[fieldId] = 0;
     } else {
-      fields[f.fieldId] = "";
+      fields[fieldId] = "";
     }
   }
   return fields;
@@ -217,8 +218,8 @@ export default function StepCard({
           }
           
           // Then by template order field (for templates with same process step)
-          if (a.order !== b.order) {
-            return (a.order || 999) - (b.order || 999);
+          if ((a.order ?? 999) !== (b.order ?? 999)) {
+            return (a.order ?? 999) - (b.order ?? 999);
           }
           
           // Finally by name for consistency
@@ -272,12 +273,12 @@ export default function StepCard({
     const currentFormValues = getValues();
     const currentSFMethod = currentFormValues?.fields ? Object.entries(currentFormValues.fields).find(([fieldId, value]) => {
       const fieldMeta = template?.fields.find(f => f.fieldId === parseInt(fieldId));
-      return fieldMeta?.field.name === 'S&F Method';
+      return fieldMeta?.field?.name === 'S&F Method';
     })?.[1] : null;
     
     // If user exits advanced mode while having "Custom" selected, reset to "Basic"
     if (!showAdvanced && currentSFMethod === 'Custom') {
-      const sfMethodFieldId = template?.fields.find(f => f.field.name === 'S&F Method')?.fieldId;
+      const sfMethodFieldId = template?.fields.find(f => f.field?.name === 'S&F Method')?.fieldId;
       if (sfMethodFieldId && currentFormValues.fields && sfMethodFieldId in currentFormValues.fields) {
         setValue(`fields.${sfMethodFieldId}` as any, 'Basic', { shouldDirty: true });
       }
@@ -431,7 +432,7 @@ export default function StepCard({
   const formValues = watch();
   const sfMethodValue = formValues?.fields ? Object.entries(formValues.fields).find(([fieldId, value]) => {
     const fieldMeta = template?.fields.find(f => f.fieldId === parseInt(fieldId));
-    return fieldMeta?.field.name === 'S&F Method';
+    return fieldMeta?.field?.name === 'S&F Method';
   })?.[1] : null;
 
   const visibleFields = (template?.fields || []).filter((f) => {
@@ -444,7 +445,7 @@ export default function StepCard({
     const sfCustomFields = ['First Fold After (minutes)', 'Interval Between Folds (minutes)', 'Custom Fold Schedule', 'Timing Plan', 'Fold Strength'];
     
     // Hide all S&F fields when method is "None" or empty
-    if (sfCustomFields.includes(f.field.name)) {
+    if (f.field?.name && sfCustomFields.includes(f.field.name)) {
       if (!sfMethodValue || sfMethodValue === 'None') {
         return false;
       }
@@ -480,7 +481,7 @@ export default function StepCard({
     // First check for explicit timing plan
     const explicitPlan = Object.entries(formValues.fields).find(([fieldId, value]) => {
       const fieldMeta = template?.fields.find(f => f.fieldId === parseInt(fieldId));
-      return fieldMeta?.field.name === 'Timing Plan' || fieldMeta?.field.name === 'Custom Fold Schedule';
+      return fieldMeta?.field?.name === 'Timing Plan' || fieldMeta?.field?.name === 'Custom Fold Schedule';
     })?.[1] as string;
     
     if (explicitPlan && explicitPlan.trim()) {
@@ -490,7 +491,7 @@ export default function StepCard({
     // Generate timing plan for basic S&F method
     const sfMethodEntry = Object.entries(formValues.fields).find(([fieldId, value]) => {
       const fieldMeta = template?.fields.find(f => f.fieldId === parseInt(fieldId));
-      return fieldMeta?.field.name === 'S&F Method';
+      return fieldMeta?.field?.name === 'S&F Method';
     });
     
     if (sfMethodEntry?.[1] === 'Basic') {
@@ -621,24 +622,24 @@ export default function StepCard({
                       <div className="flex flex-col sm:flex-row sm:items-center w-full gap-1 sm:gap-2">
                         <div className="flex items-center sm:min-w-[160px] sm:mb-0 mb-1 pr-2">
                           <label htmlFor={inputId} className="block font-medium text-sm">
-                            {meta.field.label || meta.field.name}
+                            {meta.field?.label || meta.field?.name}
                           </label>
-                          {(meta.helpText || meta.field.helpText) && (
+                          {(meta.helpText || meta.field?.helpText) && (
                             <div className="relative inline-block ml-1.5">
                               <button
                                 type="button"
-                                onClick={() => setVisibleHelpFieldId(visibleHelpFieldId === meta.fieldId ? null : meta.fieldId)}
+                                onClick={() => setVisibleHelpFieldId(visibleHelpFieldId === (meta.fieldId ?? meta.id) ? null : (meta.fieldId ?? meta.id))}
                                 className="text-primary-500 hover:text-primary-600 focus:ring-2 focus:ring-primary-400 focus:ring-opacity-50 flex items-center justify-center"
-                                aria-label={`Help for ${meta.field.label || meta.field.name}`}
-                                aria-expanded={visibleHelpFieldId === meta.fieldId}
+                                aria-label={`Help for ${meta.field?.label || meta.field?.name}`}
+                                aria-expanded={visibleHelpFieldId === (meta.fieldId ?? meta.id)}
                               >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                                 </svg>
                               </button>
-                              {visibleHelpFieldId === meta.fieldId && (
+                              {visibleHelpFieldId === (meta.fieldId ?? meta.id) && (
                                 <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 p-2.5 bg-text-primary text-text-inverse text-xs rounded-md shadow-lg z-20 w-max max-w-[280px]" role="tooltip">
-                                  {meta.helpText || meta.field.helpText}
+                                  {meta.helpText || meta.field?.helpText}
                                   <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-[6px] border-x-transparent border-t-[6px] border-t-text-primary"></div>
                                 </div>
                               )}
@@ -646,14 +647,14 @@ export default function StepCard({
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          {meta.field.name === 'S&F Method' ? (
+                          {meta.field?.name === 'S&F Method' ? (
                             // Special dropdown for S&F Method
                             <select
                               {...field}
                               id={inputId}
                               value={field.value || 'None'}
                               className={`border border-border rounded px-3 py-2 w-full bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300 transition ${fieldState.invalid ? "border-red-500" : ""}`}
-                              aria-label={meta.field.label || meta.field.name}
+                              aria-label={meta.field?.label || meta.field?.name}
                             >
                               <option value="None">None - Just bulk ferment</option>
                               <option value="Basic">Basic - 4 folds every 30 minutes</option>
@@ -661,7 +662,7 @@ export default function StepCard({
                                 <option value="Custom">Custom - Describe your schedule</option>
                               )}
                             </select>
-                          ) : (meta.field.name === 'Custom Fold Schedule' || meta.field.name === 'Timing Plan') ? (
+                          ) : (meta.field?.name === 'Custom Fold Schedule' || meta.field?.name === 'Timing Plan') ? (
                             // Enhanced text area for comprehensive planning (timeline will show during active bake)
                             <textarea
                               {...field}
@@ -686,9 +687,9 @@ Note: Timeline and alarms will be created when you start baking!"
                               {...field}
                               id={inputId}
                               value={typeof field.value === "string" || typeof field.value === "number" ? field.value : ""}
-                              type={meta.field.type === "number" ? "number" : "text"}
-                              className={`border border-border rounded px-3 py-2 w-full bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300 transition ${fieldState.invalid ? "border-red-500" : ""} ${meta.field.type.toUpperCase() === "NUMBER" ? "text-center" : ""}`}
-                              aria-label={meta.field.label || meta.field.name}
+                              type={meta.field?.type === "number" ? "number" : "text"}
+                              className={`border border-border rounded px-3 py-2 w-full bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300 transition ${fieldState.invalid ? "border-red-500" : ""} ${meta.field?.type?.toUpperCase() === "NUMBER" ? "text-center" : ""}`}
+                              aria-label={meta.field?.label || meta.field?.name}
                             />
                           )}
                           {fieldState.error && (
@@ -716,7 +717,7 @@ Note: Timeline and alarms will be created when you start baking!"
                   }}
                 />
               </div>
-            )}            {template.ingredientRules.length > 0 && (
+            )}            {template.ingredientRules && template.ingredientRules.length > 0 && (
               <StepIngredientTable
                 ingredientsMeta={safeIngredientsMeta}
                 ingredientCategoriesMeta={ingredientCategoriesMeta} // Pass down
@@ -726,8 +727,8 @@ Note: Timeline and alarms will be created when you start baking!"
                 // FIX: The function passed to the 'append' prop must call 'rhfAppend' from useFieldArray.
                 append={(newIngredientData: Partial<RecipeStepIngredient>) => {
                   const currentFormIngredients = getValues("ingredients") || [];
-                  const flourCategoryRule = template.ingredientRules.find(
-                    (r) => r.ingredientCategory.name === FLOUR_CATEGORY_NAME
+                  const flourCategoryRule = template.ingredientRules?.find(
+                    (r) => r.ingredientCategory?.name === FLOUR_CATEGORY_NAME
                   );
                   // FIX: Use the 'safeIngredientsMeta' variable to prevent errors when 'ingredientsMeta' is undefined.
                   const breadFlourMeta = safeIngredientsMeta.find(
@@ -744,9 +745,9 @@ Note: Timeline and alarms will be created when you start baking!"
                     ingredientId: newIngredientData.ingredientId || 0,
                   };
 
-                  if (flourCategoryRule && finalIngredientToAdd.ingredientCategoryId === flourCategoryRule.ingredientCategory.id) {
+                  if (flourCategoryRule && finalIngredientToAdd.ingredientCategoryId === flourCategoryRule.ingredientCategory?.id) {
                     const existingFloursInThisRule = currentFormIngredients.filter(
-                      (ing) => ing.ingredientCategoryId === flourCategoryRule.ingredientCategory.id
+                      (ing) => ing.ingredientCategoryId === flourCategoryRule.ingredientCategory?.id
                     );
 
                     if (existingFloursInThisRule.length === 0) {

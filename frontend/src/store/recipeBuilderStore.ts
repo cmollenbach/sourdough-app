@@ -201,7 +201,7 @@ export const useRecipeBuilderStore = create<RecipeBuilderState>()(
           notes: newStepData.notes ?? null,
           description: newStepData.description ?? template?.description ?? null,
           fields: template?.fields.map(f => ({
-            id: -(Date.now() + f.id + Math.random()), recipeStepId: tempNewStepId, fieldId: f.id, value: f.defaultValue ?? (f.field.type === 'number' ? 0 : ''), notes: null
+            id: -(Date.now() + f.id + Math.random()), recipeStepId: tempNewStepId, fieldId: f.id, value: f.defaultValue ?? (f.field?.type === 'number' ? 0 : ''), notes: null
           })) || [],
           ingredients: [], // Initialize ingredients as an empty array
         };
