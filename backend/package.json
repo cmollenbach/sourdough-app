@@ -51,7 +51,7 @@
     "build:seed": "npm run build && npx prisma db seed",
     "deploy": "npx prisma migrate deploy && npm run build",
     "start": "node dist/src/index.js",
-    "test": "jest --forceExit",
+    "test": "jest --forceExit --detectOpenHandles",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --forceExit",
     "typecheck": "tsc --noEmit",
