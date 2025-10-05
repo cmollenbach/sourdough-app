@@ -145,28 +145,57 @@ router.post('/oauth/google', validateBody(googleOAuthSchema), async (req, res, n
     } else if (!user) {
       // New user: create user, account, and profile
       logger.info('Creating new user via Google OAuth', { email });
-      user = await prisma.user.create({
-        data: {
-          email,
-          emailVerified: String(email_verified).toLowerCase() === 'true',
-          isActive: true,
-          accounts: {
-            create: {
-              provider: 'google',
-              providerAccountId: googleId,
-              accessToken: idToken,
+      
+      try {
+        user = await prisma.user.create({
+          data: {
+            email,
+            emailVerified: String(email_verified).toLowerCase() === 'true',
+            isActive: true,
+            accounts: {
+              create: {
+                provider: 'google',
+                providerAccountId: googleId,
+                accessToken: idToken,
+              }
+            },
+            userProfile: {
+              create: {
+                displayName: name || email.split('@')[0],
+                avatarUrl: picture,
+              }
             }
           },
-          userProfile: {
-            create: {
-              displayName: name || email.split('@')[0],
-              avatarUrl: picture,
-            }
+          include: { accounts: true, userProfile: true }
+        });
+        account = user.accounts.find(acc => acc.provider === 'google');
+      } catch (createError: any) {
+        // Handle race condition: another concurrent request may have created the user
+        if (createError.code === 'P2002') {
+          // Unique constraint violation - user was created by concurrent request
+          logger.warn('Race condition detected during user creation, fetching existing user', { email });
+          user = await prisma.user.findUnique({
+            where: { email },
+            include: { accounts: true, userProfile: true }
+          });
+          account = user?.accounts.find(acc => acc.provider === 'google');
+          
+          if (!account && user) {
+            // User exists but no Google account - create the account link
+            account = await prisma.account.create({
+              data: {
+                userId: user.id,
+                provider: 'google',
+                providerAccountId: googleId,
+                accessToken: idToken,
+              }
+            });
           }
-        },
-        include: { accounts: true, userProfile: true }
-      });
-      account = user.accounts.find(acc => acc.provider === 'google');
+        } else {
+          // Re-throw other Prisma errors
+          throw createError;
+        }
+      }
     } else {
       logger.debug('User already linked to Google account', { email, userId: user.id });
     }

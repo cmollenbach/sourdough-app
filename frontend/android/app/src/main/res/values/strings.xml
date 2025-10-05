@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Loafly</string>
+    <string name="title_activity_main">Loafly</string>
+    <string name="package_name">com.loafly.sourdough</string>
+    <string name="custom_url_scheme">com.loafly.sourdough</string>
+</resources>

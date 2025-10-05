@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import api from '../utils/api'; // Your existing Axios instance
 import type { Bake, BakeStep, BakeStepParameterValue } from '@sourdough/shared';
+import { notificationService } from '../services/CapacitorNotificationService';
+import { Capacitor } from '@capacitor/core';
 
 
 interface BakeState {
@@ -143,12 +145,54 @@ export const useBakeStore = create<BakeState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await api.post<Bake>('/bakes', { recipeId, notes });
+      const newBake = response.data;
+      
+      // Schedule notifications for the bake steps (only on native platforms)
+      if (Capacitor.isNativePlatform() && newBake.steps && newBake.steps.length > 0) {
+        try {
+          const totalSteps = newBake.steps.length;
+          // Create notifications for each step
+          const notifications = newBake.steps.map((step, index) => {
+            // Try to get a descriptive name from the step
+            let stepName = step.recipeStep?.name || step.recipeStep?.stepTemplate?.name;
+            let usingFallback = false;
+            
+            // If still no name, create a descriptive fallback based on order
+            if (!stepName) {
+              usingFallback = true;
+              const stepNumber = index + 1;
+              if (stepNumber === 1) stepName = 'Mix Ingredients';
+              else if (stepNumber === 2) stepName = 'Autolyse';
+              else if (stepNumber === 3) stepName = 'Add Salt & Starter';
+              else if (totalSteps > 4 && stepNumber <= totalSteps - 2) {
+                stepName = `Stretch & Fold #${stepNumber - 3}`;
+              } else if (stepNumber === totalSteps - 1) stepName = 'Shape Dough';
+              else if (stepNumber === totalSteps) stepName = 'Bake';
+              else stepName = `Step ${stepNumber}`;
+            }
+            
+            console.log(`[Notification] Step ${index + 1}: "${stepName}" ${usingFallback ? '(FALLBACK)' : '(FROM RECIPE)'}`);
+            
+            return {
+              name: stepName,
+              delayMinutes: (index + 1) * 30 // Simple: 30, 60, 90 min... (customize based on your needs)
+            };
+          });
+          
+          await notificationService.scheduleBakeNotifications(newBake.id, notifications);
+          console.log(`Scheduled ${notifications.length} notifications for bake ${newBake.id}`, notifications);
+        } catch (notifError) {
+          console.error('Failed to schedule notifications for bake:', notifError);
+          // Don't fail the bake if notifications fail
+        }
+      }
+      
       set(state => ({
-        activeBakes: [...state.activeBakes, response.data],
-        currentBake: response.data, // Optionally set as current bake
+        activeBakes: [...state.activeBakes, newBake],
+        currentBake: newBake, // Optionally set as current bake
         isLoading: false,
       }));
-      return response.data;
+      return newBake;
     } catch (err: unknown) {
       let message = 'Failed to start bake.';
       const axiosError = err as AxiosErrorWithMessage;
@@ -167,6 +211,17 @@ export const useBakeStore = create<BakeState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await api.put<Bake>(`/bakes/${bakeId}/cancel`);
+      
+      // Cancel all notifications for this bake (only on native)
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await notificationService.cancelAllNotifications();
+          console.log(`Cancelled notifications for bake ${bakeId}`);
+        } catch (notifError) {
+          console.error('Failed to cancel notifications:', notifError);
+        }
+      }
+      
       set(state => ({
         activeBakes: state.activeBakes.map(b => b.id === bakeId ? response.data : b).filter(b => b.active), // Update and remove if inactive
         currentBake: state.currentBake?.id === bakeId ? response.data : state.currentBake,
@@ -191,6 +246,17 @@ export const useBakeStore = create<BakeState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await api.put<Bake>(`/bakes/${bakeId}/complete`);
+      
+      // Cancel all notifications for this bake (only on native)
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await notificationService.cancelAllNotifications();
+          console.log(`Cancelled notifications for completed bake ${bakeId}`);
+        } catch (notifError) {
+          console.error('Failed to cancel notifications:', notifError);
+        }
+      }
+      
       set(state => ({
         activeBakes: state.activeBakes.map(b => b.id === bakeId ? response.data : b).filter(b => b.active),
         currentBake: state.currentBake?.id === bakeId ? response.data : state.currentBake,

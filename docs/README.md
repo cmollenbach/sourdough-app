@@ -1,53 +1,250 @@
-# Sourdough App: Project Overview
+# 📚 Loafly Documentation
 
-## 1. Project Purpose
+Welcome to the Loafly documentation! This directory contains all guides for developing, deploying, and understanding the Sourdough app.
 
-This project aims to create a dynamic and user-friendly application for sourdough enthusiasts. Key goals include:
+---
 
-* **Create and Customize**: Enable users to create, customize, and track sourdough recipes and baking sessions.
-* **Backend-Driven System**: All templates, steps, ingredients, and options are driven by the backend, allowing for a flexible and extensible system.
-* **Support for All Levels**: Cater to both beginners with admin-curated templates and advanced users who want full customization.
-* **Preserve Baking History**: Every bake log is a snapshot, ensuring that historical data is not affected by future changes to recipes or templates.
+## 🚀 Quick Start
 
-## 2. Tech Stack
+New to the project? Start here:
 
-The project utilizes a modern tech stack, optimized for a solo or small team development workflow.
+1. **[Project README](../README.md)** - Project overview, live links, platform status
+2. **[DEVELOPMENT.md](./DEVELOPMENT.md)** - Complete developer setup guide
+3. **[.copilot-context.md](../.copilot-context.md)** - Quick reference for AI assistants
 
-### **Frontend**
-* **Framework**: Vite + React + TypeScript
-* **Styling**: Tailwind CSS
-* **State Management**: React state/hooks
+---
 
-### **Backend**
-* **Platform**: Node.js with Express
-* **Language**: TypeScript
-* **ORM**: Prisma
-* **Database**: PostgreSQL
-* **Authentication**: Email/password and OAuth (Google, Apple)
+## 📖 Documentation Index
 
-## 3. Core Features
+### Core Guides
 
-The following is a list of the core features planned for the application:
+#### **[DEVELOPMENT.md](./DEVELOPMENT.md)**
+Complete developer guide covering:
+- Project structure (monorepo with backend, frontend, shared)
+- Quick start (installation, setup, running locally)
+- Available npm scripts for all workspaces
+- Testing strategy (backend Jest, frontend Vitest)
+- Database management (Prisma, PostgreSQL)
+- **Mobile development with Capacitor**
+- Troubleshooting common issues
 
-* **User Authentication**: Secure registration and login using email/password and social providers (Google, Apple).
-* **Recipe Management**: Full CRUD (Create, Read, Update, Delete) functionality for recipes.
-* **Step-by-Step Recipe Builder**: A flexible system for building recipes using predefined templates and categories.
-* **Bake Tracking**: Functionality to start, track, and complete a baking session, logging actuals against the planned recipe.
-* **Bake History**: A log of all past bakes, preserved as snapshots.
-* **Unified Dashboard**: A central place for users to browse, search, and manage their recipes and bakes.
-* **GenAI Integration**: Fermentation advice provided by the Gemini API, clearly labeled as AI-generated.
-* **Soft Deletion/Archiving**: All deletions are handled as "soft deletes" to preserve data integrity.
+**Use this for:** Day-to-day development, onboarding new developers
 
-## 4. Development Roadmap
+---
 
-The following is a high-level checklist of the remaining tasks:
+#### **[CAPACITOR_SETUP_GUIDE.md](./CAPACITOR_SETUP_GUIDE.md)**
+Step-by-step mobile app setup:
+- Why Capacitor for Loafly (85% code reuse)
+- Phase 1-7 implementation timeline (2 weeks)
+- Prerequisites (Android Studio, Java JDK 17)
+- Notification service implementation
+- Android permissions & configuration
+- Building APK/AAB for Play Store
+- Testing checklist & troubleshooting
 
-* **Core Functionality**
-    * [ ] Implement recipe creation, editing, and deletion.
-    * [ ] Enable step-by-step custom recipe building.
-    * [ ] Implement bake tracking.
-    * [ ] Integrate user authentication.
-    * [ ] Add GenAI (Gemini) fermentation advice.
+**Use this for:** Setting up mobile development, building Android app
+
+---
+
+### Feature Guides
+
+#### **[RecipeBuilder.md](./RecipeBuilder.md)**
+Recipe creation system:
+- Step-by-step recipe construction
+- Template system (admin-curated + custom)
+- Ingredient management
+- Field configurations
+- Bakers percentage calculations
+
+---
+
+#### **[BakeFeature.md](./BakeFeature.md)**
+Bake tracking functionality:
+- Starting a bake from a recipe
+- Live tracking with timers
+- Logging actuals vs. planned
+- Completion & rating
+- Bake history snapshots
+
+---
+
+#### **[Authentication.md](./Authentication.md)**
+User authentication:
+- Email/password registration & login
+- Google OAuth integration
+- JWT token management
+- Session handling
+
+---
+
+### Technical Reference
+
+#### **[API.md](./API.md)**
+Backend API documentation:
+- REST endpoints
+- Request/response formats
+- Authentication requirements
+- Error handling
+
+---
+
+#### **[DataModel.md](./DataModel.md)**
+Database schema & relationships:
+- Prisma schema overview
+- Entity relationships
+- Key constraints
+- Data integrity patterns
+
+---
+
+#### **[TESTING_GUIDE.md](./TESTING_GUIDE.md)**
+Testing strategy & practices:
+- Backend tests (Jest + Supertest)
+- Frontend tests (Vitest + Testing Library)
+- E2E tests (Playwright)
+- Running tests, writing new tests
+- Test coverage goals
+
+---
+
+### Design & UI
+
+#### **[DesignSystem.md](./DesignSystem.md)**
+Complete design system documentation:
+- Color palette (light/dark modes)
+- Typography scale
+- Spacing system
+- Component patterns
+- Tailwind + Ionic integration
+
+---
+
+#### **[DesignSystemQuickReference.md](./DesignSystemQuickReference.md)**
+Quick lookup for designers/developers:
+- Common color classes
+- Spacing shortcuts
+- Typography examples
+- Copy-paste component snippets
+
+---
+
+### Developer Tools
+
+#### **[DeveloperQuickReference.md](./DeveloperQuickReference.md)**
+Quick command reference:
+- Common npm scripts
+- Database commands
+- Git workflows
+- Debugging tips
+
+---
+
+#### **[SharedHooksReference.md](./SharedHooksReference.md)**
+Shared React hooks documentation:
+- `useRecipes` - Recipe data management
+- `useBakes` - Bake session management
+- `useAuth` - Authentication & user state
+- `useMeta` - Metadata (ingredients, templates)
+- Complete examples for web and mobile
+- TypeScript types and testing patterns
+
+**Use this for:** Using shared hooks in frontend or mobile app
+
+---
+
+## 🗂️ Directory Structure
+
+```
+docs/
+├── README.md (this file)
+├── DEVELOPMENT.md ⭐ (start here for development)
+├── CAPACITOR_SETUP_GUIDE.md ⭐ (mobile setup)
+│
+├── RecipeBuilder.md
+├── BakeFeature.md
+├── Authentication.md
+│
+├── API.md
+├── DataModel.md
+├── TESTING_GUIDE.md
+│
+├── DesignSystem.md
+├── DesignSystemQuickReference.md
+├── DeveloperQuickReference.md
+├── SharedHooksReference.md 🆕
+│
+└── UI/
+    └── ColorSystem.md
+```
+
+---
+
+## 🎯 Common Tasks
+
+### "I want to start developing"
+→ Read **[DEVELOPMENT.md](./DEVELOPMENT.md)**
+
+### "I want to build the Android app"
+→ Follow **[CAPACITOR_SETUP_GUIDE.md](./CAPACITOR_SETUP_GUIDE.md)**
+
+### "I want to understand the recipe system"
+→ Read **[RecipeBuilder.md](./RecipeBuilder.md)**
+
+### "I want to add a new API endpoint"
+→ Check **[API.md](./API.md)** and **[DataModel.md](./DataModel.md)**
+
+### "I want to use shared hooks in my component"
+→ Read **[SharedHooksReference.md](./SharedHooksReference.md)**
+
+### "I want to write tests"
+→ Follow **[TESTING_GUIDE.md](./TESTING_GUIDE.md)**
+
+### "I want to style a component"
+→ Use **[DesignSystem.md](./DesignSystem.md)** or **[DesignSystemQuickReference.md](./DesignSystemQuickReference.md)**
+
+---
+
+## 🔗 Related Files
+
+- **[../.copilot-context.md](../.copilot-context.md)** - Quick reference for AI assistants
+- **[../.github/copilot-instructions.md](../.github/copilot-instructions.md)** - Coding standards
+- **[../README.md](../README.md)** - Project overview
+
+---
+
+## 📝 Documentation Philosophy
+
+**Principles:**
+1. **No redundancy** - Each doc has a single, clear purpose
+2. **Up-to-date** - Legacy completion docs removed, only current info
+3. **Actionable** - Focus on HOW to do things, not just WHAT exists
+4. **Cross-linked** - Easy navigation between related topics
+5. **Consolidated** - Mobile strategy is Capacitor (not React Native)
+
+**Removed Legacy Docs:**
+- ✅ Deleted temporary completion summaries (SESSION_SUMMARY, CAPACITOR_STRATEGY_UPDATE)
+- ✅ Deleted setup completion docs (MONOREPO_SETUP_COMPLETE, SHARED_PACKAGE_COMPLETION)
+- ✅ Deleted React Native plan (Capacitor is the only mobile strategy)
+- ✅ Deleted one-time setup guides (PLAYWRIGHT_SETUP_COMPLETE, NETLIFY_DASHBOARD_FIX)
+- ✅ Deleted redundant proposals (MOBILE_DEVELOPMENT_PROPOSAL merged into CAPACITOR_SETUP_GUIDE)
+
+---
+
+## ✨ What's New (October 5, 2025)
+
+- 🎉 **Mobile strategy finalized**: Capacitor for 85% code reuse
+- 📱 **CAPACITOR_SETUP_GUIDE.md**: Complete 7-phase implementation guide
+- � **Shared React hooks**: Created useRecipes, useBakes, useAuth, useMeta (65% code reuse!)
+- 📖 **SharedHooksReference.md**: Complete hooks documentation with examples
+- �🧹 **Documentation cleanup**: Removed 12 redundant/legacy files
+- ✅ **Shared package**: API client + hooks ready for web and mobile
+- 📚 **Consolidated docs**: All info in appropriate permanent homes
+
+---
+
+**Last Updated:** October 5, 2025  
+**Total Docs:** 13 core documents (down from 24)  
+**Mobile Status:** Ready to begin Capacitor implementation
 * **Testing**
     * [ ] Write unit and integration tests for the backend and frontend.
     * [ ] Set up a test database and seed scripts.

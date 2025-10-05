@@ -191,9 +191,9 @@ describe('Bake CRUD Operations', () => {
     testRecipeId = recipeResponse.body.id;
   });
 
-  afterAll(async () => {
-    await prisma.$disconnect();
-  });
+  // NOTE: prisma.$disconnect() is called in global setup.ts afterAll
+  // Individual test files should NOT disconnect to avoid "Connection already closed" errors
+
 
   // ========================================
   // CREATE TESTS

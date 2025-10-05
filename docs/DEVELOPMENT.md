@@ -14,13 +14,18 @@ sourdough-app/                    # Monorepo root
 │   ├── tests/                     # Jest test suites (394/399 passing)
 │   ├── prisma/                    # Database schema & migrations
 │   └── package.json
-├── frontend/                      # React web application
+├── frontend/                      # React web + mobile app (Capacitor)
 │   ├── src/                       # React components, hooks, stores
 │   ├── public/                    # Static assets
+│   ├── android/                   # Capacitor Android project
+│   ├── ios/                       # Capacitor iOS project (optional)
+│   ├── capacitor.config.ts        # Capacitor configuration
 │   └── package.json
-└── shared/                        # Shared code (types, utils)
+└── shared/                        # Shared code (types, utils, API)
     ├── types/                     # TypeScript interfaces
     ├── utils/                     # Platform-agnostic utilities
+    ├── api/                       # API client
+    ├── hooks/                     # React hooks (planned)
     └── package.json
 ```
 
@@ -186,12 +191,52 @@ VITE_GOOGLE_CLIENT_ID=your-google-client-id
 
 ### 3. Shared (`shared/`)
 
-**Purpose:** Platform-agnostic code shared between web and future mobile app.
+**Purpose:** Platform-agnostic code shared between web and mobile app.
 
 **What's Included:**
-- `types/` - TypeScript interfaces (Recipe, Bake, StepTemplate, etc.)
-- `utils/` - Utilities like `timingParser.ts`
-- Future: hooks, API client, constants
+- `types/` - TypeScript interfaces (Recipe, Bake, StepTemplate, FieldMeta, etc.)
+- `utils/` - Utilities like `timingParser.ts`, `dateHelpers.ts`
+- `constants/` - Shared constants (API base URL, etc.)
+- `api/` - Platform-agnostic API client using fetch
+- `hooks/` - React hooks for data fetching (useRecipes, useBakes, useAuth, useMeta)
+
+**Available Hooks:**
+
+1. **`useRecipes`** - Recipe management
+   ```typescript
+   const { recipes, loading, error, fetchRecipes, createRecipe, updateRecipe, deleteRecipe } = useRecipes({
+     autoFetch: true,
+     apiBaseUrl: process.env.VITE_API_BASE_URL,
+     getAuthToken: () => localStorage.getItem('token')
+   });
+   ```
+
+2. **`useBakes`** - Bake session management
+   ```typescript
+   const { bakes, loading, createBake, updateBake, completeBake } = useBakes({
+     autoFetch: true,
+     apiBaseUrl: process.env.VITE_API_BASE_URL,
+     getAuthToken: () => localStorage.getItem('token')
+   });
+   ```
+
+3. **`useAuth`** - Authentication
+   ```typescript
+   const { user, isAuthenticated, login, register, googleAuth, logout } = useAuth({
+     apiBaseUrl: process.env.VITE_API_BASE_URL,
+     onLoginSuccess: (token, user) => localStorage.setItem('token', token),
+     onLogout: () => localStorage.removeItem('token')
+   });
+   ```
+
+4. **`useMeta`** - Metadata (ingredients, categories, templates)
+   ```typescript
+   const { ingredients, categories, templates, loading, fetchAll } = useMeta({
+     autoFetch: true,
+     apiBaseUrl: process.env.VITE_API_BASE_URL,
+     getAuthToken: () => localStorage.getItem('token')
+   });
+   ```
 
 **Usage in Projects:**
 ```typescript
@@ -422,9 +467,152 @@ VITE_GOOGLE_CLIENT_ID=<oauth-client-id>
 ### Future
 
 6. **Mobile Development** 📱
-   - Initialize React Native + Expo project
-   - Reuse 70% of code from shared package
-   - Native notifications
+   - **DECIDED:** Using Capacitor (not React Native)
+   - Same React codebase for web and mobile (85% code reuse)
+   - See: [CAPACITOR_SETUP_GUIDE.md](./CAPACITOR_SETUP_GUIDE.md)
+   - Native notifications with `@capacitor/local-notifications`
+
+---
+
+## 📱 Mobile Development (Capacitor)
+
+### Quick Start for Mobile
+
+The frontend is configured to build as both web and native mobile apps using Capacitor.
+
+**Prerequisites:**
+- Android Studio (for Android builds)
+- Xcode (for iOS builds, macOS only)
+- Java JDK 17
+
+**Development Workflow:**
+
+```powershell
+# 1. Make changes to frontend code
+cd frontend
+
+# 2. Test in browser first (fastest)
+npm run dev
+
+# 3. Build for mobile
+npm run build
+
+# 4. Sync changes to native platforms
+npx cap sync android     # Sync to Android
+npx cap sync ios         # Sync to iOS (macOS only)
+
+# 5. Open in IDE and run
+npx cap open android     # Opens Android Studio
+npx cap open ios         # Opens Xcode (macOS only)
+```
+
+**Key Capacitor Commands:**
+
+```powershell
+# Initialize Capacitor (already done)
+npx cap init
+
+# Add platforms (if not already added)
+npx cap add android
+npx cap add ios
+
+# Sync web assets and plugins
+npx cap sync
+
+# Update Capacitor and plugins
+npm install @capacitor/core @capacitor/cli
+npx cap sync
+
+# Run on device
+npx cap run android      # Run on Android device/emulator
+npx cap run ios          # Run on iOS device/simulator (macOS only)
+```
+
+**Building for Production:**
+
+```powershell
+# Android APK (for testing)
+cd frontend/android
+.\gradlew assembleRelease
+
+# Android AAB (for Play Store)
+.\gradlew bundleRelease
+
+# Output locations:
+# APK: android/app/build/outputs/apk/release/
+# AAB: android/app/build/outputs/bundle/release/
+```
+
+**Platform Detection in Code:**
+
+```typescript
+import { Capacitor } from '@capacitor/core';
+
+// Check if running on native platform
+if (Capacitor.isNativePlatform()) {
+  // Mobile-specific code
+}
+
+// Check specific platform
+if (Capacitor.getPlatform() === 'android') {
+  // Android-specific code
+}
+
+if (Capacitor.getPlatform() === 'ios') {
+  // iOS-specific code
+}
+
+if (Capacitor.getPlatform() === 'web') {
+  // Web-specific code
+}
+```
+
+**For detailed setup instructions, see:** [CAPACITOR_SETUP_GUIDE.md](./CAPACITOR_SETUP_GUIDE.md)
+
+### Code Reuse Strategy
+
+The shared package enables **~65% code reuse** between web and mobile:
+
+**What's Shared:**
+- ✅ TypeScript types and interfaces (`@sourdough/shared/types`)
+- ✅ Business logic utilities (`@sourdough/shared/utils`)
+- ✅ API client (`@sourdough/shared/api`)
+- ✅ React hooks (`@sourdough/shared/hooks`)
+- ✅ Constants and configuration
+
+**What's Platform-Specific:**
+- ❌ Storage (localStorage vs AsyncStorage)
+- ❌ Notifications (web vs Capacitor Local Notifications)
+- ❌ UI components (Ionic adapts automatically)
+- ❌ Platform-specific permissions
+
+**Using Shared Hooks in Mobile:**
+
+```typescript
+// Mobile app (same code as web!)
+import { useRecipes, useBakes, useAuth } from '@sourdough/shared';
+import { Preferences } from '@capacitor/preferences';
+
+function MobileRecipeList() {
+  const { recipes, loading, fetchRecipes } = useRecipes({
+    autoFetch: true,
+    apiBaseUrl: 'https://api.loafly.app/api',
+    getAuthToken: async () => {
+      const { value } = await Preferences.get({ key: 'token' });
+      return value;
+    }
+  });
+
+  // Same component logic as web!
+}
+```
+
+**Migration Path:**
+1. ✅ Phase 1: Shared types, utils, constants (COMPLETE)
+2. ✅ Phase 2: Shared API client (COMPLETE)
+3. ✅ Phase 3: Shared React hooks (COMPLETE)
+4. ⏳ Phase 4: Optional Zustand store migration (frontend)
+5. ⏳ Phase 5: Capacitor installation and first APK build
 
 ---
 

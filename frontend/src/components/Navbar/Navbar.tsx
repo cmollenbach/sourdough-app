@@ -84,6 +84,7 @@ export default function Navbar() {
                   <div className="px-4 py-2 text-sm text-text-secondary border-b border-border-subtle">{user?.email}</div>
                   <Link to="/account" className="block px-4 py-2 text-sm hover:bg-surface-subtle">Account</Link>
                   <Link to="/settings" className="block px-4 py-2 text-sm hover:bg-surface-subtle">Settings</Link>
+                  <Link to="/test/notifications" className="block px-4 py-2 text-sm text-amber-600 hover:bg-amber-50">🔔 Test Notifications</Link>
                   <button
                     onClick={logout}
                     className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
@@ -127,6 +128,7 @@ export default function Navbar() {
               </div>
               <NavLink to="/account" className="block px-3 py-2 rounded-md text-base font-medium text-text-primary hover:bg-surface-subtle" onClick={() => setMobileMenuOpen(false)}>Account</NavLink>
               <NavLink to="/settings" className="block px-3 py-2 rounded-md text-base font-medium text-text-primary hover:bg-surface-subtle" onClick={() => setMobileMenuOpen(false)}>Settings</NavLink>
+              <NavLink to="/test/notifications" className="block px-3 py-2 rounded-md text-base font-medium text-amber-600 hover:bg-amber-50" onClick={() => setMobileMenuOpen(false)}>🔔 Test Notifications</NavLink>
               <button
                 onClick={() => {
                   logout();

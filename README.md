@@ -6,8 +6,8 @@
 
 - **Live Web App**: https://loafly.app
 - **Backend API**: https://sourdough-backend-onrender-com.onrender.com
-- **Documentation**: [docs/](./docs/)
-- **Mobile Deployment Plan**: [docs/MobileDeployment.md](./docs/MobileDeployment.md)
+- **Documentation**: [docs/](./docs/) - Start with [DEVELOPMENT.md](./docs/DEVELOPMENT.md)
+- **Mobile Setup**: [CAPACITOR_SETUP_GUIDE.md](./docs/CAPACITOR_SETUP_GUIDE.md)
 
 ## 📱 Platform Support
 
@@ -15,8 +15,10 @@
 |----------|--------|------------|------------|
 | **Web** | ✅ **LIVE** | React + Vite + Tailwind | Netlify |
 | **Backend** | ✅ **LIVE** | Express + Prisma + PostgreSQL | Render |
-| **Android** | 📋 **PLANNED** | React Native + Expo | Google Play Store |
-| **iOS** | 📋 **PLANNED** | React Native + Expo | App Store |
+| **Android** | � **IN PROGRESS** | Ionic + Capacitor | Google Play Store |
+| **iOS** | 📋 **PLANNED** | Ionic + Capacitor | App Store |
+
+**Mobile Strategy:** Using Capacitor to wrap existing React web app for 85% code reuse
 
 ## 🏗️ Project Structure
 
@@ -27,28 +29,27 @@ sourdough-app/
 │   ├── tests/            # Jest tests (394/399 passing)
 │   └── prisma/           # Database schema & migrations
 │
-├── frontend/             # React web app
+├── frontend/             # React web + mobile app
 │   ├── src/
 │   │   ├── pages/        # Page components
-│   │   ├── components/   # Reusable UI components
+│   │   ├── components/   # Reusable UI components (Ionic)
 │   │   ├── hooks/        # Custom React hooks
 │   │   ├── utils/        # Utilities (timingParser, etc.)
+│   │   ├── services/     # Notification service, etc.
 │   │   └── types/        # TypeScript interfaces
-│   └── public/
+│   ├── android/          # Capacitor Android project
+│   ├── ios/              # Capacitor iOS project (future)
+│   └── capacitor.config.ts
 │
-├── mobile/               # React Native app (PLANNED)
-│   ├── screens/          # Mobile screens
-│   ├── components/       # Mobile UI components
-│   └── services/         # Notification service, etc.
-│
-├── shared/               # Code shared between web + mobile (PLANNED)
+├── shared/               # Code shared between web + mobile
 │   ├── types/            # TypeScript interfaces
 │   ├── utils/            # Platform-agnostic utilities
-│   ├── hooks/            # React hooks
-│   └── api/              # API client
+│   ├── api/              # API client
+│   └── hooks/            # React hooks (planned)
 │
 └── docs/                 # Documentation
-    ├── MobileDeployment.md
+    ├── CAPACITOR_SETUP_GUIDE.md
+    ├── DEVELOPMENT.md
     ├── Authentication.md
     └── BakeFeature.md
 ```
@@ -64,13 +65,15 @@ sourdough-app/
 - ✅ Responsive design (mobile-friendly)
 - ✅ Dark mode support
 
-### Planned (Mobile)
-- 📋 **Reliable stretch & fold timers**
-- 📋 **Overnight fermentation alarms**
-- 📋 **Push notifications** (survive device reboot)
+### Planned (Mobile - Capacitor)
+- � **Reliable stretch & fold timers** (in progress)
+- � **Overnight fermentation alarms** (in progress)
+- � **Push notifications** (survive device reboot)
 - 📋 **Offline support**
-- 📋 **Photo uploads**
+- 📋 **Photo uploads from camera**
 - 📋 **Background sync**
+
+**Mobile Implementation:** Same React codebase as web (85% code reuse)
 
 ## 🛠️ Tech Stack
 
@@ -83,20 +86,22 @@ sourdough-app/
 - **Auth**: JWT + Google OAuth
 - **Deployment**: Render (containerized)
 
-### Frontend (Web)
-- **Framework**: React 19
+### Frontend (Web + Mobile)
+- **Framework**: React 19 + Ionic React
 - **Build Tool**: Vite
 - **Language**: TypeScript
-- **Styling**: Tailwind CSS
+- **Styling**: Tailwind CSS + Ionic components
 - **State**: Zustand
-- **HTTP Client**: Axios
-- **Deployment**: Netlify
+- **HTTP Client**: Axios (via @sourdough/shared)
+- **Deployment**: 
+  - Web: Netlify
+  - Mobile: Capacitor (Android/iOS)
 
-### Mobile (Planned)
-- **Framework**: React Native
-- **Platform**: Expo
-- **Navigation**: React Navigation
-- **Notifications**: react-native-push-notification
+### Mobile (Capacitor - In Progress)
+- **Framework**: Same React codebase as web
+- **Bridge**: Capacitor
+- **Notifications**: @capacitor/local-notifications
+- **Background**: @capacitor/background-runner
 - **Deployment**: Google Play Store, App Store
 
 ### Code Sharing
@@ -155,23 +160,30 @@ npm run dev
 # App runs on http://localhost:5173
 ```
 
-### Mobile Setup (Future)
+### Mobile Setup (Capacitor)
 
+See **[CAPACITOR_SETUP_GUIDE.md](./docs/CAPACITOR_SETUP_GUIDE.md)** for complete mobile setup.
+
+**Quick Start:**
 ```bash
-# 1. Navigate to mobile
-cd mobile
+# 1. Install Capacitor in frontend
+cd frontend
+npm install @capacitor/core @capacitor/cli @capacitor/android
 
-# 2. Install dependencies
-npm install
+# 2. Initialize Capacitor
+npx cap init "Loafly" "com.loafly.sourdough" --web-dir=dist
 
-# 3. Install shared dependencies
-cd ../shared && npm install && cd ../mobile
+# 3. Add Android platform
+npx cap add android
 
-# 4. Start Expo
-npx expo start
+# 4. Build frontend
+npm run build
 
-# 5. Run on Android
-# Press 'a' or scan QR code with Expo Go app
+# 5. Sync to Android
+npx cap sync android
+
+# 6. Open in Android Studio
+npx cap open android
 ```
 
 ## 📊 Test Suite

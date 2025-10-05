@@ -10,12 +10,19 @@
     "typecheck": "tsc --noEmit",
     "test": "echo \"No tests yet for shared package\" && exit 0"
   },
-  "keywords": ["sourdough", "shared", "monorepo"],
+  "keywords": [
+    "sourdough",
+    "shared",
+    "monorepo"
+  ],
   "author": "cmollenbach",
   "license": "MIT",
-  "dependencies": {},
   "devDependencies": {
+    "@types/react": "^19.2.0",
     "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "react": "^19.2.0",
+    "zustand": "^5.0.8"
   }
 }
-

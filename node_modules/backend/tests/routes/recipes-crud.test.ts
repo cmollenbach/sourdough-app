@@ -124,9 +124,9 @@ describe('Recipe CRUD Operations', () => {
     testUserId2 = loginResponse2.body.user.id;
   });
 
-  afterAll(async () => {
-    await prisma.$disconnect();
-  });
+  // NOTE: prisma.$disconnect() is called in global setup.ts afterAll
+  // Individual test files should NOT disconnect to avoid "Connection already closed" errors
+
 
   // ========================================
   // CREATE TESTS

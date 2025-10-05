@@ -1,4 +1,4 @@
-import { BrowserRouter, Switch, Route, Redirect } from "react-router-dom"; // Using RRDv5
+import { HashRouter as BrowserRouter, Switch, Route, Redirect } from "react-router-dom"; // Using HashRouter for Capacitor compatibility
 import Navbar from "./components/Navbar/Navbar";
 import RecipeBuilderPage from "./pages/recipes/[id]";
 import BakesListPage from "./pages/bakes";
@@ -24,6 +24,7 @@ import RegisterPage from "./pages/register";
 import StepTemplatesPage from "./pages/admin/StepTemplatesPage";
 import UserProfilePage from "./pages/user";
 import RecipeListPage from "./pages/recipes";
+import { NotificationTestPage } from "./components/NotificationTestPage";
 
 function AppRoutes() {
   const { user } = useAuth();
@@ -58,6 +59,9 @@ function AppRoutes() {
           <Route path="/bakes/:bakeId" render={() => <RequireAuth><BakeDetailPage /></RequireAuth>} />
           
           <Route path="/history" render={() => <RequireAuth><BakeHistoryPage /></RequireAuth>} />
+          
+          {/* Test Routes - Remove in production */}
+          <Route path="/test/notifications" render={() => <RequireAuth><NotificationTestPage /></RequireAuth>} />
           
           <Route exact path="/settings" render={() => <RequireAuth><SettingsPage /></RequireAuth>} />
           <Route path="/settings/ingredients" render={() => <RequireAuth><IngredientsSettingsPage /></RequireAuth>} />
