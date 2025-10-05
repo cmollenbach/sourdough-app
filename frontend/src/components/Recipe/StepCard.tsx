@@ -628,7 +628,10 @@ export default function StepCard({
                             <div className="relative inline-block ml-1.5">
                               <button
                                 type="button"
-                                onClick={() => setVisibleHelpFieldId(visibleHelpFieldId === (meta.fieldId ?? meta.id) ? null : (meta.fieldId ?? meta.id))}
+                                onClick={() => {
+                                  const fieldIdValue = meta.fieldId ?? meta.id;
+                                  setVisibleHelpFieldId(visibleHelpFieldId === fieldIdValue ? null : fieldIdValue);
+                                }}
                                 className="text-primary-500 hover:text-primary-600 focus:ring-2 focus:ring-primary-400 focus:ring-opacity-50 flex items-center justify-center"
                                 aria-label={`Help for ${meta.field?.label || meta.field?.name}`}
                                 aria-expanded={visibleHelpFieldId === (meta.fieldId ?? meta.id)}
@@ -679,7 +682,7 @@ Examples:
 • Start 8am: bulk 4hrs with hourly folds
 
 Note: Timeline and alarms will be created when you start baking!"
-                              aria-label={meta.field.label || meta.field.name}
+                              aria-label={meta.field?.label || meta.field?.name}
                             />
                           ) : (
                             // Regular input for other fields
