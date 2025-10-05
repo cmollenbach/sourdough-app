@@ -47,8 +47,11 @@ describe('Auth OAuth Tests', () => {
   });
 
   beforeEach(async () => {
-    // Generate unique email for EACH test to avoid conflicts
-    testEmailBase = `oauth-test-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    // Generate HIGHLY unique email for EACH test to avoid conflicts even with parallel execution
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 15);
+    const testId = `${timestamp}-${random}-${Math.random().toString(36).substring(2, 9)}`;
+    testEmailBase = `oauth-test-${testId}`;
     testEmail = `${testEmailBase}@example.com`;
     
     // Reset axios mocks before each test
