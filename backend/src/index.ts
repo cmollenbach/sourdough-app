@@ -78,7 +78,14 @@ app.use(cors({
     console.log('[CORS Check] Allowed Origins:', allowedOrigins);
 
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Also allow Capacitor origins (https://localhost, capacitor://localhost, ionic://localhost)
+    const isCapacitorOrigin = origin && (
+      origin.startsWith('https://localhost') ||
+      origin.startsWith('capacitor://') ||
+      origin.startsWith('ionic://')
+    );
+    
+    if (!origin || allowedOrigins.includes(origin) || isCapacitorOrigin) {
       console.log('[CORS Check] Origin allowed.');
       callback(null, true);
     } else {
