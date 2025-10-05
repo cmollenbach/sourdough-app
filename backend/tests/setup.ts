@@ -3,7 +3,7 @@ import { beforeAll, afterAll, beforeEach, afterEach } from '@jest/globals';
 import dotenv from 'dotenv';
 import path from 'path';
 import prisma from '../src/lib/prisma';
-import { seedEssentialData } from './helpers/seedTestData';
+import { seedEssentialData, cleanupTestData } from './helpers/seedTestData';
 
 // Load test environment variables from .env.test
 dotenv.config({ path: path.resolve(__dirname, '../.env.test') });
@@ -16,6 +16,9 @@ process.env.NODE_ENV = 'test';
 beforeAll(async () => {
   // Setup test database connection or mock services
   console.log('🧪 Setting up test environment...');
+  
+  // Clean up any existing data from previous runs
+  await cleanupTestData();
   
   // Seed essential data once for all tests
   await seedEssentialData();

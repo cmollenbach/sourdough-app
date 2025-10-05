@@ -349,16 +349,21 @@ export async function createTestUser(overrides: {
   displayName?: string;
 } = {}) {
   const defaultUser = {
-    email: `test-${Date.now()}@example.com`,
+    email: `test-${Date.now()}-${Math.random().toString(36).substring(7)}@example.com`,
     passwordHash: '$2a$10$test.hash.for.testing.purposes.only',
     displayName: 'Test User',
   };
 
-  const user = await prisma.user.create({
-    data: {
-      ...defaultUser,
-      ...overrides,
-    },
+  const userData = {
+    ...defaultUser,
+    ...overrides,
+  };
+
+  // Use upsert to avoid duplicate key errors
+  const user = await prisma.user.upsert({
+    where: { email: userData.email },
+    create: userData,
+    update: {},
   });
 
   return user;
