@@ -1,13 +1,17 @@
 import { useMemo } from "react";
-import { IngredientCalculationMode, type FullRecipe, type RecipeStep } from "@sourdough/shared";
+import { 
+  IngredientCalculationMode, 
+  type FullRecipe, 
+  type RecipeStep,
+  FLOUR_CATEGORY_NAME,
+  SALT_CATEGORY_NAME
+} from "@sourdough/shared";
 import type { IngredientMeta, IngredientCategoryMeta, FieldMeta, StepTemplate as StepTemplateMeta } from "@sourdough/shared";
 
 const PREFERMENT_CONTRIB_PARAM_NAME = 'Contribution (pct)';
 const PREFERMENT_HYDRATION_PARAM_NAME = 'Hydration';
 
-const FLOUR_CATEGORY_NAME = "Flour";
 const WATER_CATEGORY_NAME = "Liquid";
-const SALT_CATEGORY_NAME = "Salt";
 
 const PREFERMENT_ROLE = 'PREFERMENT';
 const MIX_ROLE = 'MIX';

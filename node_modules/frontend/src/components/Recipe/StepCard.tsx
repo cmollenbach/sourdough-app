@@ -4,7 +4,7 @@ import { useMemo, useEffect, useRef, useState, useCallback } from "react"; // En
 import debounce from 'lodash.debounce';
 import { useForm, Controller, useFieldArray, type UseFormSetValue, FormProvider } from "react-hook-form";
 import type { RecipeStep, RecipeStepIngredient, RecipeStepField } from '@sourdough/shared';
-import { IngredientCalculationMode } from '@sourdough/shared';
+import { IngredientCalculationMode, FLOUR_CATEGORY_NAME, BREAD_FLOUR_NAME } from '@sourdough/shared';
 import type { StepTemplate, IngredientMeta, IngredientCategoryMeta } from '@sourdough/shared';
 import { StepIngredientTable } from "./StepIngredientTable";
 import { TimingScheduleDisplay, useAlarmNotifications } from "./TimingSchedule";
@@ -325,10 +325,6 @@ export default function StepCard({
     name: "ingredients",
     keyName: "rhfId", // Use 'rhfId' to avoid conflict with the ingredient's own 'id' property.
   });
-
-  // FIX: Define missing constants.
-  const FLOUR_CATEGORY_NAME = "Flour";
-  const BREAD_FLOUR_NAME = "Bread Flour";
 
   // This useEffect handles synchronizing the form state with the global state (props)
   // It's crucial for updates that happen outside the form, like auto-balancing.
