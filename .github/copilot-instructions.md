@@ -2,12 +2,38 @@
 
 ## Project Context
 
-This is a **sourdough baking management application** for web and mobile (React/Capacitor). It helps bakers create recipes, track live baking sessions, and learn from their history. The app uses:
+This is a **sourdough baking management application** with web and mobile clients sharing a common backend. It helps bakers create recipes, track live baking sessions with timed notifications, and learn from their history.
 
-- **Frontend**: React 19 + TypeScript + Vite + Tailwind CSS + Zustand (state management)
-- **Backend**: Node.js + Express + TypeScript + Prisma ORM + PostgreSQL
-- **Mobile**: Capacitor (planned)
-- **Single Developer**: I am the only developer working on this project
+### Tech Stack
+
+**Monorepo Structure:**
+```
+sourdough-app/
+├── backend/          # Express API (shared by web + mobile)
+├── frontend/         # React web app
+├── mobile/           # React Native mobile app (PLANNED)
+├── shared/           # Shared code between web + mobile (PLANNED)
+└── docs/             # Documentation
+```
+
+**Backend (Shared API):**
+- Node.js + Express + TypeScript
+- Prisma ORM + PostgreSQL
+- JWT authentication
+- Deployed on Render
+
+**Frontend (Web):**
+- React 19 + TypeScript + Vite
+- Tailwind CSS + Zustand state management
+- Deployed on Netlify (https://loafly.app)
+
+**Mobile (Planned - React Native):**
+- React Native + Expo
+- TypeScript
+- Push notifications for bake timers
+- Will reuse code from `shared/` directory
+
+**Single Developer**: I am the only developer working on this project
 
 ---
 
