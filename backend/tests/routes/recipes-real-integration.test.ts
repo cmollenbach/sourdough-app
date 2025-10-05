@@ -120,7 +120,8 @@ describe('Recipe API - Real Integration Tests', () => {
         }
       }
     });
-    await prisma.$disconnect();
+    // NOTE: prisma.$disconnect() is called in global setup.ts afterAll
+    // Individual test files should NOT disconnect to avoid "Connection already closed" errors
   });
 
   describe('Recipe Creation - Real API Tests', () => {

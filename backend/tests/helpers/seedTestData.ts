@@ -79,7 +79,8 @@ export async function cleanupTestData() {
   await prisma.session.deleteMany({});
   await prisma.userProfile.deleteMany({});
   await prisma.user.deleteMany({});
-  await prisma.ingredient.deleteMany({});
   
-  // Don't delete step types, parameters, or categories - they're reusable
+  // DON'T delete ingredients, step types, parameters, or categories
+  // These are essential reference data that tests expect to exist
+  // They have stable IDs (1, 2, etc.) that tests rely on
 }

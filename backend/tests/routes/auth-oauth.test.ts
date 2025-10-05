@@ -55,15 +55,21 @@ describe('Auth OAuth Tests', () => {
     mockedAxios.get.mockReset();
     
     // Clean up ALL oauth test users and accounts (using wildcard)
+    // IMPORTANT: Delete in correct order (foreign key: Account -> UserProfile -> User)
     await prisma.account.deleteMany({ where: { provider: 'google' } });
-    await prisma.userProfile.deleteMany({});
+    await prisma.userProfile.deleteMany({
+      where: { user: { email: { startsWith: 'oauth-test-' } } }
+    });
     await prisma.user.deleteMany({ where: { email: { startsWith: 'oauth-test-' } } });
   });
 
   afterAll(async () => {
     // Final cleanup - delete ALL oauth test users
+    // IMPORTANT: Delete in correct order (foreign key: Account -> UserProfile -> User)
     await prisma.account.deleteMany({ where: { provider: 'google' } });
-    await prisma.userProfile.deleteMany({});
+    await prisma.userProfile.deleteMany({
+      where: { user: { email: { startsWith: 'oauth-test-' } } }
+    });
     await prisma.user.deleteMany({ where: { email: { startsWith: 'oauth-test-' } } });
     await prisma.$disconnect();
   });
