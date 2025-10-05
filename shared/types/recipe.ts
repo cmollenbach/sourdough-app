@@ -1,17 +1,51 @@
 export interface FieldMeta {
   id: number;
   name: string;
-  description: string;
+  description?: string;
   type: string;
-  stepTypeId: number;
-  isMandatory: boolean;
+  stepTypeId?: number;
+  isMandatory?: boolean;
+  // Additional properties used by frontend
+  fieldId?: number;
+  field?: {
+    id: number;
+    name: string;
+    type: string;
+    description?: string;
+    label?: string;
+    helpText?: string;
+  };
+  advanced?: boolean;
+  helpText?: string;
+  defaultValue?: string | number | null;
+  label?: string;
+  order?: number;
+  visible?: boolean;
 }
 
 export interface IngredientMeta {
   id: number;
   name: string;
-  description: string;
+  description?: string;
   ingredientCategoryId: number;
+  // Additional properties used by frontend
+  advanced?: boolean;
+  defaultCalculationMode?: 'PERCENTAGE' | 'FIXED_WEIGHT';
+}
+
+export interface StepTemplateIngredientRuleMeta {
+  id: number;
+  stepTemplateId: number;
+  ingredientCategoryId: number;
+  ingredientCategory?: {
+    id: number;
+    name: string;
+    description?: string | null;
+  };
+  isRequired: boolean;
+  minAmount?: number | null;
+  maxAmount?: number | null;
+  defaultCalculationMode?: 'PERCENTAGE' | 'FIXED_WEIGHT' | null;
 }
 
 export interface StepTemplate {
@@ -23,6 +57,10 @@ export interface StepTemplate {
   fields: FieldMeta[];
   ingredients: IngredientMeta[];
   role: string;
+  // Additional properties used by frontend
+  advanced?: boolean;
+  order?: number;
+  ingredientRules?: StepTemplateIngredientRuleMeta[];
 }
 
 export interface IngredientCategory {
