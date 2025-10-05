@@ -1,0 +1,51 @@
+{
+  "name": "sourdough-app",
+  "version": "1.0.0",
+  "description": "Loafly - Sourdough Baking Management App (Web + Mobile)",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend",
+    "shared"
+  ],
+  "scripts": {
+    "install:all": "npm install",
+    "clean": "npm run clean --workspaces --if-present",
+    "build": "npm run build --workspace=shared && npm run build --workspaces --if-present",
+    "build:shared": "npm run build --workspace=shared",
+    "build:backend": "npm run build --workspace=backend",
+    "build:frontend": "npm run build --workspace=frontend",
+    "dev": "npm run dev --workspace=frontend",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "test": "npm run test --workspaces --if-present",
+    "test:backend": "npm run test --workspace=backend",
+    "test:frontend": "npm run test --workspace=frontend",
+    "test:shared": "npm run test --workspace=shared",
+    "lint": "npm run lint --workspaces --if-present",
+    "lint:fix": "npm run lint:fix --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "prisma:generate": "npm run prisma:generate --workspace=backend",
+    "prisma:migrate": "npm run prisma:migrate --workspace=backend",
+    "prisma:studio": "npm run prisma:studio --workspace=backend"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "keywords": [
+    "sourdough",
+    "baking",
+    "recipe-management",
+    "notifications",
+    "react",
+    "express",
+    "monorepo"
+  ],
+  "author": "cmollenbach",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cmollenbach/sourdough-app.git"
+  }
+}

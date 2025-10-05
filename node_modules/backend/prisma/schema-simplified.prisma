@@ -1,0 +1,385 @@
+// Simplified and Cleaned Database Schema
+// backend/prisma/schema-simplified.prisma
+
+// SIMPLIFIED SOURDOUGH DATABASE SCHEMA
+// This shows the cleaned-up version after applying simplifications
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// CORE ENUMS (simplified)
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum ParameterDataType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+}
+
+enum IngredientCalculationMode {
+  PERCENTAGE
+  FIXED_WEIGHT
+}
+
+enum StepExecutionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+}
+
+enum EntityRequestType {
+  INGREDIENT_SUGGESTION
+  FEATURE_REQUEST
+  BUG_REPORT
+  RECIPE_SUBMISSION
+}
+
+enum EntityRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum StepRole {
+  PREFERMENT
+  AUTOLYSE
+  MIX
+  BULK
+  SHAPE
+  PROOF
+  BAKE
+  OTHER
+}
+
+// CORE USER MODELS (simplified)
+model User {
+  id                Int             @id @default(autoincrement())
+  email             String?         @unique
+  emailVerified     Boolean         @default(false)
+  passwordHash      String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  isActive          Boolean         @default(true)
+  lastLoginAt       DateTime?
+  role              UserRole        @default(USER)
+  
+  // Relations
+  sessions          Session[]
+  userProfile       UserProfile?
+  recipes           Recipe[]
+  bakes             Bake[]
+  userActions       UserAction[]
+  userPreferences   UserPreference[]
+  submittedRequests EntityRequest[] @relation("SubmittedBy")
+  reviewedRequests  EntityRequest[] @relation("ReviewedBy")
+}
+
+model Session {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  sessionToken String   @unique
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+// UNIFIED USER PROFILE (merged UserProfile + UserExperienceProfile)
+model UserProfile {
+  id                     Int       @id @default(autoincrement())
+  userId                 Int       @unique
+  
+  // Basic Profile
+  displayName            String
+  avatarUrl              String?
+  bio                    String?
+  
+  // Experience Tracking
+  experienceLevel        String    @default("beginner") // "beginner", "intermediate", "advanced"
+  recipesCreated         Int       @default(0)
+  bakesCompleted         Int       @default(0)
+  totalBakeTimeMinutes   Int       @default(0)
+  advancedFeaturesUsed   String[]  @default([])
+  preferredDifficulty    String?   // "simple", "moderate", "complex"
+  averageSessionMinutes  Int       @default(0)
+  lastActiveAt           DateTime  @default(now())
+  
+  // User Preferences (structured instead of JSON blob)
+  showAdvancedFields     Boolean   @default(false)
+  autoSaveEnabled        Boolean   @default(true)
+  defaultHydration       Float     @default(75.0)
+  preferredSaltPct       Float     @default(2.0)
+  expandStepsOnLoad      Boolean   @default(false)
+  showIngredientHelp     Boolean   @default(true)
+  
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actions                UserAction[]
+  preferences            UserPreference[] // For complex preferences that need key-value storage
+}
+
+// USER ACTIVITY TRACKING (simplified)
+model UserAction {
+  id          Int         @id @default(autoincrement())
+  userId      Int
+  profileId   Int
+  action      String      // "recipe_created", "bake_completed", "advanced_feature"
+  details     Json?       // Additional action-specific data
+  timestamp   DateTime    @default(now())
+  
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile     UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+// FLEXIBLE PREFERENCES (for complex settings)
+model UserPreference {
+  id          Int         @id @default(autoincrement())
+  userId      Int
+  profileId   Int
+  key         String      // Preference key
+  value       String      // JSON-stringified value
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile     UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, key])
+}
+
+// RECIPE SYSTEM (core models remain)
+model Recipe {
+  id              Int          @id @default(autoincrement())
+  name            String       @unique
+  ownerId         Int
+  active          Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  isPredefined    Boolean      @default(false)
+  totalWeight     Float?
+  hydrationPct    Float?
+  saltPct         Float?
+  notes           String?
+  
+  owner           User         @relation(fields: [ownerId], references: [id])
+  steps           RecipeStep[]
+  bakes           Bake[]
+}
+
+// INGREDIENT SYSTEM (simplified)
+model IngredientCategory {
+  id               Int                              @id @default(autoincrement())
+  name             String                           @unique
+  description      String?
+  active           Boolean                          @default(true)
+  advanced         Boolean                          @default(false) // Key simplification: single advanced flag
+  ingredients      Ingredient[]
+  templateRules    StepTemplateIngredientRule[]
+}
+
+model Ingredient {
+  id                    Int                        @id @default(autoincrement())
+  name                  String                     @unique
+  categoryId            Int
+  description           String?
+  active                Boolean                    @default(true)
+  advanced              Boolean                    @default(false) // Key simplification: single advanced flag
+  defaultPreparation    String?
+  category              IngredientCategory         @relation(fields: [categoryId], references: [id])
+  recipeStepIngredients RecipeStepIngredient[]
+  bakeStepIngredients   BakeStepIngredient[]
+}
+
+// STEP SYSTEM (simplified parameters)
+model StepType {
+  id          Int            @id @default(autoincrement())
+  name        String         @unique
+  description String?
+  active      Boolean        @default(true)
+  templates   StepTemplate[]
+}
+
+model StepTemplate {
+  id                   Int                              @id @default(autoincrement())
+  name                 String                           @unique
+  stepTypeId           Int
+  description          String?
+  active               Boolean                          @default(true)
+  role                 StepRole?
+  advanced             Boolean                          @default(false) // Key simplification
+  stepType             StepType                         @relation(fields: [stepTypeId], references: [id])
+  parameters           StepTemplateParameter[]
+  ingredientRules      StepTemplateIngredientRule[]
+  recipeSteps          RecipeStep[]
+}
+
+// SIMPLIFIED PARAMETER SYSTEM
+model StepParameter {
+  id                      Int                        @id @default(autoincrement())
+  name                    String                     @unique
+  type                    ParameterDataType
+  advanced                Boolean                    @default(false)
+  description             String?
+  defaultValue            String?
+  helpText                String?
+  
+  stepTemplateParameters  StepTemplateParameter[]
+  stepParameterValues     RecipeStepParameterValue[]
+  bakeStepParameterValues BakeStepParameterValue[]
+}
+
+model StepTemplateParameter {
+  id             Int           @id @default(autoincrement())
+  stepTemplateId Int
+  parameterId    Int
+  required       Boolean       @default(false)
+  defaultValue   String?
+  helpText       String?
+  
+  stepTemplate   StepTemplate  @relation(fields: [stepTemplateId], references: [id])
+  parameter      StepParameter @relation(fields: [parameterId], references: [id])
+}
+
+// SIMPLIFIED INGREDIENT RULES
+model StepTemplateIngredientRule {
+  id                   Int                @id @default(autoincrement())
+  stepTemplateId       Int
+  ingredientCategoryId Int
+  required             Boolean            @default(false)
+  advanced             Boolean            @default(false)
+  helpText             String?
+  
+  stepTemplate         StepTemplate       @relation(fields: [stepTemplateId], references: [id])
+  ingredientCategory   IngredientCategory @relation(fields: [ingredientCategoryId], references: [id])
+}
+
+// RECIPE EXECUTION (keeping core functionality)
+model RecipeStep {
+  id              Int                        @id @default(autoincrement())
+  recipeId        Int
+  stepTemplateId  Int
+  order           Int
+  description     String?
+  notes           String?
+  recipe          Recipe                     @relation(fields: [recipeId], references: [id])
+  stepTemplate    StepTemplate               @relation(fields: [stepTemplateId], references: [id])
+  parameterValues RecipeStepParameterValue[]
+  ingredients     RecipeStepIngredient[]
+  bakeSteps       BakeStep[]
+}
+
+model RecipeStepParameterValue {
+  id           Int           @id @default(autoincrement())
+  recipeStepId Int
+  parameterId  Int
+  value        Json
+  recipeStep   RecipeStep    @relation(fields: [recipeStepId], references: [id])
+  parameter    StepParameter @relation(fields: [parameterId], references: [id])
+}
+
+model RecipeStepIngredient {
+  id              Int        @id @default(autoincrement())
+  recipeStepId    Int
+  ingredientId    Int
+  percentage      Float
+  preparation     String?
+  recipeStep      RecipeStep @relation(fields: [recipeStepId], references: [id])
+  ingredient      Ingredient @relation(fields: [ingredientId], references: [id])
+}
+
+// BAKING EXECUTION (core functionality only)
+model Bake {
+  id          Int        @id @default(autoincrement())
+  recipeId    Int
+  bakerId     Int
+  status      String     @default("planned")
+  startedAt   DateTime?
+  completedAt DateTime?
+  rating      Int?
+  notes       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  recipe      Recipe     @relation(fields: [recipeId], references: [id])
+  baker       User       @relation(fields: [bakerId], references: [id])
+  steps       BakeStep[]
+}
+
+model BakeStep {
+  id              Int                      @id @default(autoincrement())
+  bakeId          Int
+  recipeStepId    Int
+  order           Int
+  status          StepExecutionStatus      @default(PENDING)
+  startTimestamp  DateTime?
+  finishTimestamp DateTime?
+  notes           String?
+  
+  bake            Bake                     @relation(fields: [bakeId], references: [id])
+  recipeStep      RecipeStep               @relation(fields: [recipeStepId], references: [id])
+  parameterValues BakeStepParameterValue[]
+  ingredients     BakeStepIngredient[]
+}
+
+model BakeStepParameterValue {
+  id           Int           @id @default(autoincrement())
+  bakeStepId   Int
+  parameterId  Int
+  plannedValue Json
+  actualValue  Json?
+  notes        String?
+  
+  bakeStep     BakeStep      @relation(fields: [bakeStepId], references: [id])
+  parameter    StepParameter @relation(fields: [parameterId], references: [id])
+}
+
+model BakeStepIngredient {
+  id                 Int        @id @default(autoincrement())
+  bakeStepId         Int
+  ingredientId       Int
+  plannedPercentage  Float
+  plannedPreparation String?
+  notes              String?
+  
+  bakeStep           BakeStep   @relation(fields: [bakeStepId], references: [id])
+  ingredient         Ingredient @relation(fields: [ingredientId], references: [id])
+}
+
+// FEATURE REQUESTS (simplified)
+model EntityRequest {
+  id          Int                 @id @default(autoincrement())
+  userId      Int?
+  type        EntityRequestType
+  name        String
+  description String?
+  status      EntityRequestStatus @default(PENDING)
+  reviewerId  Int?
+  reviewedAt  DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  
+  user        User?               @relation("SubmittedBy", fields: [userId], references: [id])
+  reviewer    User?               @relation("ReviewedBy", fields: [reviewerId], references: [id])
+}
+
+// KEY SIMPLIFICATIONS APPLIED:
+// ✅ Merged UserProfile + UserExperienceProfile into single model
+// ✅ Removed redundant 'active', 'visible', 'order' fields where not essential
+// ✅ Consolidated 'advanced' flags into single boolean per model
+// ✅ Removed Account table (simplified auth)
+// ✅ Removed complex metadata fields that aren't actively used
+// ✅ Simplified enums to only essential values
+// ✅ Structured common preferences in UserProfile instead of JSON blob
+// ✅ Reduced parameter complexity while keeping flexibility
