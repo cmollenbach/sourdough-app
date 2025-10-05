@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, jest } from '@jest/globals';
 import request from 'supertest';
 import express from 'express';
 
@@ -47,6 +47,20 @@ describe('Auth OAuth Tests', () => {
   });
 
   beforeEach(async () => {
+    // Clean up ALL oauth test users and accounts FIRST (using wildcard)
+    // IMPORTANT: Delete in correct order (foreign key: Account -> UserProfile -> User)
+    await prisma.account.deleteMany({ where: { provider: 'google' } });
+    await prisma.userProfile.deleteMany({
+      where: { user: { email: { startsWith: 'oauth-test-' } } }
+    });
+    await prisma.user.deleteMany({ where: { email: { startsWith: 'oauth-test-' } } });
+    
+    // Verify cleanup completed
+    const remainingUsers = await prisma.user.count({ where: { email: { startsWith: 'oauth-test-' } } });
+    if (remainingUsers > 0) {
+      console.warn(`⚠️ Warning: ${remainingUsers} oauth-test users still exist after cleanup`);
+    }
+    
     // Generate HIGHLY unique email for EACH test to avoid conflicts even with parallel execution
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 15);
@@ -54,11 +68,14 @@ describe('Auth OAuth Tests', () => {
     testEmailBase = `oauth-test-${testId}`;
     testEmail = `${testEmailBase}@example.com`;
     
+    console.log(`🧪 Test email for this test: ${testEmail}`);
+    
     // Reset axios mocks before each test
     mockedAxios.get.mockReset();
-    
-    // Clean up ALL oauth test users and accounts (using wildcard)
-    // IMPORTANT: Delete in correct order (foreign key: Account -> UserProfile -> User)
+  });
+
+  afterEach(async () => {
+    // Clean up after EACH test too, in case a test creates multiple users
     await prisma.account.deleteMany({ where: { provider: 'google' } });
     await prisma.userProfile.deleteMany({
       where: { user: { email: { startsWith: 'oauth-test-' } } }
