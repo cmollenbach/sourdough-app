@@ -40,12 +40,6 @@ jobs:
         working-directory: ./backend
         run: npm ci
       
-      - name: Generate Prisma Client
-        working-directory: ./backend
-        env:
-          DATABASE_URL: postgresql://postgres:test_password@localhost:5432/sourdough_test
-        run: npx prisma generate
-      
       - name: Setup database
         env:
           PGPASSWORD: test_password
@@ -58,6 +52,16 @@ jobs:
           
           # Create fresh database
           psql -h localhost -U postgres -c "CREATE DATABASE sourdough_test;"
+      
+      - name: Generate Prisma Client
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql://postgres:test_password@localhost:5432/sourdough_test
+        run: |
+          # Remove any cached Prisma client
+          rm -rf ./generated/prisma
+          # Generate fresh Prisma client with correct DATABASE_URL
+          npx prisma generate
       
       - name: Setup database and run migrations
         working-directory: ./backend
