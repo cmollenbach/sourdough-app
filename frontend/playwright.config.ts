@@ -83,9 +83,9 @@ export default defineConfig({
   /* Run your local dev servers before starting the tests */
   webServer: [
     {
-      // Use npm run dev - npm scripts automatically add node_modules/.bin to PATH
-      // This ensures ts-node-dev is found and can resolve backend dependencies
-      command: 'npm run dev',
+      // Use bash to explicitly set PATH and run npm run dev
+      // This ensures ts-node-dev is found in node_modules/.bin
+      command: `bash -c 'export PATH="${path.resolve(__dirname, '../backend/node_modules/.bin')}:$PATH" && npm run dev'`,
       cwd: path.resolve(__dirname, '../backend'),
       url: 'http://localhost:3001/api/health',
       reuseExistingServer: !process.env.CI,
@@ -100,8 +100,6 @@ export default defineConfig({
         NODE_ENV: 'test',
         // Ensure Node.js can find the backend's node_modules for module resolution
         NODE_PATH: path.resolve(__dirname, '../backend/node_modules'),
-        // Ensure PATH includes backend's node_modules/.bin
-        PATH: `${path.resolve(__dirname, '../backend/node_modules/.bin')}:${process.env.PATH || ''}`,
       },
     },
     {
