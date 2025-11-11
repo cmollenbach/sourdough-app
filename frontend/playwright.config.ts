@@ -83,9 +83,9 @@ export default defineConfig({
   /* Run your local dev servers before starting the tests */
   webServer: [
     {
-      // Use npm run dev which will use the locally installed ts-node-dev
-      // npm scripts automatically add node_modules/.bin to PATH
-      command: 'npm run dev',
+      // Use the full path to ts-node-dev to ensure it's found
+      // This works around PATH issues when Playwright spawns the process
+      command: `node ${path.resolve(__dirname, '../backend/node_modules/.bin/ts-node-dev')} --respawn --transpile-only src/index.ts`,
       cwd: path.resolve(__dirname, '../backend'),
       url: 'http://localhost:3001/api/health',
       reuseExistingServer: !process.env.CI,
