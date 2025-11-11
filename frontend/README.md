@@ -1,6 +1,38 @@
-# React + TypeScript + Vite
+# Loafly - Sourdough Baking App (Frontend)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + TypeScript + Vite frontend for the Loafly sourdough baking management application.
+
+## Features
+
+- 🍞 Recipe management and builder
+- 🕐 Bake tracking with timers
+- 📊 Baking history and analytics
+- 👤 User profiles and preferences
+- 🔔 Local notifications
+- 📱 Mobile-ready (Capacitor)
+
+## Quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Run E2E tests
+npm run test:e2e
+```
+
+## Documentation
+
+- **[CHANGELOG.md](./CHANGELOG.md)** - Recent changes and fixes
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Deployment guide
+- **[E2E_TESTING_GUIDE.md](./E2E_TESTING_GUIDE.md)** - E2E testing documentation
+- **[e2e/README.md](./e2e/README.md)** - E2E test suite details
 
 Currently, two official plugins are available:
 

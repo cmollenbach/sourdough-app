@@ -1,4 +1,7 @@
-# Frontend E2E Test Suite
+# E2E Test Suite
+
+## Overview
+End-to-end tests for the Sourdough app using Playwright. Tests automatically start both backend and frontend servers.
 
 This directory contains end-to-end tests for the Sourdough app using Playwright.
 
@@ -21,13 +24,16 @@ This directory contains end-to-end tests for the Sourdough app using Playwright.
 - **helpers/auth.ts** - Authentication utilities (register, login, logout)
 - **helpers/api.ts** - API interaction utilities (token management, request waiting)
 
+## Prerequisites
+
+1. **PostgreSQL running** and accessible
+2. **Backend database** set up with migrations applied
+3. **Environment variables** configured (backend `.env` file)
+4. **Frontend `.env`** with `VITE_API_BASE_URL` set
+
 ## Running Tests
 
-**Important**: The Playwright config automatically starts both the backend and frontend servers before running tests. However, you need to ensure:
-
-1. **PostgreSQL is running** and accessible
-2. **Backend database is set up** with migrations applied
-3. **Environment variables** are configured (backend `.env` file)
+**Note**: Playwright automatically starts both backend and frontend servers before running tests.
 
 ```bash
 # Run all tests (automatically starts backend + frontend)

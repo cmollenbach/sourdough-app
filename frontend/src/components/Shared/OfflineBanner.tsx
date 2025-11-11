@@ -11,7 +11,6 @@ import { apiGet } from '../../utils/api';
  */
 export function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(false);
-  const [isChecking, setIsChecking] = useState(false);
 
   // Skip health checks during E2E tests
   // Check for Playwright user agent (Playwright sets this automatically)
@@ -25,7 +24,6 @@ export function OfflineBanner() {
     }
 
     const checkHealth = async () => {
-      setIsChecking(true);
       try {
         // Use a simple GET request to health endpoint with timeout
         // Create a timeout promise that rejects after 5 seconds
@@ -43,8 +41,6 @@ export function OfflineBanner() {
       } catch (error) {
         // If health check fails or times out, assume backend is offline
         setIsOffline(true);
-      } finally {
-        setIsChecking(false);
       }
     };
 
