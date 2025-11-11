@@ -26,7 +26,7 @@
 sourdough-app/
 ├── backend/              # Express API (shared by all clients)
 │   ├── src/              # TypeScript source code
-│   ├── tests/            # Jest tests (394/399 passing)
+│   ├── tests/            # Jest tests (393/399 passing, 98.7%)
 │   └── prisma/           # Database schema & migrations
 │
 ├── frontend/             # React web + mobile app

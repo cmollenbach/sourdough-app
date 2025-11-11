@@ -2,6 +2,7 @@ import express from "express";
 import { IngredientCalculationMode } from "@prisma/client"; // Removed RecipeParameter import
 import { authenticateJWT, AuthRequest } from "../middleware/authMiddleware";
 import prisma from "../lib/prisma";
+import { transformToFullRecipe } from "../lib/recipeTransform";
 import logger from "../lib/logger";
 import { validateBody, validateParams } from "../middleware/validation";
 import { createRecipeSchema, updateRecipeSchema, recipeIdParamSchema } from "../validation/recipeSchemas";
@@ -158,39 +159,7 @@ router.get("/recipes/:id/full", authenticateJWT, async (req: AuthRequest, res, n
     if (!recipe) return res.status(404).json({ error: "Recipe not found" });
 
     // Destructure to separate specific parameters from the rest of the recipe object
-    const { steps, ...recipeBaseProperties } = recipe; // No more allParameterValues at recipe level
-
-    const transformedRecipe = {
-      ...recipeBaseProperties, // Includes id, ownerId, createdAt, etc.
-      // Core targets are now direct properties
-      totalWeight: recipe.totalWeight,
-      hydrationPct: recipe.hydrationPct,
-      saltPct: recipe.saltPct,
-      name: recipe.name, // Use direct field
-      notes: recipe.notes, // Use direct field
-      fieldValues: [], // RecipeParameterValues are gone for recipe level
-      steps: steps.map(step => {
-        const { parameterValues: stepPVs, ...restStep } = step;
-        return {
-          ...restStep,
-          // ingredients already includes amount and calculationMode from the DB
-          // if the include for ingredients was correct
-          fields: stepPVs.map(spv => ({
-            id: spv.id,
-            recipeStepId: spv.recipeStepId,
-            fieldId: spv.parameterId,
-            value: spv.value,
-            notes: spv.notes,
-            name: spv.parameter.name,
-          })),
-          // Ensure ingredients are passed through correctly
-          ingredients: step.ingredients.map(ing => ({
-            ...ing, // includes id, recipeStepId, ingredientId, amount, calculationMode, preparation, notes
-            ingredientName: ing.ingredient.name // for convenience if needed by UI
-          })),
-        };
-      })
-    };
+    const transformedRecipe = transformToFullRecipe(recipe);
     res.json(transformedRecipe);
   } catch (err) {
     next(err);
@@ -229,20 +198,7 @@ router.get("/recipes/predefined/by-name", authenticateJWT, async (req: AuthReque
 
     // Transform the recipe to the FullRecipe structure (similar to GET /recipes/:id/full)
     // Consider refactoring this transformation logic into a shared function if it's used in multiple places.
-    const { steps, ...recipeBaseProperties } = recipe;
-    const transformedRecipe = {
-      ...recipeBaseProperties,
-      totalWeight: recipe.totalWeight,
-      hydrationPct: recipe.hydrationPct,
-      saltPct: recipe.saltPct,
-      name: recipe.name,
-      notes: recipe.notes,
-      fieldValues: [], // Assuming recipe-level fieldValues are not directly on templates this way
-      steps: steps.map(step => {
-        const { parameterValues: stepPVs, ingredients: stepIngs, ...restStep } = step;
-        return { ...restStep, fields: stepPVs.map(spv => ({ id: spv.id, recipeStepId: spv.recipeStepId, fieldId: spv.parameterId, value: spv.value, notes: spv.notes, name: spv.parameter.name, })), ingredients: stepIngs.map(ing => ({ ...ing, ingredientName: ing.ingredient.name, ingredientCategoryId: ing.ingredient.ingredientCategoryId, })), };
-      })
-    };
+    const transformedRecipe = transformToFullRecipe(recipe);
     res.json(transformedRecipe);
   } catch (err) {
     next(err);
@@ -392,41 +348,7 @@ router.put("/recipes/:id", authenticateJWT, validateParams(recipeIdParamSchema),
     }
 
     // Transform to FullRecipe structure
-    const { steps: dbSteps, ...recipeBaseProperties } = finalRecipe;
-    const transformedRecipe = {
-      ...recipeBaseProperties,
-      name: finalRecipe.name,
-      notes: finalRecipe.notes,
-      totalWeight: finalRecipe.totalWeight,
-      hydrationPct: finalRecipe.hydrationPct,
-      saltPct: finalRecipe.saltPct,
-      fieldValues: [], // Recipe-level dynamic fieldValues are removed
-      steps: dbSteps.map(step => {
-        const { parameterValues: stepPVs, ingredients: stepIngs, ...restStep } = step;
-        return {
-          ...restStep,
-          fields: stepPVs.map(spv => ({
-            id: spv.id,
-            recipeStepId: spv.recipeStepId,
-            fieldId: spv.parameterId,
-            value: spv.value,
-            notes: spv.notes,
-            name: spv.parameter.name, // from included parameter
-          })),
-          ingredients: stepIngs.map(ing => ({
-            id: ing.id,
-            recipeStepId: ing.recipeStepId,
-            ingredientId: ing.ingredientId,
-            ingredientCategoryId: ing.ingredient.ingredientCategoryId, // from included ingredient
-            amount: ing.amount,
-            calculationMode: ing.calculationMode,
-            preparation: ing.preparation,
-            notes: ing.notes,
-            // ingredientName: ing.ingredient.name, // Already available via ingredientId lookup on frontend
-          })),
-        };
-      })
-    };
+    const transformedRecipe = transformToFullRecipe(finalRecipe);
 
     res.json({ message: "Recipe updated successfully", recipe: transformedRecipe });
 

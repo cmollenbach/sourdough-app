@@ -1,11 +1,13 @@
 // Test helper to seed only the essential data needed for tests
 import prisma from '../../src/lib/prisma';
-import { UserRole, ParameterDataType } from '@prisma/client';
+import { UserRole, ParameterDataType, StepRole } from '@prisma/client';
 
 export async function seedEssentialData() {
-  // Check if already seeded
+  // Check if already seeded (step types and templates)
   const existingStepTypes = await prisma.stepType.count();
-  if (existingStepTypes > 0) {
+  const existingTemplates = await prisma.stepTemplate.count();
+  
+  if (existingStepTypes > 0 && existingTemplates > 0) {
     console.log('Essential data already seeded, skipping...');
     return;
   }
@@ -57,6 +59,56 @@ export async function seedEssentialData() {
       ],
       skipDuplicates: true,
     });
+  }
+
+  // Create essential step templates (needed for meta route tests)
+  // Always try to create templates (skipDuplicates handles existing ones)
+  const stepTypes = await prisma.stepType.findMany();
+  if (stepTypes.length > 0) {
+    const preparationType = stepTypes.find(st => st.name === 'Preparation');
+    const mixingType = stepTypes.find(st => st.name === 'Mixing');
+    const bulkType = stepTypes.find(st => st.name === 'Bulk Fermentation');
+    
+    if (preparationType && mixingType && bulkType) {
+      // Use individual creates with upsert pattern to ensure they exist
+      const templateData = [
+        {
+          name: 'Autolyse',
+          stepTypeId: preparationType.id,
+          role: StepRole.AUTOLYSE,
+          description: 'Mix flour and water, rest before adding salt and starter',
+          order: 1,
+          advanced: false,
+          active: true,
+        },
+        {
+          name: 'Mix',
+          stepTypeId: mixingType.id,
+          role: StepRole.MIX,
+          description: 'Combine all ingredients',
+          order: 2,
+          advanced: false,
+          active: true,
+        },
+        {
+          name: 'Bulk Fermentation',
+          stepTypeId: bulkType.id,
+          role: StepRole.BULK,
+          description: 'Let dough rise and develop',
+          order: 3,
+          advanced: false,
+          active: true,
+        },
+      ];
+
+      for (const template of templateData) {
+        await prisma.stepTemplate.upsert({
+          where: { name: template.name },
+          update: {},
+          create: template,
+        });
+      }
+    }
   }
 
   console.log('Essential test data seeded successfully');

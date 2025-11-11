@@ -58,26 +58,4 @@ router.delete("/templates/:id", authenticateJWT, requireAdmin, async (req: AuthR
 });
 
 
-// --- EXISTING ROUTES for RecipeSteps ---
-
-// Create a step for a recipe
-router.post("/", authenticateJWT, async (req: AuthRequest, res) => {
-  // ... existing code ...
-});
-
-// Get all steps for a recipe
-router.get("/:recipeId", authenticateJWT, async (req: AuthRequest, res) => {
-  // ... existing code ...
-});
-
-// Update a step
-router.put("/:id", authenticateJWT, async (req: AuthRequest, res) => {
-  // ... existing code ...
-});
-
-// Delete a step
-router.delete("/:id", authenticateJWT, async (req: AuthRequest, res) => {
-  // ... existing code ...
-});
-
 export default router;
