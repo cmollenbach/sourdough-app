@@ -173,9 +173,11 @@ jobs:
         working-directory: ./backend
         run: |
           npm ci
-          # Verify ts-node-dev is installed
-          ls -la node_modules/.bin/ts-node-dev || echo "ts-node-dev not found in node_modules/.bin"
-          which ts-node-dev || echo "ts-node-dev not in PATH"
+          # Verify dependencies are installed
+          ls -la node_modules/.bin/ts-node-dev || echo "ts-node-dev not found"
+          ls -la node_modules/express || echo "express not found"
+          # Verify node_modules structure
+          echo "Backend node_modules exists: $(test -d node_modules && echo 'yes' || echo 'no')"
 
       - name: Setup backend database
         working-directory: ./backend

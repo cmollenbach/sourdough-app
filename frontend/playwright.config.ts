@@ -77,8 +77,10 @@ export default defineConfig({
   /* Run your local dev servers before starting the tests */
   webServer: [
     {
-      command: 'npx ts-node-dev --respawn --transpile-only src/index.ts',
-      cwd: '../backend', // Use cwd instead of cd for better cross-platform support
+      // Use npm run dev which will use the locally installed ts-node-dev
+      // npm scripts automatically add node_modules/.bin to PATH
+      command: 'npm run dev',
+      cwd: path.resolve(__dirname, '../backend'),
       url: 'http://localhost:3001/api/health',
       reuseExistingServer: !process.env.CI,
       timeout: 120000,

@@ -46,7 +46,7 @@
   },
   "scripts": {
     "clean": "npx rimraf dist",
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev": "node node_modules/.bin/ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "npm run clean && npx prisma generate && tsc",
     "build:seed": "npm run build && npx prisma db seed",
     "deploy": "npx prisma migrate deploy && npm run build",
