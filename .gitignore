@@ -39,5 +39,3 @@ playwright-report/
 
 # Shared package build artifacts
 shared/dist/
-shared/api/
-shared/hooks/
