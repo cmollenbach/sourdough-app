@@ -80,7 +80,6 @@ export default defineConfig({
     {
       // Use npm run dev which will use the locally installed ts-node-dev
       // npm scripts automatically add node_modules/.bin to PATH
-      // Using shell: true ensures npm can find the local node_modules
       command: 'npm run dev',
       cwd: path.resolve(__dirname, '../backend'),
       url: 'http://localhost:3001/api/health',
@@ -88,7 +87,6 @@ export default defineConfig({
       timeout: 120000,
       stdout: 'pipe',
       stderr: 'pipe',
-      shell: true, // Ensure shell execution for proper PATH resolution
       env: {
         DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:test_password@localhost:5432/sourdough_test',
         JWT_SECRET: process.env.JWT_SECRET || 'test_jwt_secret_for_ci_do_not_use_in_production',
