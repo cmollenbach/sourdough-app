@@ -77,13 +77,20 @@ export default defineConfig({
   /* Run your local dev servers before starting the tests */
   webServer: [
     {
-      command: 'npm run dev',
+      command: 'npx ts-node-dev --respawn --transpile-only src/index.ts',
       cwd: '../backend', // Use cwd instead of cd for better cross-platform support
       url: 'http://localhost:3001/api/health',
       reuseExistingServer: !process.env.CI,
       timeout: 120000,
       stdout: 'pipe',
       stderr: 'pipe',
+      env: {
+        DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:test_password@localhost:5432/sourdough_test',
+        JWT_SECRET: process.env.JWT_SECRET || 'test_jwt_secret_for_ci_do_not_use_in_production',
+        PORT: process.env.PORT || '3001',
+        FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+        NODE_ENV: 'test',
+      },
     },
     {
       command: 'npm run dev',

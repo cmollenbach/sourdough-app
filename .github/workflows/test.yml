@@ -171,7 +171,11 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: ./backend
-        run: npm ci
+        run: |
+          npm ci
+          # Verify ts-node-dev is installed
+          ls -la node_modules/.bin/ts-node-dev || echo "ts-node-dev not found in node_modules/.bin"
+          which ts-node-dev || echo "ts-node-dev not in PATH"
 
       - name: Setup backend database
         working-directory: ./backend
@@ -179,6 +183,8 @@ jobs:
           DATABASE_URL: postgresql://postgres:test_password@localhost:5432/sourdough_test
           PGPASSWORD: test_password
         run: |
+          # Install PostgreSQL client if not available
+          sudo apt-get update && sudo apt-get install -y postgresql-client || true
           # Create database if it doesn't exist
           psql -h localhost -U postgres -c "CREATE DATABASE sourdough_test;" || true
           # Generate Prisma Client
