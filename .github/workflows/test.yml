@@ -206,6 +206,44 @@ jobs:
         working-directory: frontend
         run: npx playwright install --with-deps
 
+      - name: Start backend server
+        working-directory: ./backend
+        run: |
+          npm run dev > ../backend.log 2>&1 &
+          echo $! > ../backend.pid
+          # Wait for backend to be ready (max 60 seconds)
+          echo "Waiting for backend to start..."
+          for i in {1..30}; do
+            if curl -f http://localhost:3001/api/health > /dev/null 2>&1; then
+              echo "Backend is ready!"
+              break
+            fi
+            echo "Attempt $i/30: Backend not ready yet, waiting 2 seconds..."
+            sleep 2
+          done
+        env:
+          DATABASE_URL: postgresql://postgres:test_password@localhost:5432/sourdough_test
+          JWT_SECRET: test_jwt_secret_for_ci_do_not_use_in_production
+          PORT: 3001
+          FRONTEND_URL: http://localhost:5173
+          NODE_ENV: test
+
+      - name: Start frontend server
+        working-directory: frontend
+        run: |
+          npm run dev > ../frontend.log 2>&1 &
+          echo $! > ../frontend.pid
+          # Wait for frontend to be ready (max 60 seconds)
+          echo "Waiting for frontend to start..."
+          for i in {1..30}; do
+            if curl -f http://localhost:5173 > /dev/null 2>&1; then
+              echo "Frontend is ready!"
+              break
+            fi
+            echo "Attempt $i/30: Frontend not ready yet, waiting 2 seconds..."
+            sleep 2
+          done
+
       - name: Run E2E tests
         working-directory: frontend
         run: npm run test:e2e
@@ -215,6 +253,31 @@ jobs:
           JWT_SECRET: test_jwt_secret_for_ci_do_not_use_in_production
           PORT: 3001
           FRONTEND_URL: http://localhost:5173
+
+      - name: Stop servers
+        if: always()
+        run: |
+          if [ -f backend.pid ]; then
+            kill $(cat backend.pid) 2>/dev/null || true
+            rm -f backend.pid
+          fi
+          if [ -f frontend.pid ]; then
+            kill $(cat frontend.pid) 2>/dev/null || true
+            rm -f frontend.pid
+          fi
+          # Also kill any remaining node processes
+          pkill -f "ts-node-dev" 2>/dev/null || true
+          pkill -f "vite" 2>/dev/null || true
+
+      - name: Upload server logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-logs
+          path: |
+            backend.log
+            frontend.log
+          retention-days: 7
 
       - name: Upload Playwright report
         if: always()

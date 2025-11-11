@@ -81,34 +81,34 @@ export default defineConfig({
   ],
 
   /* Run your local dev servers before starting the tests */
-  webServer: [
-    {
-      // Use bash to explicitly set PATH and run npm run dev
-      // This ensures ts-node-dev is found in node_modules/.bin
-      command: `bash -c 'export PATH="${path.resolve(__dirname, '../backend/node_modules/.bin')}:$PATH" && npm run dev'`,
-      cwd: path.resolve(__dirname, '../backend'),
-      url: 'http://localhost:3001/api/health',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120000,
-      stdout: 'pipe',
-      stderr: 'pipe',
-      env: {
-        DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:test_password@localhost:5432/sourdough_test',
-        JWT_SECRET: process.env.JWT_SECRET || 'test_jwt_secret_for_ci_do_not_use_in_production',
-        PORT: process.env.PORT || '3001',
-        FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
-        NODE_ENV: 'test',
-        // Ensure Node.js can find the backend's node_modules for module resolution
-        NODE_PATH: path.resolve(__dirname, '../backend/node_modules'),
-      },
-    },
-    {
-      command: 'npm run dev',
-      url: 'http://localhost:5173',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120000,
-      stdout: 'ignore',
-      stderr: 'pipe',
-    },
-  ],
+  // In CI, servers are started by GitHub Actions workflow
+  // For local development, Playwright will start them automatically
+  webServer: process.env.CI
+    ? undefined
+    : [
+        {
+          command: 'npm run dev',
+          cwd: path.resolve(__dirname, '../backend'),
+          url: 'http://localhost:3001/api/health',
+          reuseExistingServer: true,
+          timeout: 120000,
+          stdout: 'pipe',
+          stderr: 'pipe',
+          env: {
+            DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:test_password@localhost:5432/sourdough_test',
+            JWT_SECRET: process.env.JWT_SECRET || 'test_jwt_secret_for_ci_do_not_use_in_production',
+            PORT: process.env.PORT || '3001',
+            FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+            NODE_ENV: 'test',
+          },
+        },
+        {
+          command: 'npm run dev',
+          url: 'http://localhost:5173',
+          reuseExistingServer: true,
+          timeout: 120000,
+          stdout: 'ignore',
+          stderr: 'pipe',
+        },
+      ],
 });
