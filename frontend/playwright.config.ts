@@ -83,9 +83,9 @@ export default defineConfig({
   /* Run your local dev servers before starting the tests */
   webServer: [
     {
-      // Use npx which will find ts-node-dev in node_modules/.bin
-      // npx handles cross-platform execution of binaries correctly
-      command: 'npx ts-node-dev --respawn --transpile-only src/index.ts',
+      // Use npm run dev - npm scripts automatically add node_modules/.bin to PATH
+      // This ensures ts-node-dev is found and can resolve backend dependencies
+      command: 'npm run dev',
       cwd: path.resolve(__dirname, '../backend'),
       url: 'http://localhost:3001/api/health',
       reuseExistingServer: !process.env.CI,
@@ -98,8 +98,10 @@ export default defineConfig({
         PORT: process.env.PORT || '3001',
         FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
         NODE_ENV: 'test',
-        // Ensure Node.js can find the backend's node_modules
+        // Ensure Node.js can find the backend's node_modules for module resolution
         NODE_PATH: path.resolve(__dirname, '../backend/node_modules'),
+        // Ensure PATH includes backend's node_modules/.bin
+        PATH: `${path.resolve(__dirname, '../backend/node_modules/.bin')}:${process.env.PATH || ''}`,
       },
     },
     {
