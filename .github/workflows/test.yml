@@ -138,6 +138,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: sourdough_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -154,6 +169,23 @@ jobs:
       - name: Build shared package
         run: npm run build:shared
 
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Setup backend database
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql://postgres:test_password@localhost:5432/sourdough_test
+          PGPASSWORD: test_password
+        run: |
+          # Create database if it doesn't exist
+          psql -h localhost -U postgres -c "CREATE DATABASE sourdough_test;" || true
+          # Generate Prisma Client
+          npx prisma generate
+          # Run migrations
+          npx prisma migrate deploy
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
@@ -167,6 +199,10 @@ jobs:
         run: npm run test:e2e
         env:
           CI: true
+          DATABASE_URL: postgresql://postgres:test_password@localhost:5432/sourdough_test
+          JWT_SECRET: test_jwt_secret_for_ci_do_not_use_in_production
+          PORT: 3001
+          FRONTEND_URL: http://localhost:5173
 
       - name: Upload Playwright report
         if: always()
