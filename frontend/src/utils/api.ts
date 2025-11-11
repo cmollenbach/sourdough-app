@@ -23,6 +23,7 @@ export type RecipeFormData = {
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "/api", // Use environment variable
+  timeout: 10000, // 10 second timeout to prevent hanging requests
   withCredentials: true,
 });
 
@@ -38,9 +39,35 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Response interceptor for better error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Log network errors for debugging
+    if (!error.response) {
+      console.error('Network error:', error.message);
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Helper function to extract a meaningful error message
 function extractErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
+    // Network errors (no response received)
+    if (!error.response) {
+      if (error.code === 'ECONNABORTED') {
+        return 'Request timed out. Please check your connection and try again.';
+      }
+      if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error')) {
+        return 'Unable to reach server. Please check your internet connection.';
+      }
+      return 'Network error. Please check your connection and try again.';
+    }
+
+    // HTTP errors (response received with error status)
+    const status = error.response.status;
+    
     if (error.response?.data) {
       const { data } = error.response;
       // Check for common error message structures from backend
@@ -55,6 +82,24 @@ function extractErrorMessage(error: unknown): string {
         return data;
       }
     }
+
+    // Status code based messages
+    if (status === 401) {
+      return 'Authentication required. Please log in again.';
+    }
+    if (status === 403) {
+      return 'You do not have permission to perform this action.';
+    }
+    if (status === 404) {
+      return 'Resource not found.';
+    }
+    if (status === 429) {
+      return 'Too many requests. Please wait a moment and try again.';
+    }
+    if (status >= 500) {
+      return 'Server error. Please try again later.';
+    }
+
     // Fallback to Axios's error message or a generic one
     return error.message || 'An API request failed. Please try again.';
   }

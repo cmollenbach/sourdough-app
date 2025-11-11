@@ -21,11 +21,9 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   
   /* Reporter to use */
-  reporter: [
-    ['html'],
-    ['list'],
-    ...(process.env.CI ? [['github' as const]] : []),
-  ],
+  reporter: process.env.CI 
+    ? [['html'], ['list'], ['github']]
+    : [['html'], ['list']],
   
   /* Shared settings for all the projects below */
   use: {
@@ -44,6 +42,9 @@ export default defineConfig({
     /* Timeout for each action (click, fill, etc.) */
     actionTimeout: 10000,
   },
+
+  /* Global setup to mark test environment */
+  globalSetup: './e2e/global-setup.ts',
 
   /* Configure projects for major browsers */
   projects: [
@@ -73,13 +74,24 @@ export default defineConfig({
     // },
   ],
 
-  /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
-    stdout: 'ignore',
-    stderr: 'pipe',
-  },
+  /* Run your local dev servers before starting the tests */
+  webServer: [
+    {
+      command: 'npm run dev',
+      cwd: '../backend', // Use cwd instead of cd for better cross-platform support
+      url: 'http://localhost:3001/api/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+    {
+      command: 'npm run dev',
+      url: 'http://localhost:5173',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000,
+      stdout: 'ignore',
+      stderr: 'pipe',
+    },
+  ],
 });

@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { useAuth } from "../hooks/useAuthHook";
 import { useToast } from "../context/ToastContext";
 import { useLocation, useHistory, Link } from "react-router-dom";
 import { SocialLoginButtons } from '../components/Auth/SocialLoginButtons';
+import { FormSkeleton } from "../components/Shared/FormSkeleton";
 
 interface LoginFormInputs {
   email: string;
@@ -12,6 +13,7 @@ interface LoginFormInputs {
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
+  const [formReady, setFormReady] = useState(false);
   const { login, setAuthenticatedUser } = useAuth(); // Destructure setAuthenticatedUser
   const { showToast } = useToast();
   const location = useLocation();
@@ -24,6 +26,12 @@ export default function LoginPage() {
   } = useForm<LoginFormInputs>();
 
   const from: string = (location.state as { from?: { pathname: string } })?.from?.pathname || "/recipes";
+
+  // Ensure form is ready before showing to prevent race conditions
+  useEffect(() => {
+    const timer = setTimeout(() => setFormReady(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   const onSubmit: SubmitHandler<LoginFormInputs> = async (data) => {
     setLoading(true);
@@ -79,6 +87,18 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  // Show skeleton while form is initializing
+  if (!formReady) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="w-50 h-50 mb-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+        <div className="h-8 w-64 bg-gray-200 dark:bg-gray-700 rounded mb-2 animate-pulse"></div>
+        <div className="h-4 w-80 bg-gray-200 dark:bg-gray-700 rounded mb-6 animate-pulse"></div>
+        <FormSkeleton />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen">

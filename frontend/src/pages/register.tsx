@@ -1,18 +1,26 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from '../hooks/useAuthHook';
 import { useHistory, Link } from "react-router-dom"; // Import Link
 import { useToast } from "../context/ToastContext";
 import { apiPost } from "../utils/api"; // Import the shared API utility
 import { SocialLoginButtons } from "../components/Auth/SocialLoginButtons";
+import { FormSkeleton } from "../components/Shared/FormSkeleton";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false); // Add loading state
+  const [formReady, setFormReady] = useState(false);
   const { login } = useAuth();
   const { showToast } = useToast();
   const history = useHistory();
   const [error, setError] = useState<string | null>(null);
+
+  // Ensure form is ready before showing to prevent race conditions
+  useEffect(() => {
+    const timer = setTimeout(() => setFormReady(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,6 +50,17 @@ export default function RegisterPage() {
 
   function handleSocialLoginSuccess() {
     history.replace("/recipes");
+  }
+
+  // Show skeleton while form is initializing
+  if (!formReady) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="h-8 w-64 bg-gray-200 dark:bg-gray-700 rounded mb-2 animate-pulse"></div>
+        <div className="h-4 w-80 bg-gray-200 dark:bg-gray-700 rounded mb-4 animate-pulse"></div>
+        <FormSkeleton />
+      </div>
+    );
   }
 
   return (

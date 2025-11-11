@@ -10,14 +10,29 @@ Your sourdough app now has **complete E2E testing** with Playwright!
 frontend/
 ├── playwright.config.ts          # Playwright configuration
 ├── e2e/                          # E2E test directory
+│   ├── helpers/                  # Test helpers
+│   │   ├── auth.ts               # Authentication helpers
+│   │   └── api.ts                # API interaction helpers
 │   ├── app-navigation.spec.ts    # App navigation & basic features (8 tests)
-│   ├── recipe-creation.spec.ts   # Recipe builder tests (5 tests)
-│   ├── bake-tracking.spec.ts     # Bake session tests (6 tests)
-│   └── timing-parser.spec.ts     # Timing plan parser tests (5 tests)
+│   ├── recipe-creation.spec.ts   # Recipe builder tests (5 tests - skipped)
+│   ├── bake-tracking.spec.ts     # Bake session tests (6 tests - skipped)
+│   ├── timing-parser.spec.ts     # Timing plan parser tests (5 tests)
+│   ├── authentication-workflow.spec.ts  # Auth workflows (8 tests)
+│   ├── recipe-workflow.spec.ts    # Recipe management workflows (6 tests)
+│   ├── bake-workflow.spec.ts      # Bake tracking workflows (7 tests)
+│   ├── user-profile-workflow.spec.ts    # Profile workflows (5 tests)
+│   └── error-handling.spec.ts    # Error scenarios (6 tests)
 └── package.json                  # Updated with test scripts
 ```
 
-**Total: 24 E2E tests** covering your critical user flows!
+**Total: 50+ E2E tests** covering your critical user flows!
+
+### **New Workflow Tests Added:**
+- ✅ Authentication workflows (8 tests)
+- ✅ Recipe management workflows (6 tests)
+- ✅ Bake tracking workflows (7 tests)
+- ✅ User profile workflows (5 tests)
+- ✅ Error handling (6 tests)
 
 ---
 
@@ -106,6 +121,48 @@ npm run test:e2e:report
 - ✅ Display timing in recipe view
 - ✅ Handle invalid timing gracefully
 - ✅ Parse custom fold schedule
+
+### **Authentication Workflows** (8 tests)
+- ✅ User registration and auto-login
+- ✅ Email/password login
+- ✅ Invalid credentials rejection
+- ✅ Duplicate registration prevention
+- ✅ Authenticated user redirect
+- ✅ Protected route access
+- ✅ Session persistence
+- ✅ User logout
+
+### **Recipe Management Workflows** (6 tests)
+- ✅ Create new recipe
+- ✅ Display recipe list
+- ✅ View recipe details
+- ✅ Edit recipe
+- ✅ Delete recipe
+- ✅ Form validation
+
+### **Bake Tracking Workflows** (7 tests)
+- ✅ Start bake from recipe
+- ✅ Display active bakes list
+- ✅ View bake details and timeline
+- ✅ Complete bake step
+- ✅ Complete bake
+- ✅ View bake history
+- ✅ Display timer for next action
+
+### **User Profile Workflows** (5 tests)
+- ✅ View user profile
+- ✅ Access settings page
+- ✅ Navigate to user settings
+- ✅ Toggle dark mode
+- ✅ Access account page
+
+### **Error Handling** (6 tests)
+- ✅ 404 route handling
+- ✅ Protected route authentication
+- ✅ Email format validation
+- ✅ Password requirements validation
+- ✅ Network error handling
+- ✅ Empty state handling
 
 ---
 

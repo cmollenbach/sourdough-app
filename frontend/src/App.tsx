@@ -25,6 +25,7 @@ import StepTemplatesPage from "./pages/admin/StepTemplatesPage";
 import UserProfilePage from "./pages/user";
 import RecipeListPage from "./pages/recipes";
 import { NotificationTestPage } from "./components/NotificationTestPage";
+import { OfflineBanner } from "./components/Shared/OfflineBanner";
 
 function AppRoutes() {
   const { user } = useAuth();
@@ -42,6 +43,7 @@ function AppRoutes() {
 
   return (
     <div className="page-bg min-h-screen flex flex-col">
+      <OfflineBanner />
       <Navbar />
       <main className="flex-grow">
         <Switch>

@@ -9,7 +9,7 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading } = useAuth();
   const { darkMode, toggleDarkMode } = useSettings();
   const { activeBakes } = useBakeStore();
 
@@ -36,6 +36,20 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Show skeleton during initial auth loading
+  if (isLoading) {
+    return (
+      <nav className="bg-surface-elevated shadow-md text-text-primary">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            <div className="h-8 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
+          </div>
+        </div>
+      </nav>
+    );
+  }
+
   return (
     <nav className="bg-surface-elevated shadow-md text-text-primary">
       <div className="max-w-7xl mx-auto px-4">
@@ -49,9 +63,33 @@ export default function Navbar() {
               </div>
             </Link>
             <div className="hidden md:flex items-baseline space-x-4">
-              <NavLink to="/recipes" className="px-3 py-2 rounded-md text-sm font-medium" activeClassName="bg-primary-50 text-primary-600">Recipes</NavLink>
-              <NavLink to="/bakes" className="px-3 py-2 rounded-md text-sm font-medium" activeClassName="bg-primary-50 text-primary-600">Bakes</NavLink>
-              <NavLink to="/history" className="px-3 py-2 rounded-md text-sm font-medium" activeClassName="bg-primary-50 text-primary-600">History</NavLink>
+              <NavLink 
+                to="/recipes" 
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  user ? '' : 'opacity-50 cursor-not-allowed pointer-events-none'
+                }`}
+                activeClassName="bg-primary-50 text-primary-600"
+              >
+                Recipes
+              </NavLink>
+              <NavLink 
+                to="/bakes" 
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  user ? '' : 'opacity-50 cursor-not-allowed pointer-events-none'
+                }`}
+                activeClassName="bg-primary-50 text-primary-600"
+              >
+                Bakes
+              </NavLink>
+              <NavLink 
+                to="/history" 
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  user ? '' : 'opacity-50 cursor-not-allowed pointer-events-none'
+                }`}
+                activeClassName="bg-primary-50 text-primary-600"
+              >
+                History
+              </NavLink>
               {user?.role === 'ADMIN' && (
                 <NavLink to="/admin/step-templates" className="px-3 py-2 rounded-md text-sm font-medium" activeClassName="bg-accent-50 text-accent-600">
                   Admin
@@ -99,8 +137,13 @@ export default function Navbar() {
             </button>
           </div>
           <div className="md:hidden">
-            <button onClick={() => setMobileMenuOpen(o => !o)} aria-label="Open main menu">
-              ☰
+            <button 
+              onClick={() => setMobileMenuOpen(o => !o)} 
+              aria-label="Open main menu"
+              className="p-2 rounded-md hover:bg-surface-subtle"
+              type="button"
+            >
+              <span className="text-2xl">☰</span>
             </button>
           </div>
         </div>
