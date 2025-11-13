@@ -339,26 +339,26 @@ export const UnifiedBakeTimeline: React.FC<UnifiedBakeTimelineProps> = ({
           </div>
         )}
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div className="bg-surface rounded p-2 text-center border border-border-subtle">
+        <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl border border-border-subtle bg-surface p-3 text-center shadow-soft">
             <div className="font-medium text-text-secondary">Progress</div>
             <div className="text-lg font-semibold text-text-primary">
               {stepsWithEvents.filter(s => s.step.status === 'COMPLETED').length}/{stepsWithEvents.length}
             </div>
           </div>
-          <div className="bg-surface rounded p-2 text-center border border-border-subtle">
+          <div className="rounded-2xl border border-border-subtle bg-surface p-3 text-center shadow-soft">
             <div className="font-medium text-text-secondary">Active Steps</div>
             <div className="text-lg font-semibold text-primary-600">
               {stepsWithEvents.filter(s => s.step.status === 'IN_PROGRESS').length}
             </div>
           </div>
-          <div className="bg-surface rounded p-2 text-center border border-border-subtle">
+          <div className="rounded-2xl border border-border-subtle bg-surface p-3 text-center shadow-soft">
             <div className="font-medium text-text-secondary">Next Event</div>
             <div className="text-sm font-medium text-text-primary">
               {timeUntilNext ? `${Math.round(timeUntilNext / 60000)}m` : 'None'}
             </div>
           </div>
-          <div className="bg-surface rounded p-2 text-center border border-border-subtle">
+          <div className="rounded-2xl border border-border-subtle bg-surface p-3 text-center shadow-soft">
             <div className="font-medium text-text-secondary">Alerts</div>
             <div className="text-lg font-semibold text-danger-600">
               {overdueEvents.length}
@@ -367,35 +367,47 @@ export const UnifiedBakeTimeline: React.FC<UnifiedBakeTimelineProps> = ({
         </div>
 
         {/* Quick Action Buttons */}
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button 
-            className="quick-action-btn bg-primary-500 text-white px-3 py-1 rounded text-sm hover:bg-primary-600 transition-colors"
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <button
+            type="button"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-border-subtle bg-surface px-4 py-2 text-sm font-semibold text-text-secondary shadow-soft transition hover:border-primary-300 hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
             onClick={() => setCurrentTime(new Date())}
+            aria-label="Refresh bake timeline"
           >
-            🔄 Refresh
+            <span aria-hidden="true">🔄</span>
+            <span>Refresh</span>
           </button>
-          <button 
-            className="quick-action-btn bg-success-500 text-white px-3 py-1 rounded text-sm hover:bg-success-600 transition-colors"
-            onClick={() => {/* Add temperature logging */}}
+          <button
+            type="button"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-border-subtle bg-surface px-4 py-2 text-sm font-semibold text-text-secondary shadow-soft transition hover:border-primary-300 hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+            onClick={() => { /* placeholder for temperature logging */ }}
+            aria-label="Log dough temperature"
           >
-            🌡️ Log Temp
+            <span aria-hidden="true">🌡️</span>
+            <span>Log Temp</span>
           </button>
-          <button 
-            className="quick-action-btn bg-secondary-500 text-white px-3 py-1 rounded text-sm hover:bg-secondary-600 transition-colors"
-            onClick={() => {/* Add fold counter */}}
+          <button
+            type="button"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-border-subtle bg-surface px-4 py-2 text-sm font-semibold text-text-secondary shadow-soft transition hover:border-primary-300 hover:text-primary-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+            onClick={() => { /* placeholder for fold counter */ }}
+            aria-label="Record a fold"
           >
-            ✋ Record Fold
+            <span aria-hidden="true">✋</span>
+            <span>Record Fold</span>
           </button>
-          <button 
-            className={`quick-action-btn px-3 py-1 rounded text-sm transition-colors ${
-              autoStartEnabled 
-                ? 'bg-accent-500 text-white hover:bg-accent-600' 
-                : 'bg-text-tertiary text-white hover:bg-text-secondary'
+          <button
+            type="button"
+            className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-soft transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
+              autoStartEnabled
+                ? "border border-accent-400 bg-accent-500 text-white hover:bg-accent-600"
+                : "border border-border-subtle bg-surface text-text-secondary hover:border-primary-300 hover:text-primary-600"
             }`}
             onClick={() => setAutoStartEnabled(!autoStartEnabled)}
             title={autoStartEnabled ? 'Auto-start is ON - steps will start automatically when appropriate' : 'Auto-start is OFF - you must start each step manually'}
+            aria-pressed={autoStartEnabled}
           >
-            {autoStartEnabled ? '⚡ Auto-Start ON' : '⏸️ Auto-Start OFF'}
+            <span aria-hidden="true">{autoStartEnabled ? '⚡' : '⏸️'}</span>
+            <span>{autoStartEnabled ? 'Auto-Start On' : 'Auto-Start Off'}</span>
           </button>
         </div>
       </div>

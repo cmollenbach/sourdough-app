@@ -6,9 +6,9 @@ interface ActiveBakeIndicatorProps {
 
 export default function ActiveBakeIndicator({ isActive }: ActiveBakeIndicatorProps) {
   if (isActive) {
-    return <span className="font-medium text-green-600">In Progress</span>;
+    return <span className="font-medium text-success-600">In Progress</span>;
   }
   // You might want different styling or text for explicitly inactive/completed bakes
   // For now, we'll assume 'inactive' covers bakes that are not 'active: true'
-  return <span className="font-medium text-gray-500">Inactive</span>;
+  return <span className="font-medium text-text-tertiary">Inactive</span>;
 }

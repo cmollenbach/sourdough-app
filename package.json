@@ -47,5 +47,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/cmollenbach/sourdough-app.git"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0"
   }
 }

@@ -19,7 +19,8 @@
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:report": "playwright show-report",
-    "playwright:install": "playwright install --with-deps"
+    "playwright:install": "playwright install --with-deps",
+    "android:prep": "npm run build && npx cap sync android"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
@@ -58,6 +59,7 @@
     "@types/react-dom": "^19.2.0",
     "@types/react-router-dom": "^5.3.3",
     "@vitejs/plugin-react": "^4.4.1",
+    "@vitest/coverage-v8": "^3.2.4",
     "@vitest/ui": "^3.2.4",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.25.0",

@@ -27,6 +27,9 @@ npm run build
 npm run test:e2e
 ```
 
+> **Note on workspaces**  
+> This repo uses npm workspaces, so React is hoisted to `../node_modules`. Vite is configured with aliases and `optimizeDeps.exclude` so you don't need to adjust anything—just run the commands above and the dev server will resolve React correctly.
+
 ## Documentation
 
 - **[CHANGELOG.md](./CHANGELOG.md)** - Recent changes and fixes

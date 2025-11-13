@@ -12,38 +12,64 @@ export default function BakesListPage() {
   }, [fetchActiveBakes]);
 
   if (isLoading) {
-    return <div className="p-4 text-center">Loading active bakes...</div>;
+    return <div className="py-10 text-center text-text-secondary">Loading active bakes...</div>;
   }
 
   if (error) {
-    return <div className="p-4 text-center text-red-500">Error loading bakes: {error}</div>;
+    return (
+      <div className="py-6 text-center">
+        <div className="inline-block rounded-xl border border-danger-200 bg-danger-50 px-6 py-4 text-danger-700">
+          Error loading bakes: {error}
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Active Bakes</h1>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <h1 className="text-3xl font-bold text-text-primary">Active Bakes</h1>
         {/* Optional: Button to navigate to a page where users can select a recipe to start a new bake */}
-        {/* <Link to="/recipes" className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded shadow">
+        {/* <Link
+          to="/recipes"
+          className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold"
+        >
           Start New Bake from Recipe
         </Link> */}
       </div>
 
       {activeBakes.length === 0 ? (
-        <p className="text-gray-600">No active bakes at the moment. Why not start one?</p>
+        <div className="rounded-2xl border border-border-subtle bg-surface-elevated px-6 py-10 text-center shadow-soft">
+          <p className="text-text-secondary">No active bakes at the moment. Why not start one?</p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {activeBakes.map((bake: Bake) => (
-            <div key={bake.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-              <h2 className="text-xl font-semibold mb-2 text-blue-600">{bake.notes || `Bake of ${bake.recipe?.name || 'Unknown Recipe'}`}</h2>
-              <p className="text-sm text-gray-500 mb-1">Recipe: {bake.recipe?.name || 'N/A'}</p>
-              <p className="text-sm text-gray-500 mb-3">Started: {new Date(bake.startTimestamp).toLocaleString()}</p>
-              <p className="text-sm text-gray-700 mb-1">Status: <ActiveBakeIndicator isActive={bake.active} /></p>
-              <p className="text-sm text-gray-700 mb-4">Steps: {bake.steps ? bake.steps.length : 'N/A'}</p>
-              <Link to={`/bakes/${bake.id}`} className="text-indigo-600 hover:text-indigo-800 font-medium">
-                View Details &rarr;
+            <article
+              key={bake.id}
+              className="group rounded-2xl border border-border bg-surface-elevated p-6 shadow-card transition-shadow hover:shadow-elevated"
+            >
+              <h2 className="mb-2 text-xl font-semibold text-text-primary">
+                {bake.notes || `Bake of ${bake.recipe?.name || "Unknown Recipe"}`}
+              </h2>
+              <p className="text-sm text-text-secondary">Recipe: {bake.recipe?.name || "N/A"}</p>
+              <p className="text-sm text-text-tertiary">
+                Started: {new Date(bake.startTimestamp).toLocaleString()}
+              </p>
+              <div className="mt-3 flex flex-col gap-1 text-sm text-text-secondary">
+                <span>
+                  Status: <ActiveBakeIndicator isActive={bake.active} />
+                </span>
+                <span>Steps: {bake.steps ? bake.steps.length : "N/A"}</span>
+              </div>
+              <Link
+                to={`/bakes/${bake.id}`}
+                className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-primary-600 transition-colors hover:text-primary-500"
+              >
+                View Details
+                <span aria-hidden="true">→</span>
               </Link>
-            </div>
+            </article>
           ))}
         </div>
       )}

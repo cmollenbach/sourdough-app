@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { PrismaClient, UserRole } from "@prisma/client";
+import { UserRole } from "@prisma/client";
+import prisma from "../lib/prisma";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
-const prisma = new PrismaClient();
 
 export interface AuthRequest extends Request {
   user?: { userId: number; email: string; role: UserRole };

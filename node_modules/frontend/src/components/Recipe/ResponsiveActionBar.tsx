@@ -47,7 +47,7 @@ const ResponsiveActionBar: React.FC<ResponsiveActionBarProps> = ({
             disabled={!canStartBake || isSavingOrLoading}
             className={`min-h-[48px] sm:min-h-[44px] px-6 font-medium flex items-center justify-center gap-2 transition-all duration-200 order-2 ${
               canStartBake && !isSavingOrLoading
-                ? 'btn-success hover:scale-105'
+                ? 'btn-success-soft hover:scale-105'
                 : 'bg-secondary-200 text-secondary-500 cursor-not-allowed opacity-60'
             }`}
           >

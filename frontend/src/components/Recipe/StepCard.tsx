@@ -527,6 +527,7 @@ export default function StepCard({
                     if (e.key === 'Enter' || e.key === ' ') e.stopPropagation();
                   }}
                   className="cursor-grab text-gray-400 hover:text-gray-600 text-2xl p-1 -ml-1"
+                  style={{ touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none' }}
                   aria-label="Reorder step">
               ☰
             </span>

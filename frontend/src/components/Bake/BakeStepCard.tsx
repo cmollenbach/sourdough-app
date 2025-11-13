@@ -380,7 +380,7 @@ export default function BakeStepCard({
   }, [shouldShowTiming, isActiveBake, step.recipeStep?.description]);
 
   const containerClasses = [
-    'bg-surface-elevated rounded-2xl shadow-card mb-6 max-w-3xl mx-auto border transition-all duration-300',
+    'bg-surface-elevated rounded-2xl shadow-card mb-6 w-full max-w-3xl mx-auto border transition-all duration-300',
     isLiveStep 
       ? 'border-primary-500 border-2 shadow-lg shadow-primary-500/20' // Prominent highlight for the live step
       : 'border-border' // Standard border for all other steps
@@ -390,7 +390,7 @@ export default function BakeStepCard({
     <div className={containerClasses}>
       {/* Clickable Header */}
       <div
-        className="flex flex-wrap items-center gap-3 justify-between p-4 cursor-pointer hover:bg-surface-hover transition-colors"
+        className="flex flex-wrap items-center justify-between gap-3 p-4 cursor-pointer transition-colors hover:bg-surface-subtle"
         onClick={toggleExpand}
         role="button"
         tabIndex={0}
@@ -406,8 +406,8 @@ export default function BakeStepCard({
           <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
             step.status === 'COMPLETED' ? 'bg-success-100 text-success-800' :
             step.status === 'IN_PROGRESS' ? 'bg-primary-100 text-primary-800' :
-            step.status === 'SKIPPED' ? 'bg-gray-200 text-gray-700' :
-            'bg-gray-100 text-gray-600'
+            step.status === 'SKIPPED' ? 'bg-secondary-200 text-secondary-700' :
+            'bg-secondary-100 text-secondary-600'
           }`}>
             {step.status}
           </span>
@@ -454,7 +454,7 @@ export default function BakeStepCard({
       {isExpanded && (
         <div
           id={`bakestep-content-${step.id}`}
-          className="p-4 pt-0 border-t border-border-muted flex flex-col gap-4"
+          className="flex flex-col gap-4 border-t border-border-subtle p-4 pt-0"
         >
           {step.recipeStep?.description && <p className="text-sm text-text-secondary">{step.recipeStep.description}</p>}
 
@@ -518,7 +518,7 @@ export default function BakeStepCard({
                   </div>
                 )}
                 {/* Total Weight for the Step */}
-                <div className="pt-2 mt-3 border-t border-border-muted flex justify-between items-center">
+                <div className="pt-2 mt-3 border-t border-border-subtle flex justify-between items-center">
                   <span className="font-semibold text-text-primary">
                     Total weight for this step:
                   </span>

@@ -1,4 +1,5 @@
-import { HashRouter as BrowserRouter, Switch, Route, Redirect } from "react-router-dom"; // Using HashRouter for Capacitor compatibility
+import { BrowserRouter, HashRouter, Switch, Route, Redirect } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
 import Navbar from "./components/Navbar/Navbar";
 import RecipeBuilderPage from "./pages/recipes/[id]";
 import BakesListPage from "./pages/bakes";
@@ -26,6 +27,7 @@ import UserProfilePage from "./pages/user";
 import RecipeListPage from "./pages/recipes";
 import { NotificationTestPage } from "./components/NotificationTestPage";
 import { OfflineBanner } from "./components/Shared/OfflineBanner";
+import PageShell from "./components/Layout/PageShell";
 
 function AppRoutes() {
   const { user } = useAuth();
@@ -42,11 +44,13 @@ function AppRoutes() {
   // Remove loading check since 'loading' is not available
 
   return (
-    <div className="page-bg min-h-screen flex flex-col">
+    <div className="page-bg min-h-screen text-text-primary">
       <OfflineBanner />
-      <Navbar />
-      <main className="flex-grow">
-        <Switch>
+      <div className="flex min-h-screen flex-col safe-area-top safe-area-bottom">
+        <Navbar />
+        <main className="flex-grow py-6">
+          <PageShell maxWidth="2xl" className="py-2">
+            <Switch>
           <Route path="/" exact render={() => user ? <Redirect to="/recipes" /> : <LoginPage />} />
           <Route path="/register" render={() => user ? <Redirect to="/recipes" /> : <RegisterPage />} />
           
@@ -73,23 +77,34 @@ function AppRoutes() {
           <Route path="/account" render={() => <RequireAuth><AccountPage /></RequireAuth>} />
           <Route path="/profile" render={() => <RequireAuth><UserProfilePage /></RequireAuth>} />
           
-          <Route component={NotFound} /> {/* Catch-all for 404 in v5 */}
-        </Switch>
-      </main>
+              <Route component={NotFound} /> {/* Catch-all for 404 in v5 */}
+            </Switch>
+          </PageShell>
+        </main>
+      </div>
     </div>
   );
 }
 
 export default function App() {
+  const isNativePlatform = typeof window !== "undefined" && Capacitor.isNativePlatform();
+
   return (
     <ToastProvider>
       <DialogProvider> {/* Wrap with DialogProvider */}
         <SettingsProvider>
           <AuthProvider>
-            <BrowserRouter> {/* BrowserRouter now wraps AppRoutes */}
-              <AppRoutes />
-              <DialogManager /> {/* Render DialogManager inside DialogProvider */}
-            </BrowserRouter>
+            {isNativePlatform ? (
+              <HashRouter>
+                <AppRoutes />
+                <DialogManager /> {/* Render DialogManager inside DialogProvider */}
+              </HashRouter>
+            ) : (
+              <BrowserRouter>
+                <AppRoutes />
+                <DialogManager />
+              </BrowserRouter>
+            )}
           </AuthProvider>
         </SettingsProvider>
       </DialogProvider>

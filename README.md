@@ -275,7 +275,6 @@ This is currently a single-developer project, but contributions are welcome!
 
 ## 🐛 Known Issues
 
-- 2 non-critical test failures in meta routes
 - 3 skipped timeout tests (error-handling edge cases)
 - 1 npm high severity vulnerability (dependency)
 

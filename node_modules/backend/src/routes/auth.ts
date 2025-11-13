@@ -228,14 +228,14 @@ router.post('/oauth/google', validateBody(googleOAuthSchema), async (req, res, n
         status: err.response.status, 
         data: err.response.data 
       });
-      throw new AppError(
+      next(new AppError(
         err.response.status || 401,
         "Invalid Google credentials or failed to verify with Google.",
         { details: err.response.data }
-      );
+      ));
     } else if (err.request) {
       logger.error('No response from Google verification service', { request: err.request });
-      throw new AppError(500, "No response from Google verification service.");
+      next(new AppError(500, "No response from Google verification service."));
     } else {
       // Pass other errors to error handler (Prisma, JWT, etc.)
       next(err);

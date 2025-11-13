@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { FormEvent } from "react"; // Import FormEvent as a type
+import type { FormEvent } from "react";
 import { useAuth } from "../hooks/useAuthHook";
 import { useToast } from "../context/ToastContext";
 
@@ -58,25 +58,41 @@ export default function AccountPage() {
   }
 
   if (!user) {
-    return <div className="p-4 text-center">Loading user information or please log in.</div>;
+    return <div className="py-10 text-center text-text-secondary">Loading user information&hellip;</div>;
   }
 
   return (
-    <div className="p-4 max-w-md mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Account</h1>
-      <form onSubmit={handleSave} className="flex flex-col gap-2">
-        <label>
-          Name: {/* Changed from "Username" for clarity, adjust if needed */}
+    <div className="mx-auto max-w-lg space-y-6">
+      <header className="space-y-1 text-center sm:text-left">
+        <h1 className="text-3xl font-bold text-text-primary">Account</h1>
+        <p className="text-text-secondary">Update your display details for shared activity.</p>
+      </header>
+
+      <form
+        onSubmit={handleSave}
+        className="space-y-6 rounded-2xl border border-border bg-surface-elevated p-6 shadow-card"
+      >
+        <div className="space-y-2">
+          <label htmlFor="displayName" className="form-label">
+            Display name
+          </label>
           <input
-            className="border rounded px-2 py-1 ml-2"
-            value={displayName} // displayName is now guaranteed to be a string
+            id="displayName"
+            className="form-input"
+            value={displayName}
             onChange={e => setDisplayName(e.target.value)}
             placeholder="Your display name"
           />
-        </label>
-        <button type="submit" className="bg-blue-600 text-white rounded px-4 py-2 mt-2">
-          Save
-        </button>
+          <p className="text-xs text-text-tertiary">
+            This name appears alongside your recipes and bake history.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+          <button type="submit" className="btn-primary sm:w-auto">
+            Save changes
+          </button>
+        </div>
       </form>
     </div>
   );
