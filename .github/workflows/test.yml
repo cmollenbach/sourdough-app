@@ -179,6 +179,10 @@ jobs:
           # Verify node_modules structure
           echo "Backend node_modules exists: $(test -d node_modules && echo 'yes' || echo 'no')"
 
+      - name: Build backend
+        working-directory: ./backend
+        run: npm run build
+
       - name: Setup backend database
         working-directory: ./backend
         env:
@@ -209,7 +213,7 @@ jobs:
       - name: Start backend server
         working-directory: ./backend
         run: |
-          npm run dev > ../backend.log 2>&1 &
+          npm run start > ../backend.log 2>&1 &
           echo $! > ../backend.pid
           # Wait for backend to be ready (max 60 seconds)
           echo "Waiting for backend to start..."
